@@ -795,7 +795,7 @@ function VeeamCalc({th}) {
   );
 }
 
-// ─── Compute & HCI Planning v2 ───────────────────────────────────────────────
+// ─── Compute & HCI Planning v3 ───────────────────────────────────────────────
 
 const HCI_PROFILES = {
   nutanix:      { label:"Nutanix AOS/AHV",   color:"#00d4aa", overhead:0.20, minNodes:3, metadataReserve:0.05, defaultDedup:3.0,
@@ -817,107 +817,90 @@ const HCI_DISKS = [
 
 function ComputeCalc({ th }) {
   const [hciEnabled, setHciEnabled] = useState(false);
-
-  // Existant
   const [srcNodes,   setSrcNodes]   = useState(3);
   const [srcSockets, setSrcSockets] = useState(2);
   const [srcCores,   setSrcCores]   = useState(16);
   const [srcFreq,    setSrcFreq]    = useState(2.4);
   const [srcRam,     setSrcRam]     = useState(256);
-
-  // Cible
   const [tgtNodes,   setTgtNodes]   = useState(4);
   const [tgtSockets, setTgtSockets] = useState(2);
   const [tgtCores,   setTgtCores]   = useState(32);
   const [tgtFreq,    setTgtFreq]    = useState(3.0);
   const [tgtRam,     setTgtRam]     = useState(512);
   const [haPolicy,   setHaPolicy]   = useState(1);
-
-  // HCI
   const [hciSolution,      setHciSolution]      = useState("nutanix");
   const [hciResil,         setHciResil]         = useState("rf2");
   const [hciDiskId,        setHciDiskId]        = useState("nvme-384");
   const [hciDisksPerNode,  setHciDisksPerNode]  = useState(8);
   const [hciStorageTarget, setHciStorageTarget] = useState(100);
-  const [dedupEnabled, setDedupEnabled] = useState(false);
-  const [dedupRatio, setDedupRatio] = useState(3.0);
+  const [dedupEnabled,     setDedupEnabled]     = useState(false);
+  const [dedupRatio,       setDedupRatio]       = useState(3.0);
 
-  const hciProfile = HCI_PROFILES[hciSolution];
-  const hciResilOpt = hciProfile.resiliency.find(r => r.id === hciResil) || hciProfile.resiliency[0];
-  const hciDisk = HCI_DISKS.find(d => d.id === hciDiskId) || HCI_DISKS[0];
+  const hciProfile  = HCI_PROFILES[hciSolution];
+  const hciResilOpt = hciProfile.resiliency.find(r=>r.id===hciResil)||hciProfile.resiliency[0];
+  const hciDisk     = HCI_DISKS.find(d=>d.id===hciDiskId)||HCI_DISKS[0];
 
-  const r = useMemo(() => {
-    // Existant
-    const srcTotalCores = srcNodes * srcSockets * srcCores;
-    const srcTotalFreq  = srcTotalCores * srcFreq;
-    const srcTotalRam   = srcNodes * srcRam;
-
-    // Cible
-    const tgtTotalCores = tgtNodes * tgtSockets * tgtCores;
-    const tgtTotalFreq  = tgtTotalCores * tgtFreq;
-    const tgtTotalRam   = tgtNodes * tgtRam;
-
-    // HA N-x
-    const haCores = (tgtNodes - haPolicy) * tgtSockets * tgtCores;
-    const haFreq  = haCores * tgtFreq;
-    const haRam   = (tgtNodes - haPolicy) * tgtRam;
-    const haPct   = tgtNodes > 0 ? (haPolicy / tgtNodes) * 100 : 0;
-
-    // Gains
-    const gainCores = tgtTotalCores - srcTotalCores;
-    const gainRam   = tgtTotalRam - srcTotalRam;
-    const gainFreq  = tgtTotalFreq - srcTotalFreq;
-
-    // HCI
-    const rawPerNode  = hciDisksPerNode * hciDisk.cap;
-    const rawCluster  = tgtNodes * rawPerNode;
-    const afterOH     = rawCluster * (1 - hciProfile.overhead);
-    const usable      = afterOH / hciResilOpt.factor * (1 - hciProfile.metadataReserve);
-    const storageOk   = usable >= hciStorageTarget;
-
-    const effective = dedupEnabled ? usable * dedupRatio : usable;
-    const savedByDedup = dedupEnabled ? effective - usable : 0;
-
+  const r = useMemo(()=>{
+    const srcTotalCores = srcNodes*srcSockets*srcCores;
+    const srcTotalFreq  = srcTotalCores*srcFreq;
+    const srcTotalRam   = srcNodes*srcRam;
+    const tgtTotalCores = tgtNodes*tgtSockets*tgtCores;
+    const tgtTotalFreq  = tgtTotalCores*tgtFreq;
+    const tgtTotalRam   = tgtNodes*tgtRam;
+    const haCores = (tgtNodes-haPolicy)*tgtSockets*tgtCores;
+    const haFreq  = haCores*tgtFreq;
+    const haRam   = (tgtNodes-haPolicy)*tgtRam;
+    const haPct   = tgtNodes>0?(haPolicy/tgtNodes)*100:0;
+    const gainCoresPct = srcTotalCores>0?Math.round(((tgtTotalCores-srcTotalCores)/srcTotalCores)*100):0;
+    const gainRamPct   = srcTotalRam>0?Math.round(((tgtTotalRam-srcTotalRam)/srcTotalRam)*100):0;
+    const gainFreqPct  = srcTotalFreq>0?Math.round(((tgtTotalFreq-srcTotalFreq)/srcTotalFreq)*100):0;
+    const rawCluster  = tgtNodes*hciDisksPerNode*hciDisk.cap;
+    const usable      = rawCluster*(1-hciProfile.overhead)/hciResilOpt.factor*(1-hciProfile.metadataReserve);
+    const effective   = dedupEnabled?usable*dedupRatio:usable;
+    const savedByDedup= dedupEnabled?effective-usable:0;
+    const storageOk   = usable>=hciStorageTarget;
     return {
-      srcTotalCores, srcTotalFreq, srcTotalRam,
-      tgtTotalCores, tgtTotalFreq, tgtTotalRam,
-      haCores, haFreq, haRam, haPct,
-      gainCores, gainRam, gainFreq,
-      rawCluster, usable, storageOk, effective, savedByDedup,
+      srcTotalCores,srcTotalFreq,srcTotalRam,
+      tgtTotalCores,tgtTotalFreq,tgtTotalRam,
+      haCores,haFreq,haRam,haPct,
+      gainCoresPct,gainRamPct,gainFreqPct,
+      gainCores:tgtTotalCores-srcTotalCores,
+      gainRam:tgtTotalRam-srcTotalRam,
+      rawCluster,usable,effective,savedByDedup,storageOk,
     };
-  }, [srcNodes, srcSockets, srcCores, srcFreq, srcRam,
-      tgtNodes, tgtSockets, tgtCores, tgtFreq, tgtRam,
-      haPolicy, hciDisk, hciDisksPerNode, hciProfile, hciResilOpt, hciStorageTarget,
-      dedupEnabled, dedupRatio]);
+  },[srcNodes,srcSockets,srcCores,srcFreq,srcRam,
+     tgtNodes,tgtSockets,tgtCores,tgtFreq,tgtRam,
+     haPolicy,hciDisk,hciDisksPerNode,hciProfile,hciResilOpt,hciStorageTarget,
+     dedupEnabled,dedupRatio]);
 
-  const tt = { background: th.tooltipBg, border: `1px solid ${th.border2}`, borderRadius: 4, fontSize: 11, color: th.t1 };
+  const tt = {background:th.tooltipBg,border:`1px solid ${th.border2}`,borderRadius:4,fontSize:11,color:th.t1};
 
   const s = {
-    field: { marginBottom: 12 },
-    label: { display:"block", fontSize:10, color:th.t3, fontFamily:"monospace", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:5 },
-    input: { width:"100%", background:th.bg2, border:`1px solid ${th.border}`, borderRadius:4, padding:"7px 10px", color:th.t1, fontFamily:"monospace", fontSize:13, boxSizing:"border-box" },
-    select: { width:"100%", background:th.bg2, border:`1px solid ${th.border}`, borderRadius:4, padding:"7px 10px", color:th.t1, fontFamily:"monospace", fontSize:12, boxSizing:"border-box" },
-    row: { display:"flex", justifyContent:"space-between", alignItems:"center", padding:"7px 0", borderBottom:`1px solid ${th.border}` },
-    divider: { border:"none", borderTop:`1px solid ${th.border}`, margin:"12px 0" },
-    card: (accent) => ({ background:th.cardBg, border:`1px solid ${th.border}`, borderLeft: accent ? `2px solid ${accent}` : undefined, borderRadius:6, padding:16 }),
-    secTitle: { fontSize:10, fontWeight:600, color:th.t2, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:14, paddingBottom:8, borderBottom:`1px solid ${th.border}`, fontFamily:"monospace" },
+    field:  { marginBottom:12 },
+    label:  { display:"block",fontSize:10,color:th.t3,fontFamily:"monospace",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:5 },
+    input:  { width:"100%",background:th.bg2,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"monospace",fontSize:13,boxSizing:"border-box" },
+    select: { width:"100%",background:th.bg2,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"monospace",fontSize:12,boxSizing:"border-box" },
+    row:    { display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${th.border}` },
+    divider:{ border:"none",borderTop:`1px solid ${th.border}`,margin:"12px 0" },
+    card:   (accent) => ({background:th.cardBg,border:`1px solid ${th.border}`,borderLeft:accent?`2px solid ${accent}`:undefined,borderRadius:6,padding:16}),
+    secTitle:{ fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:14,paddingBottom:8,borderBottom:`1px solid ${th.border}`,fontFamily:"monospace" },
   };
 
-  function NF({ label, value, onChange, min, max, step=1, unit, note }) {
+  function NF({label,value,onChange,min,max,step=1,unit,note}) {
     return (
       <div style={s.field}>
         <label style={s.label}>{label}</label>
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
           <input type="number" min={min} max={max} step={step} value={value}
-            onChange={e=>onChange(Number(e.target.value))} style={s.input} />
-          {unit && <span style={{fontSize:11,color:th.t3,whiteSpace:"nowrap"}}>{unit}</span>}
+            onChange={e=>onChange(Number(e.target.value))} style={s.input}/>
+          {unit&&<span style={{fontSize:11,color:th.t3,whiteSpace:"nowrap"}}>{unit}</span>}
         </div>
-        {note && <div style={{fontSize:10,color:th.t3,marginTop:3}}>{note}</div>}
+        {note&&<div style={{fontSize:10,color:th.t3,marginTop:3}}>{note}</div>}
       </div>
     );
   }
 
-  function SF({ label, value, onChange, options }) {
+  function SF({label,value,onChange,options}) {
     return (
       <div style={s.field}>
         <label style={s.label}>{label}</label>
@@ -928,7 +911,7 @@ function ComputeCalc({ th }) {
     );
   }
 
-  function RR({ label, value, color }) {
+  function RR({label,value,color}) {
     return (
       <div style={s.row}>
         <span style={{fontSize:12,color:th.t2}}>{label}</span>
@@ -937,121 +920,192 @@ function ComputeCalc({ th }) {
     );
   }
 
-  function MBC({ data, unit, height=180 }) {
-    const haCell = typeof Cell !== 'undefined';
+  // KPI coloré avec fond
+  function KpiColored({label,value,sub,bg,textColor}) {
     return (
-      <ResponsiveContainer width="100%" height={height}>
-        <BarChart data={data} barCategoryGap="25%">
-          <CartesianGrid strokeDasharray="3 3" stroke={th.border} />
-          <XAxis dataKey="name" tick={{fontSize:10,fill:th.t2}} />
-          <YAxis tick={{fontSize:10,fill:th.t2}} unit={unit?" "+unit:""} />
-          <Tooltip contentStyle={tt} formatter={v=>[fmt(v,1)+(unit?" "+unit:"")]} />
-          <Bar dataKey="value" radius={[3,3,0,0]} isAnimationActive={false} fill="#00d4aa"/>
-        </BarChart>
-      </ResponsiveContainer>
+      <div style={{background:bg,borderRadius:8,padding:"14px 16px",display:"flex",flexDirection:"column",gap:4}}>
+        <div style={{fontSize:24,fontWeight:700,fontFamily:"monospace",color:textColor||"#fff"}}>{value}</div>
+        {sub && <div style={{fontSize:12,color:textColor||"rgba(255,255,255,0.8)",fontFamily:"monospace"}}>{sub}</div>}
+        <div style={{fontSize:10,color:textColor||"rgba(255,255,255,0.6)",textTransform:"uppercase",letterSpacing:"0.08em",marginTop:2}}>{label}</div>
+      </div>
     );
   }
 
-  const chartCores = [
-    {name:"Existant",    value:r.srcTotalCores, fill:"#8b90a0"},
-    {name:"Cible total", value:r.tgtTotalCores, fill:th.accent2},
-    {name:"HA N-"+haPolicy, value:r.haCores,   fill:th.accent},
-  ];
-  const chartFreq = [
-    {name:"Existant",    value:+r.srcTotalFreq.toFixed(0), fill:"#8b90a0"},
-    {name:"Cible total", value:+r.tgtTotalFreq.toFixed(0), fill:th.accent2},
-    {name:"HA N-"+haPolicy, value:+r.haFreq.toFixed(0),   fill:th.accent},
-  ];
-  const chartRam = [
-    {name:"Existant",    value:r.srcTotalRam, fill:"#8b90a0"},
-    {name:"Cible total", value:r.tgtTotalRam, fill:th.accent2},
-    {name:"HA N-"+haPolicy, value:r.haRam,   fill:th.accent},
-  ];
+  // Ligne comparaison avec flèche et delta
+  function CompRow({label,srcVal,tgtVal,unit,gainPct}) {
+    const positive = gainPct >= 0;
+    return (
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:`1px solid ${th.border}`}}>
+        <span style={{fontSize:12,color:th.t2,minWidth:100}}>{label}</span>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <span style={{fontFamily:"monospace",fontSize:12,color:th.t3}}>{fmt(srcVal)} {unit}</span>
+          <span style={{color:th.t3,fontSize:12}}>→</span>
+          <span style={{fontFamily:"monospace",fontSize:13,fontWeight:700,color:th.t1}}>{fmt(tgtVal)} {unit}</span>
+          {gainPct!==0 && (
+            <span style={{
+              fontSize:10,fontFamily:"monospace",fontWeight:600,padding:"2px 6px",borderRadius:3,
+              background:positive?"rgba(0,212,170,0.12)":"rgba(255,85,85,0.12)",
+              color:positive?th.accent:th.danger,
+              border:`1px solid ${positive?"rgba(0,212,170,0.25)":"rgba(255,85,85,0.25)"}`,
+            }}>
+              {positive?"+":""}{gainPct}%
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Graphe barres verticales avec label intégré
+  function BarChart3({data,unit,height=180}) {
+    const maxVal = Math.max(...data.map(d=>d.val))||1;
+    const gainPct = data[0].val>0?Math.round(((data[1].val-data[0].val)/data[0].val)*100):0;
+    return (
+      <div>
+        <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-around",height,padding:"0 8px",gap:12,position:"relative"}}>
+          {/* Annotation gain */}
+          {gainPct!==0 && (
+            <div style={{position:"absolute",top:0,left:"50%",transform:"translateX(-50%)",
+              fontSize:12,fontWeight:700,fontFamily:"monospace",
+              color:gainPct>=0?th.accent:th.danger,
+              background:gainPct>=0?"rgba(0,212,170,0.1)":"rgba(255,85,85,0.1)",
+              padding:"2px 8px",borderRadius:3,border:`1px solid ${gainPct>=0?"rgba(0,212,170,0.3)":"rgba(255,85,85,0.3)"}`}}>
+              {gainPct>=0?"+":""}{gainPct}%
+            </div>
+          )}
+          {data.map((b,i)=>{
+            const h=Math.max(8,Math.round((b.val/maxVal)*(height-30)));
+            return (
+              <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                <div style={{width:"100%",height:h,background:b.color,borderRadius:"4px 4px 0 0",
+                  display:"flex",alignItems:"center",justifyContent:"center",position:"relative"}}>
+                  {h>28&&<span style={{fontSize:10,color:"#fff",fontFamily:"monospace",fontWeight:600,
+                    padding:"2px 4px",textShadow:"0 1px 2px rgba(0,0,0,0.4)"}}>{fmt(b.val)}</span>}
+                </div>
+                <span style={{fontSize:10,color:th.t2,fontFamily:"monospace",textAlign:"center",lineHeight:1.3}}>{b.name}</span>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{display:"flex",justifyContent:"space-around",marginTop:4}}>
+          {data.map((b,i)=>(
+            <span key={i} style={{fontSize:10,fontFamily:"monospace",color:b.color,fontWeight:600,textAlign:"center",flex:1}}>
+              {fmt(b.val)} {unit}
+            </span>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const kpiHaPct = r.haPct<=25?"ok":"warn";
 
   return (
     <div>
-      {/* KPIs */}
+      {/* KPIs colorés */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10,marginBottom:20}}>
-        {[
-          {label:"Nœuds cible",    value:tgtNodes,                                        color:th.accent},
-          {label:"Cœurs cible",    value:fmt(r.tgtTotalCores),                            color:th.accent2},
-          {label:"GHz agrégés",    value:fmt(r.tgtTotalFreq,0)+" GHz",                   color:th.accent2},
-          {label:"RAM cible",      value:fmt(r.tgtTotalRam)+" Go",                        color:th.accent2},
-          {label:"Capacité HA",    value:fmt(r.haPct,0)+" % perdu",                       color:r.haPct<=25?th.accent:th.warn},
-        ].map(k=>(
-          <div key={k.label} style={{background:th.cardBg,border:`1px solid ${th.border}`,borderRadius:6,padding:14}}>
-            <div style={{fontSize:10,color:th.t3,fontFamily:"monospace",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>{k.label}</div>
-            <div style={{fontSize:20,fontWeight:600,fontFamily:"monospace",color:k.color}}>{k.value}</div>
-          </div>
-        ))}
+        <KpiColored label="Nœuds cible" value={tgtNodes} sub={`${tgtSockets}S/${tgtCores}c/${tgtFreq}GHz`}
+          bg="linear-gradient(135deg,#00a884,#007a60)" />
+        <KpiColored label="Cœurs cible" value={fmt(r.tgtTotalCores)}
+          sub={r.gainCoresPct!==0?(r.gainCoresPct>0?"+":"")+r.gainCoresPct+"% vs existant":undefined}
+          bg="linear-gradient(135deg,#0077cc,#005599)" />
+        <KpiColored label="GHz agrégés" value={fmt(r.tgtTotalFreq,0)} sub="GHz total cluster"
+          bg="linear-gradient(135deg,#0099ff,#0066cc)" />
+        <KpiColored label="RAM cible" value={fmt(r.tgtTotalRam)} sub="Go total cluster"
+          bg="linear-gradient(135deg,#5a4fcf,#3d35a0)" />
+        <KpiColored label="Capacité HA" value={fmt(r.haPct,0)+"% perdu"}
+          sub={`N-${haPolicy} — ${fmt(r.haCores)} cœurs dispo`}
+          bg={kpiHaPct==="ok"?"linear-gradient(135deg,#00a884,#007a60)":"linear-gradient(135deg,#d97706,#b45309)"}
+          textColor={kpiHaPct==="ok"?"#fff":"#fff"} />
       </div>
 
-      {/* Saisie Existant + Cible */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+      {/* Saisie + Comparaison */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 340px",gap:14,marginBottom:14}}>
 
         {/* Existant */}
         <div style={s.card(th.accent)}>
           <div style={s.secTitle}>Infrastructure existante</div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-            <NF label="Nœuds" value={srcNodes} onChange={setSrcNodes} min={0} max={200} unit="nœuds" />
-            <NF label="Sockets / nœud" value={srcSockets} onChange={setSrcSockets} min={1} max={8} unit="sockets" />
-            <NF label="Cœurs / socket" value={srcCores} onChange={setSrcCores} min={1} max={128} step={2} unit="cœurs" />
-            <NF label="Fréquence CPU" value={srcFreq} onChange={setSrcFreq} min={0.5} max={5} step={0.1} unit="GHz" />
-            <NF label="RAM / nœud" value={srcRam} onChange={setSrcRam} min={0} max={4096} step={32} unit="Go" />
+            <NF label="Nœuds" value={srcNodes} onChange={setSrcNodes} min={0} max={200} unit="nœuds"/>
+            <NF label="Sockets / nœud" value={srcSockets} onChange={setSrcSockets} min={1} max={8}/>
+            <NF label="Cœurs / socket" value={srcCores} onChange={setSrcCores} min={1} max={128} step={2}/>
+            <NF label="Fréquence CPU" value={srcFreq} onChange={setSrcFreq} min={0.5} max={5} step={0.1} unit="GHz"/>
+            <NF label="RAM / nœud" value={srcRam} onChange={setSrcRam} min={0} max={4096} step={32} unit="Go"/>
           </div>
           <hr style={s.divider}/>
-          <RR label="Cœurs totaux" value={fmt(r.srcTotalCores)+" cœurs"} />
-          <RR label="GHz agrégés" value={fmt(r.srcTotalFreq,0)+" GHz"} />
-          <RR label="RAM totale" value={fmt(r.srcTotalRam)+" Go"} />
+          <RR label="Cœurs totaux" value={fmt(r.srcTotalCores)+" cœurs"} color={th.t3}/>
+          <RR label="GHz agrégés"  value={fmt(r.srcTotalFreq,0)+" GHz"} color={th.t3}/>
+          <RR label="RAM totale"   value={fmt(r.srcTotalRam)+" Go"} color={th.t3}/>
         </div>
 
         {/* Cible */}
         <div style={s.card(th.accent2)}>
           <div style={s.secTitle}>Infrastructure cible</div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-            <NF label="Nœuds" value={tgtNodes} onChange={setTgtNodes} min={1} max={200} unit="nœuds" />
-            <NF label="Sockets / nœud" value={tgtSockets} onChange={setTgtSockets} min={1} max={8} unit="sockets" />
-            <NF label="Cœurs / socket" value={tgtCores} onChange={setTgtCores} min={1} max={128} step={2} unit="cœurs" />
-            <NF label="Fréquence CPU" value={tgtFreq} onChange={setTgtFreq} min={0.5} max={5} step={0.1} unit="GHz" />
-            <NF label="RAM / nœud" value={tgtRam} onChange={setTgtRam} min={32} max={4096} step={32} unit="Go" />
+            <NF label="Nœuds" value={tgtNodes} onChange={setTgtNodes} min={1} max={200} unit="nœuds"/>
+            <NF label="Sockets / nœud" value={tgtSockets} onChange={setTgtSockets} min={1} max={8}/>
+            <NF label="Cœurs / socket" value={tgtCores} onChange={setTgtCores} min={1} max={128} step={2}/>
+            <NF label="Fréquence CPU" value={tgtFreq} onChange={setTgtFreq} min={0.5} max={5} step={0.1} unit="GHz"/>
+            <NF label="RAM / nœud" value={tgtRam} onChange={setTgtRam} min={32} max={4096} step={32} unit="Go"/>
           </div>
           <SF label="Politique HA" value={String(haPolicy)} onChange={v=>setHaPolicy(Number(v))}
-            options={[{value:"1",label:"N-1 (1 nœud réservé)"},{value:"2",label:"N-2 (2 nœuds réservés)"}]} />
+            options={[{value:"1",label:"N-1 (1 nœud réservé)"},{value:"2",label:"N-2 (2 nœuds réservés)"}]}/>
           <hr style={s.divider}/>
-          <RR label="Cœurs totaux" value={fmt(r.tgtTotalCores)+" cœurs"} color={th.accent2} />
-          <RR label="GHz agrégés" value={fmt(r.tgtTotalFreq,0)+" GHz"} color={th.accent2} />
-          <RR label="RAM totale" value={fmt(r.tgtTotalRam)+" Go"} color={th.accent2} />
+          <RR label="Cœurs totaux"      value={fmt(r.tgtTotalCores)+" cœurs"} color={th.accent2}/>
+          <RR label="GHz agrégés"       value={fmt(r.tgtTotalFreq,0)+" GHz"}  color={th.accent2}/>
+          <RR label="RAM totale"        value={fmt(r.tgtTotalRam)+" Go"}      color={th.accent2}/>
+          <RR label={"Cœurs HA N-"+haPolicy} value={fmt(r.haCores)+" cœurs"} color={th.accent}/>
+          <RR label={"RAM HA N-"+haPolicy}    value={fmt(r.haRam)+" Go"}      color={th.accent}/>
+        </div>
+
+        {/* Comparaison & Gains */}
+        <div style={s.card()}>
+          <div style={s.secTitle}>Comparaison & Gains</div>
+          <CompRow label="Cœurs totaux" srcVal={r.srcTotalCores} tgtVal={r.tgtTotalCores} unit="cœurs" gainPct={r.gainCoresPct}/>
+          <CompRow label="GHz agrégés"  srcVal={r.srcTotalFreq}  tgtVal={r.tgtTotalFreq}  unit="GHz"   gainPct={r.gainFreqPct}/>
+          <CompRow label="RAM totale"   srcVal={r.srcTotalRam}   tgtVal={r.tgtTotalRam}   unit="Go"    gainPct={r.gainRamPct}/>
+          <CompRow label={"Cœurs HA N-"+haPolicy} srcVal={r.srcTotalCores} tgtVal={r.haCores} unit="cœurs" gainPct={0}/>
           <hr style={s.divider}/>
-          <RR label={"Cœurs HA N-"+haPolicy} value={fmt(r.haCores)+" cœurs"} color={th.accent} />
-          <RR label={"RAM HA N-"+haPolicy} value={fmt(r.haRam)+" Go"} color={th.accent} />
-          <RR label="Capacité perdue HA" value={fmt(r.haPct,1)+" %"} color={r.haPct<=25?th.accent:th.warn} />
-          <hr style={s.divider}/>
-          <RR label="Gain cœurs vs existant" value={(r.gainCores>=0?"+":"")+fmt(r.gainCores)+" cœurs"} color={r.gainCores>=0?th.accent:th.danger} />
-          <RR label="Gain RAM vs existant" value={(r.gainRam>=0?"+":"")+fmt(r.gainRam)+" Go"} color={r.gainRam>=0?th.accent:th.danger} />
+          <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0"}}>
+            <span style={{fontSize:12,color:th.t2}}>Capacité perdue HA</span>
+            <span style={{fontFamily:"monospace",fontWeight:700,fontSize:13,color:r.haPct<=25?th.accent:th.warn}}>
+              {fmt(r.haPct,0)}% perdu
+            </span>
+          </div>
         </div>
       </div>
 
       {/* Graphes comparaison */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14,marginBottom:14}}>
-        <div style={s.card()}>
-          <div style={s.secTitle}>Cœurs CPU — Existant vs Cible vs HA</div>
-          <MBC data={chartCores} unit="cœurs" />
-        </div>
-        <div style={s.card()}>
-          <div style={s.secTitle}>GHz agrégés — Existant vs Cible vs HA</div>
-          <MBC data={chartFreq} unit="GHz" />
-        </div>
-        <div style={s.card()}>
-          <div style={s.secTitle}>RAM — Existant vs Cible vs HA</div>
-          <MBC data={chartRam} unit="Go" />
-        </div>
+        {[
+          {title:"Cœurs CPU · Existant vs Cible vs HA", unit:"cœurs", data:[
+            {name:"Existant",   val:r.srcTotalCores, color:"#8b90a0"},
+            {name:"Cible",      val:r.tgtTotalCores, color:th.accent2},
+            {name:"HA N-"+haPolicy, val:r.haCores,  color:th.accent},
+          ]},
+          {title:"GHz agrégés · Existant vs Cible vs HA", unit:"GHz", data:[
+            {name:"Existant",   val:+r.srcTotalFreq.toFixed(0), color:"#8b90a0"},
+            {name:"Cible",      val:+r.tgtTotalFreq.toFixed(0), color:th.accent2},
+            {name:"HA N-"+haPolicy, val:+r.haFreq.toFixed(0),  color:th.accent},
+          ]},
+          {title:"RAM · Existant vs Cible vs HA", unit:"Go", data:[
+            {name:"Existant",   val:r.srcTotalRam, color:"#8b90a0"},
+            {name:"Cible",      val:r.tgtTotalRam, color:th.accent2},
+            {name:"HA N-"+haPolicy, val:r.haRam,  color:th.accent},
+          ]},
+        ].map(chart=>(
+          <div key={chart.title} style={s.card()}>
+            <div style={{...s.secTitle,marginBottom:16}}>{chart.title}</div>
+            <BarChart3 data={chart.data} unit={chart.unit} height={180}/>
+          </div>
+        ))}
       </div>
 
       {/* Toggle HCI */}
       <div onClick={()=>setHciEnabled(h=>!h)} style={{
-        display:"flex", alignItems:"center", gap:10, padding:"10px 14px", cursor:"pointer", marginBottom:14,
-        background: hciEnabled?`rgba(0,212,170,0.08)`:th.bg2,
-        border:`1px solid ${hciEnabled?th.accent:th.border}`, borderRadius:6,
+        display:"flex",alignItems:"center",gap:10,padding:"10px 14px",cursor:"pointer",marginBottom:14,
+        background:hciEnabled?`rgba(0,212,170,0.08)`:th.bg2,
+        border:`1px solid ${hciEnabled?th.accent:th.border}`,borderRadius:6,
       }}>
         <div style={{width:36,height:20,borderRadius:10,background:hciEnabled?th.accent:th.t3,position:"relative",transition:"background 0.2s",flexShrink:0}}>
           <div style={{position:"absolute",top:3,left:hciEnabled?18:3,width:14,height:14,borderRadius:"50%",background:"#fff",transition:"left 0.2s"}}/>
@@ -1059,20 +1113,16 @@ function ComputeCalc({ th }) {
         <span style={{fontSize:12,fontWeight:600,color:hciEnabled?th.accent:th.t2,fontFamily:"monospace"}}>
           Mode HCI — Hyperconvergé
         </span>
-        {hciEnabled && <span style={{fontSize:10,color:th.t3,fontFamily:"monospace",marginLeft:"auto"}}>
+        {hciEnabled&&<span style={{fontSize:10,color:th.t3,fontFamily:"monospace",marginLeft:"auto"}}>
           {tgtNodes} nœuds · {hciProfile.label}
         </span>}
       </div>
 
       {/* Section HCI */}
-      {hciEnabled && (
+      {hciEnabled&&(
         <div style={{display:"grid",gridTemplateColumns:"3fr 2fr",gap:14,alignItems:"start"}}>
-
-          {/* Config + résultats */}
           <div style={s.card(th.accent)}>
             <div style={s.secTitle}>Configuration HCI</div>
-
-            {/* Ligne 1 : solution + résilience + disque + nb disques */}
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10,marginBottom:12}}>
               <div>
                 <label style={s.label}>Solution HCI</label>
@@ -1095,45 +1145,40 @@ function ComputeCalc({ th }) {
               <div>
                 <label style={s.label}>Disques / nœud</label>
                 <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                  <input type="number" min={1} max={24} value={hciDisksPerNode} onChange={e=>setHciDisksPerNode(Number(e.target.value))} style={s.input} />
+                  <input type="number" min={1} max={24} value={hciDisksPerNode} onChange={e=>setHciDisksPerNode(Number(e.target.value))} style={s.input}/>
                   <span style={{fontSize:11,color:th.t3,whiteSpace:"nowrap"}}>disques</span>
                 </div>
               </div>
             </div>
-
-            {/* Cible + dédup */}
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
               <div>
                 <label style={s.label}>Capacité utile cible</label>
                 <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                  <input type="number" min={1} step={10} value={hciStorageTarget} onChange={e=>setHciStorageTarget(Number(e.target.value))} style={s.input} />
+                  <input type="number" min={1} step={10} value={hciStorageTarget} onChange={e=>setHciStorageTarget(Number(e.target.value))} style={s.input}/>
                   <span style={{fontSize:11,color:th.t3}}>To</span>
                 </div>
               </div>
               <div>
                 <label style={s.label}>Déduplication / Compression</label>
                 <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:12,color:dedupEnabled?th.accent:th.t2,fontFamily:"monospace",marginBottom:6}}>
-                  <input type="checkbox" checked={dedupEnabled} onChange={e=>{setDedupEnabled(e.target.checked);if(e.target.checked)setDedupRatio(hciProfile.defaultDedup);}} style={{accentColor:th.accent}} />
-                  {dedupEnabled ? `Activée — ratio ${dedupRatio}:1` : "Désactivée"}
+                  <input type="checkbox" checked={dedupEnabled} onChange={e=>{setDedupEnabled(e.target.checked);if(e.target.checked)setDedupRatio(hciProfile.defaultDedup);}} style={{accentColor:th.accent}}/>
+                  {dedupEnabled?`Activée — ratio ${dedupRatio}:1`:"Désactivée"}
                 </label>
-                {dedupEnabled && (
+                {dedupEnabled&&(
                   <div style={{display:"flex",alignItems:"center",gap:8}}>
-                    <input type="range" min={1} max={10} step={0.5} value={dedupRatio} onChange={e=>setDedupRatio(Number(e.target.value))} style={{flex:1,accentColor:th.accent}} />
+                    <input type="range" min={1} max={10} step={0.5} value={dedupRatio} onChange={e=>setDedupRatio(Number(e.target.value))} style={{flex:1,accentColor:th.accent}}/>
                     <span style={{fontFamily:"monospace",fontSize:12,color:th.accent,minWidth:36,textAlign:"right"}}>{dedupRatio}:1</span>
                   </div>
                 )}
               </div>
             </div>
-
             <hr style={s.divider}/>
-
-            {/* Analyse capacité */}
             <div style={{fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10,fontFamily:"monospace"}}>Analyse de capacité</div>
-            <RR label="Brut / nœud" value={fmt(hciDisksPerNode*hciDisk.cap,2)+" To"} />
-            <RR label="Brut cluster" value={fmt(r.rawCluster,2)+" To"} />
-            <RR label="Overhead" value={fmt(hciProfile.overhead*100,0)+" %"} color={th.warn} />
-            <RR label={"Résilience ("+hciResilOpt.label+")"} value={"× "+hciResilOpt.factor} color={th.warn} />
-            <RR label="Réserve metadata" value={"× "+(1-hciProfile.metadataReserve).toFixed(2)} color={th.warn} />
+            <RR label="Brut / nœud"    value={fmt(hciDisksPerNode*hciDisk.cap,2)+" To"}/>
+            <RR label="Brut cluster"   value={fmt(r.rawCluster,2)+" To"}/>
+            <RR label="Overhead"       value={fmt(hciProfile.overhead*100,0)+" %"} color={th.warn}/>
+            <RR label={"Résilience ("+hciResilOpt.label+")"} value={"× "+hciResilOpt.factor} color={th.warn}/>
+            <RR label="Réserve metadata" value={"× "+(1-hciProfile.metadataReserve).toFixed(2)} color={th.warn}/>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${th.border}`}}>
               <span style={{fontSize:12,color:th.t2}}>Capacité utile</span>
               <span style={{fontFamily:"monospace",fontWeight:600,fontSize:13}}>
@@ -1141,29 +1186,22 @@ function ComputeCalc({ th }) {
                 <span style={{color:r.storageOk?th.accent:th.danger}}>{fmt(r.usable,2)} To</span>
               </span>
             </div>
-            {dedupEnabled && (
-              <RR label={"Capacité effective (×"+dedupRatio+")"} value={fmt(r.effective,2)+" To"} color={th.accent} />
-            )}
-
-            {/* Graphe Utile vs Effective */}
-            {dedupEnabled && r.usable > 0 && (
+            {dedupEnabled&&<RR label={"Capacité effective (×"+dedupRatio+")"} value={fmt(r.effective,2)+" To"} color={th.accent}/>}
+            {dedupEnabled&&r.usable>0&&(
               <div style={{marginTop:16}}>
                 <div style={{fontSize:10,color:th.t3,fontFamily:"monospace",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10}}>
-                  Capacité : Utile vs Effective (+{fmt(r.savedByDedup,2)} To gagnés avec dédup/compression)
+                  Utile vs Effective (+{fmt(r.savedByDedup,2)} To)
                 </div>
-                {[
-                  {label:"Utile", val:r.usable, color:th.accent2},
-                  {label:"Effective", val:r.effective, color:th.accent},
-                ].map((b,i)=>{
-                  const maxVal = Math.max(r.usable, r.effective);
-                  const pct = maxVal > 0 ? (b.val/maxVal)*100 : 0;
+                {[{label:"Utile",val:r.usable,color:th.accent2},{label:"Effective",val:r.effective,color:th.accent}].map((b,i)=>{
+                  const maxVal=Math.max(r.usable,r.effective);
+                  const pct=maxVal>0?(b.val/maxVal)*100:0;
                   return (
                     <div key={i} style={{marginBottom:10}}>
                       <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
                         <span style={{fontSize:11,color:th.t2,fontFamily:"monospace"}}>{b.label}</span>
                         <span style={{fontSize:12,fontWeight:600,fontFamily:"monospace",color:b.color}}>
                           {fmt(b.val,2)} To
-                          {i===1 && <span style={{fontSize:10,color:th.accent,marginLeft:8}}>+{fmt(r.savedByDedup,2)} To</span>}
+                          {i===1&&<span style={{fontSize:10,color:th.accent,marginLeft:8}}>+{fmt(r.savedByDedup,2)} To</span>}
                         </span>
                       </div>
                       <div style={{background:th.bg2,borderRadius:3,height:28,overflow:"hidden"}}>
@@ -1178,7 +1216,7 @@ function ComputeCalc({ th }) {
             )}
           </div>
 
-          {/* Recommandations */}
+          {/* Recommandations HCI */}
           <div style={{...s.card(r.storageOk?th.accent:th.danger),background:r.storageOk?"rgba(0,212,170,0.05)":"rgba(255,85,85,0.05)"}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
               <div style={{fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",fontFamily:"monospace"}}>Recommandations</div>
@@ -1189,60 +1227,46 @@ function ComputeCalc({ th }) {
                 {r.storageOk?"✓ OBJECTIF ATTEINT":"⚠ CAPACITÉ INSUFFISANTE"}
               </div>
             </div>
-
-            {!r.storageOk && (() => {
-              const deficit = hciStorageTarget - r.usable;
-              const rawNeededPerNode = (deficit * hciResilOpt.factor) / (tgtNodes * (1-hciProfile.overhead) * (1-hciProfile.metadataReserve));
-              const disksToAdd = Math.ceil(rawNeededPerNode / hciDisk.cap);
-              const totalDisksNeeded = hciDisksPerNode + disksToAdd;
-              const totalDisksCluster = totalDisksNeeded * tgtNodes;
-              const pctMissing = Math.round((deficit/hciStorageTarget)*100);
+            {!r.storageOk&&(()=>{
+              const deficit=hciStorageTarget-r.usable;
+              const rawNeeded=(deficit*hciResilOpt.factor)/(tgtNodes*(1-hciProfile.overhead)*(1-hciProfile.metadataReserve));
+              const disksToAdd=Math.ceil(rawNeeded/hciDisk.cap);
+              const totalDisks=(hciDisksPerNode+disksToAdd)*tgtNodes;
+              const pctMissing=Math.round((deficit/hciStorageTarget)*100);
               return (
                 <div>
                   <div style={{background:"rgba(255,85,85,0.08)",border:"1px solid rgba(255,85,85,0.2)",borderRadius:4,padding:"10px 12px",marginBottom:12}}>
                     <div style={{fontSize:12,fontWeight:600,color:th.danger,fontFamily:"monospace",marginBottom:4}}>
                       Ajoutez {disksToAdd} disque{disksToAdd>1?"s":""} par nœud
                     </div>
-                    <div style={{fontSize:11,color:th.t2}}>
-                      Capacité utile non atteinte — {pctMissing}% de déficit
-                    </div>
+                    <div style={{fontSize:11,color:th.t2}}>Capacité utile non atteinte — {pctMissing}% de déficit</div>
                   </div>
-                  <div style={{fontSize:11,color:th.t2,marginBottom:12}}>
-                    <div style={{marginBottom:8,padding:"8px 10px",background:th.bg2,borderRadius:4,borderLeft:`2px solid ${th.accent2}`}}>
+                  <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:12}}>
+                    <div style={{padding:"8px 10px",background:th.bg2,borderRadius:4,borderLeft:`2px solid ${th.accent2}`,fontSize:11,color:th.t2}}>
                       1. Ajouter {disksToAdd} × {hciDisk.label} par nœud pour atteindre {fmt(hciStorageTarget,0)} To utile
                     </div>
-                    {!dedupEnabled && (
-                      <div style={{padding:"8px 10px",background:th.bg2,borderRadius:4,borderLeft:`2px solid ${th.accent}`}}>
+                    {!dedupEnabled&&(
+                      <div style={{padding:"8px 10px",background:th.bg2,borderRadius:4,borderLeft:`2px solid ${th.accent}`,fontSize:11,color:th.t2}}>
                         2. Activer la déduplication/compression ({hciProfile.defaultDedup}:1 par défaut pour {hciProfile.label})
-                      </div>
-                    )}
-                    {dedupEnabled && dedupRatio < hciProfile.defaultDedup * 1.3 && (
-                      <div style={{padding:"8px 10px",background:th.bg2,borderRadius:4,borderLeft:`2px solid ${th.accent}`}}>
-                        2. Envisager un ratio dédup/compression plus élevé ({fmt(dedupRatio+1,1)}:1 ou {fmt(dedupRatio+2,1)}:1)
                       </div>
                     )}
                   </div>
                   <div style={{background:th.bg2,borderRadius:4,padding:"10px 12px",fontSize:11,fontFamily:"monospace",color:th.t2}}>
-                    Besoin total : <span style={{color:th.t1,fontWeight:600}}>{totalDisksCluster} disques</span> {hciDisk.label}
-                    <span style={{display:"block",fontSize:10,color:th.t3,marginTop:2}}>({totalDisksNeeded} disques × {tgtNodes} nœuds)</span>
+                    Besoin total : <span style={{color:th.t1,fontWeight:600}}>{totalDisks} disques</span> {hciDisk.label}
+                    <span style={{display:"block",fontSize:10,color:th.t3,marginTop:2}}>({hciDisksPerNode+disksToAdd} disques × {tgtNodes} nœuds)</span>
                   </div>
                 </div>
               );
             })()}
-
-            {r.storageOk && (
+            {r.storageOk&&(
               <div>
                 <div style={{background:"rgba(0,212,170,0.07)",border:"1px solid rgba(0,212,170,0.2)",borderRadius:4,padding:"10px 12px",marginBottom:12}}>
-                  <div style={{fontSize:12,color:th.accent,fontFamily:"monospace",fontWeight:600,marginBottom:4}}>
-                    Configuration validée
-                  </div>
-                  <div style={{fontSize:11,color:th.t2}}>
-                    {fmt(r.usable,2)} To disponibles pour {fmt(hciStorageTarget,0)} To demandés
-                  </div>
+                  <div style={{fontSize:12,color:th.accent,fontFamily:"monospace",fontWeight:600,marginBottom:4}}>Configuration validée</div>
+                  <div style={{fontSize:11,color:th.t2}}>{fmt(r.usable,2)} To disponibles pour {fmt(hciStorageTarget,0)} To demandés</div>
                 </div>
-                <RR label="Marge disponible" value={"+"+fmt(r.usable-hciStorageTarget,2)+" To"} color={th.accent} />
-                <RR label="Taux d'utilisation" value={fmt((hciStorageTarget/r.usable)*100,1)+" %"} color={th.t1} />
-                {dedupEnabled && <RR label="Gain dédup/compression" value={"+"+fmt(r.savedByDedup,2)+" To"} color={th.accent} />}
+                <RR label="Marge disponible"   value={"+"+fmt(r.usable-hciStorageTarget,2)+" To"} color={th.accent}/>
+                <RR label="Taux d'utilisation" value={fmt((hciStorageTarget/r.usable)*100,1)+" %"} color={th.t1}/>
+                {dedupEnabled&&<RR label="Gain dédup/compression" value={"+"+fmt(r.savedByDedup,2)+" To"} color={th.accent}/>}
                 <div style={{marginTop:12,padding:"8px 10px",background:th.bg2,borderRadius:4,fontSize:11,color:th.t2}}>
                   Total disques : <span style={{color:th.t1,fontWeight:600,fontFamily:"monospace"}}>{hciDisksPerNode*tgtNodes} disques</span> {hciDisk.label}
                   <span style={{display:"block",fontSize:10,color:th.t3,marginTop:2}}>({hciDisksPerNode} disques × {tgtNodes} nœuds)</span>
