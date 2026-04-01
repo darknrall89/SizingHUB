@@ -157,12 +157,12 @@ function VMwareCalc({th}) {
     const surcharge       = totalBilled>totalPhys;
     const surPct          = totalPhys>0?Math.round(((totalBilled-totalPhys)/totalPhys)*100):0;
     const annualCost      = totalBilled*pricePerCore;
-    const annualCostEur   = Math.round(annualCost*fxRate);
+    const annualCostEur   = annualCost;
     const maintenanceCost = annualCost*(maintenancePct/100);
     const totalAnnual     = annualCost+maintenanceCost;
     const totalProject    = totalAnnual*yearsTotal;
-    const totalAnnualEur  = Math.round(totalAnnual*fxRate);
-    const totalProjectEur = Math.round(totalProject*fxRate);
+    const totalAnnualEur  = totalAnnual;
+    const totalProjectEur = totalProject;
     const optBilled       = totalSockets*16;
     const optAnnual       = optBilled*pricePerCore;
     const savingsVsOpt    = annualCost-optAnnual;
@@ -276,17 +276,10 @@ function VMwareCalc({th}) {
         <div style={s.card("#ff6b35")}>
           <div style={s.secTitle}>Impact financier</div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
-            <NF label="Prix / cœur / an" value={pricePerCore} onChange={setPricePerCore} min={1} max={200} unit="$" note={licType==="vvf"?"Public : 50 $ (négocié : 38–50 $)":"Public : 72 $ (négocié : 55–72 $)"}/>
+            <NF label="Prix / cœur / an" value={pricePerCore} onChange={setPricePerCore} min={1} max={200} unit="€" note={licType==="vvf"?"Indicatif : ~46 €/cœur/an":"Indicatif : ~66 €/cœur/an"}/>
             <NF label="Durée contrat" value={yearsTotal} onChange={setYearsTotal} min={1} max={5} unit="ans"/>
             <NF label="Maintenance annuelle" value={maintenancePct} onChange={setMaintenancePct} min={0} max={30} unit="%" note="Incluse abonnement Broadcom"/>
-            <div style={s.field}>
-              <label style={s.label}>Taux de change USD / EUR</label>
-              <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                <input type="number" min={0.5} max={1.5} step={0.01} value={fxRate} onChange={e=>setFxRate(Number(e.target.value))} style={s.input}/>
-                <span style={{fontSize:11,color:th.t3}}>€/$</span>
-              </div>
-              <div style={{fontSize:10,color:th.t3,marginTop:3}}>Taux indicatif — ajuster selon contrat</div>
-            </div>
+
             <div style={s.field}>
               <label style={s.label}>Taux de change USD / EUR</label>
               <div style={{display:"flex",gap:8,alignItems:"center"}}>
@@ -306,19 +299,19 @@ function VMwareCalc({th}) {
             </div>
           </div>
           <hr style={s.divider}/>
-          <RR label="Coût licences / an"         value={"~ "+fmt(r.annualCost)+" $ (~"+fmt(r.annualCostEur)+" €)"}/>
-          <RR label="Maintenance / an"           value={"~ "+fmt(r.maintenanceCost)+" $"} color={th.t2}/>
-          <RR label="Coût annuel total"          value={"~ "+fmt(r.totalAnnual)+" $ (~"+fmt(r.totalAnnualEur)+" €)"} color={th.accent} highlight/>
-          <RR label={"Coût total "+yearsTotal+" ans"} value={"~ "+fmt(r.totalProject)+" $ (~"+fmt(r.totalProjectEur)+" €)"} color={th.accent} highlight/>
+          <RR label="Coût licences / an"         value={"~ "+fmt(r.annualCostEur)+" €"}/>
+          <RR label="Maintenance / an"           value={"~ "+fmt(Math.round(r.maintenanceCost))+" €"} color={th.t2}/>
+          <RR label="Coût annuel total"          value={"~ "+fmt(r.totalAnnualEur)+" €"} color={th.accent} highlight/>
+          <RR label={"Coût total "+yearsTotal+" ans"} value={"~ "+fmt(r.totalProjectEur)+" €"} color={th.accent} highlight/>
           <hr style={s.divider}/>
           <div style={{fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10,fontFamily:"monospace"}}>Optimisation licensing</div>
           {r.showOpt?(
             <div style={{background:"rgba(0,212,170,0.07)",border:"1px solid rgba(0,212,170,0.2)",borderRadius:4,padding:"10px 12px"}}>
               <div style={{fontSize:12,color:th.accent,fontFamily:"monospace",fontWeight:600,marginBottom:6}}>
-                Réduire à 16 cœurs/socket → économie de {fmt(r.savingsVsOpt)} $/an
+                Réduire à 16 cœurs/socket → économie de ~{fmt(Math.round(r.savingsVsOpt*fxRate))} €/an
               </div>
               <div style={{fontSize:11,color:th.t2,marginBottom:4}}>
-                {fmt(r.optBilled)} cœurs au lieu de {fmt(r.totalBilled)} · {fmt(r.optAnnual)} $/an
+                {fmt(r.optBilled)} cœurs au lieu de {fmt(r.totalBilled)} · ~{fmt(Math.round(r.optAnnual*fxRate))} €/an
               </div>
               <div style={{fontSize:10,color:th.t3,fontFamily:"monospace"}}>~{r.surPct}% de surcoût lié à la règle min 16/socket</div>
             </div>
@@ -343,7 +336,7 @@ function VMwareCalc({th}) {
             {label:"Aria Suite (management)",ok:false,note:"Non inclus"},
             {label:"Tanzu (containers)",ok:false,note:"Non inclus"},
             {label:"vSAN inclus / cœur",ok:false,note:"0 TiB"},
-            {label:"Prix public / cœur / an",ok:true,note:"~50 $"},
+            {label:"Prix public / cœur / an",ok:true,note:"~46 €"},
             {label:"Idéal pour",ok:true,note:"SAN/NAS existant"},
           ]},
           {id:"vcf",name:"VMware VCF",sub:"Cloud Foundation",priceRef:72,color:"#ff6b35",features:[
@@ -353,7 +346,7 @@ function VMwareCalc({th}) {
             {label:"Aria Suite (management)",ok:true,note:"Opérations + Logs"},
             {label:"Tanzu (containers)",ok:true,note:"Kubernetes intégré"},
             {label:"vSAN inclus / cœur",ok:true,note:"0,25 TiB/cœur"},
-            {label:"Prix public / cœur / an",ok:true,note:"~72 $"},
+            {label:"Prix public / cœur / an",ok:true,note:"~66 €"},
             {label:"Idéal pour",ok:true,note:"Stack full SDDC"},
           ]},
         ].map(lic=>{
@@ -367,8 +360,7 @@ function VMwareCalc({th}) {
                   <div style={{fontSize:11,color:th.t3,fontFamily:"monospace"}}>{lic.sub}</div>
                 </div>
                 <div style={{textAlign:"right"}}>
-                  <div style={{fontSize:18,fontWeight:700,fontFamily:"monospace",color:lic.color}}>~ {fmt(annual)} $</div>
-                  <div style={{fontSize:12,color:th.t2,fontFamily:"monospace",marginTop:2}}>~ {fmt(Math.round(annual*fxRate))} €</div>
+                  <div style={{fontSize:18,fontWeight:700,fontFamily:"monospace",color:lic.color}}>~ {fmt(Math.round(annual*fxRate))} €</div>
                   <div style={{fontSize:10,color:th.t3,fontFamily:"monospace"}}>/ an · {fmt(r.totalBilled)} cœurs</div>
                 </div>
               </div>
@@ -450,7 +442,7 @@ function VMwareCalc({th}) {
                         </div>
                       ))}
                       {needsAddon
-                        ?<div style={{marginTop:10,padding:"8px 10px",background:"rgba(255,85,85,0.08)",border:"1px solid rgba(255,85,85,0.2)",borderRadius:4,fontSize:11,color:th.danger}}>⚠ vSAN Add-on requis : ~{fmt(addonTib)} TiB · ~{fmt(addonTib*35)} $/an (@35$/TiB)</div>
+                        ?<div style={{marginTop:10,padding:"8px 10px",background:"rgba(255,85,85,0.08)",border:"1px solid rgba(255,85,85,0.2)",borderRadius:4,fontSize:11,color:th.danger}}>⚠ vSAN Add-on requis : ~{fmt(addonTib)} TiB · ~{fmt(Math.round(addonTib*35*fxRate))} €/an</div>
                         :<div style={{marginTop:10,padding:"8px 10px",background:"rgba(0,212,170,0.07)",border:"1px solid rgba(0,212,170,0.2)",borderRadius:4,fontSize:11,color:th.accent}}>✓ Capacité incluse dans VCF — pas d'addon nécessaire</div>
                       }
                     </div>
