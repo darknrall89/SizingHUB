@@ -5,7 +5,7 @@ import {
   Info, Sun, Moon
 } from "lucide-react";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer
 } from "recharts";
 
