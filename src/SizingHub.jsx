@@ -1020,7 +1020,7 @@ function ComputeCalc({ th }) {
       </div>
 
       {/* Saisie + Comparaison */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 340px",gap:14,marginBottom:14}}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14,marginBottom:14}}>
 
         {/* Existant */}
         <div style={s.card(th.accent)}>
