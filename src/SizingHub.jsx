@@ -5,7 +5,7 @@ import {
   Info, Sun, Moon
 } from "lucide-react";
 import {
-  BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer
 } from "recharts";
 
@@ -844,19 +844,12 @@ function ComputeCalc({ th }) {
     const usable      = afterOH / hciResilOpt.factor * (1 - hciProfile.metadataReserve);
     const storageOk   = usable >= hciStorageTarget;
 
-    // Comparaison 4 solutions (résilience niveau 1 par défaut)
-    const hciComparison = Object.entries(HCI_PROFILES).map(([key, p]) => {
-      const res = p.resiliency[0];
-      const u = tgtNodes * rawPerNode * (1 - p.overhead) / res.factor * (1 - p.metadataReserve);
-      return { key, label: p.label, color: p.color, usable: +u.toFixed(2) };
-    });
-
     return {
       srcTotalCores, srcTotalFreq, srcTotalRam,
       tgtTotalCores, tgtTotalFreq, tgtTotalRam,
       haCores, haFreq, haRam, haPct,
       gainCores, gainRam, gainFreq,
-      rawCluster, usable, storageOk, hciComparison,
+      rawCluster, usable, storageOk,
     };
   }, [srcNodes, srcSockets, srcCores, srcFreq, srcRam,
       tgtNodes, tgtSockets, tgtCores, tgtFreq, tgtRam,
@@ -1040,7 +1033,7 @@ function ComputeCalc({ th }) {
 
       {/* Section HCI */}
       {hciEnabled && (
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr",gap:14}}>
           <div style={s.card(th.accent)}>
             <div style={s.secTitle}>Configuration HCI</div>
             <SF label="Solution HCI" value={hciSolution} onChange={v=>{setHciSolution(v);setHciResil(HCI_PROFILES[v].resiliency[0].id);}}
@@ -1060,34 +1053,7 @@ function ComputeCalc({ th }) {
             <RR label="Capacité utile" value={fmt(r.usable,2)+" To"} color={r.storageOk?th.accent:th.danger} />
             <RR label="Objectif atteint" value={r.storageOk?"✓ OUI":"✗ NON — ajouter des disques"} color={r.storageOk?th.accent:th.danger} />
           </div>
-          <div style={s.card(th.accent2)}>
-            <div style={s.secTitle}>Comparaison capacité utile — 4 solutions</div>
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={r.hciComparison} barCategoryGap="30%">
-                <CartesianGrid strokeDasharray="3 3" stroke={th.border} />
-                <XAxis dataKey="label" tick={{fontSize:10,fill:th.t2}} />
-                <YAxis tick={{fontSize:10,fill:th.t2}} unit=" To" />
-                <Tooltip contentStyle={tt} formatter={v=>[fmt(v,2)+" To","Capacité utile"]} />
-                <Bar dataKey="usable" radius={[3,3,0,0]} isAnimationActive={false}
-                  label={{position:"top",fontSize:10,fill:th.t2,formatter:v=>fmt(v,2)+" To"}}>
-                  {r.hciComparison.map((d,i)=><Cell key={i} fill={d.color}/>)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-            <hr style={s.divider}/>
-            {r.hciComparison.map(sc=>(
-              <div key={sc.key} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:`1px solid ${th.border}`}}>
-                <span style={{fontSize:12,color:th.t2,display:"flex",alignItems:"center",gap:6}}>
-                  <span style={{width:8,height:8,borderRadius:2,background:sc.color,display:"inline-block"}}/>
-                  {sc.label}
-                </span>
-                <span style={{fontFamily:"monospace",fontWeight:600,fontSize:12,color:sc.color}}>{fmt(sc.usable,2)} To</span>
-              </div>
-            ))}
-            <div style={{fontSize:10,color:th.t3,marginTop:10,fontFamily:"monospace",textAlign:"center"}}>
-              Base : {tgtNodes} nœuds · {hciDisksPerNode}× {hciDisk.label} · résilience niveau 1 par défaut
-            </div>
-          </div>
+
         </div>
       )}
     </div>
