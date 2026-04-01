@@ -917,9 +917,7 @@ function ComputeCalc({ th }) {
           <XAxis dataKey="name" tick={{fontSize:10,fill:th.t2}} />
           <YAxis tick={{fontSize:10,fill:th.t2}} unit={unit?" "+unit:""} />
           <Tooltip contentStyle={tt} formatter={v=>[fmt(v,1)+(unit?" "+unit:"")]} />
-          <Bar dataKey="value" radius={[3,3,0,0]} isAnimationActive={false}>
-            {data.map((d,i)=><Cell key={i} fill={d.fill}/>)}
-          </Bar>
+          <Bar dataKey="value" radius={[3,3,0,0]} isAnimationActive={false} fill="#00d4aa"/>
         </BarChart>
       </ResponsiveContainer>
     );
