@@ -338,85 +338,348 @@ function M365Calc({th}) {
   );
 }
 
-// ─── 4. Stockage ──────────────────────────────────────────────────────────────
-function StorageCalc({th}) {
-  const [rawCapacity,setRawCapacity]=useState(230);
-  const [raidLevel,setRaidLevel]=useState("raid6");
-  const [dedupRatio,setDedupRatio]=useState(1);
-  const [driveSize,setDriveSize]=useState(7.68);
-  const [driveCount,setDriveCount]=useState(24);
-  const [iopsTarget,setIopsTarget]=useState(50000);
-  const [iopsPerDrive,setIopsPerDrive]=useState(350000);
-  const [bwTarget,setBwTarget]=useState(25);
+// ─── 4. Stockage (avancé)
+// ─── StorageCalc V2 — Capacity Planning avancé ───────────────────────────────
+// Drop-in replacement pour StorageCalc dans SizingHubV4.jsx
 
-  const r = useMemo(()=>{
-    const RAID={raid1:0.5,raid5:(driveCount-1)/driveCount,raid6:(driveCount-2)/driveCount,raid10:0.5,none:1};
-    const overhead=RAID[raidLevel]||1;
-    const rawTotal=driveCount*driveSize;
-    const usableRaw=rawTotal*overhead;
-    const usableWithDedup=usableRaw*dedupRatio;
-    const iopsAvail=driveCount*iopsPerDrive;
-    const hotSpares=driveCount>12?2:1;
-    const usableWithSpares=(driveCount-hotSpares)*driveSize*overhead*dedupRatio;
-    const pctUsed=rawCapacity/usableWithDedup*100;
-    return {rawTotal,usableRaw,usableWithDedup,usableWithSpares,iopsAvail,hotSpares,overhead:overhead*100,pctUsed,iopsOk:iopsAvail>=iopsTarget,capacityOk:usableWithDedup>=rawCapacity};
-  },[rawCapacity,raidLevel,dedupRatio,driveSize,driveCount,iopsTarget,iopsPerDrive]);
+// Catalogue disques
+const DISK_CATALOG = {
+  "3.5": [
+    { id: "nlsas-4",   label: "NLSAS 7.2K 4 To",   cap: 4,     iops: 120,  bw: 0.20, type: "NLSAS" },
+    { id: "nlsas-8",   label: "NLSAS 7.2K 8 To",   cap: 8,     iops: 110,  bw: 0.20, type: "NLSAS" },
+    { id: "nlsas-12",  label: "NLSAS 7.2K 12 To",  cap: 12,    iops: 100,  bw: 0.20, type: "NLSAS" },
+    { id: "nlsas-16",  label: "NLSAS 7.2K 16 To",  cap: 16,    iops: 100,  bw: 0.20, type: "NLSAS" },
+    { id: "nlsas-16f", label: "NLSAS 7.2K 16 To FIPS", cap: 16, iops: 100, bw: 0.20, type: "NLSAS" },
+    { id: "nlsas-18",  label: "NLSAS 7.2K 18 To",  cap: 18,    iops: 95,   bw: 0.20, type: "NLSAS" },
+    { id: "sas10-12",  label: "SAS 10K 1,2 To",    cap: 1.2,   iops: 200,  bw: 0.30, type: "SAS" },
+    { id: "sas10-24",  label: "SAS 10K 2,4 To",    cap: 2.4,   iops: 200,  bw: 0.30, type: "SAS" },
+    { id: "ssd-096",   label: "SSD RI 960 Go",      cap: 0.96,  iops: 50000, bw: 1.0, type: "SSD" },
+    { id: "ssd-160",   label: "SSD MU 1,6 To",     cap: 1.6,   iops: 40000, bw: 1.0, type: "SSD" },
+    { id: "ssd-192",   label: "SSD 1,92 To",        cap: 1.92,  iops: 45000, bw: 1.0, type: "SSD" },
+    { id: "ssd-384",   label: "SSD 3,84 To",        cap: 3.84,  iops: 45000, bw: 1.0, type: "SSD" },
+    { id: "ssd-768",   label: "SSD RI 7,68 To",     cap: 7.68,  iops: 40000, bw: 1.0, type: "SSD" },
+    { id: "nvme-192",  label: "NVMe 1,92 To",       cap: 1.92,  iops: 200000, bw: 6.5, type: "NVMe" },
+    { id: "nvme-384",  label: "NVMe 3,84 To",       cap: 3.84,  iops: 200000, bw: 6.5, type: "NVMe" },
+    { id: "nvme-768",  label: "NVMe 7,68 To",       cap: 7.68,  iops: 180000, bw: 6.5, type: "NVMe" },
+    { id: "nvme-1536", label: "NVMe 15,36 To",      cap: 15.36, iops: 160000, bw: 6.0, type: "NVMe" },
+    { id: "nvme-3072", label: "NVMe 30,72 To",      cap: 30.72, iops: 140000, bw: 6.0, type: "NVMe" },
+  ],
+  "2.5": [
+    { id: "sas10-12",  label: "SAS 10K 1,2 To",    cap: 1.2,   iops: 200,   bw: 0.30, type: "SAS" },
+    { id: "sas10-24",  label: "SAS 10K 2,4 To",    cap: 2.4,   iops: 200,   bw: 0.30, type: "SAS" },
+    { id: "sas10-24f", label: "SAS 10K 2,4 To FIPS",cap: 2.4,  iops: 200,   bw: 0.30, type: "SAS" },
+    { id: "ssd-096",   label: "SSD RI 960 Go",      cap: 0.96,  iops: 50000, bw: 1.0,  type: "SSD" },
+    { id: "ssd-160",   label: "SSD MU 1,6 To",      cap: 1.6,   iops: 40000, bw: 1.0,  type: "SSD" },
+    { id: "ssd-192",   label: "SSD 1,92 To",        cap: 1.92,  iops: 45000, bw: 1.0,  type: "SSD" },
+    { id: "ssd-192s",  label: "SSD SED 1,92 To",    cap: 1.92,  iops: 45000, bw: 1.0,  type: "SSD" },
+    { id: "ssd-384",   label: "SSD 3,84 To",        cap: 3.84,  iops: 45000, bw: 1.0,  type: "SSD" },
+    { id: "ssd-384f",  label: "SSD FIPS 3,84 To",   cap: 3.84,  iops: 45000, bw: 1.0,  type: "SSD" },
+    { id: "ssd-768",   label: "SSD RI 7,68 To",     cap: 7.68,  iops: 40000, bw: 1.0,  type: "SSD" },
+    { id: "nvme-192",  label: "NVMe 1,92 To",       cap: 1.92,  iops: 200000, bw: 6.5, type: "NVMe" },
+    { id: "nvme-384",  label: "NVMe 3,84 To",       cap: 3.84,  iops: 200000, bw: 6.5, type: "NVMe" },
+    { id: "nvme-768",  label: "NVMe 7,68 To",       cap: 7.68,  iops: 180000, bw: 6.5, type: "NVMe" },
+    { id: "nvme-1536", label: "NVMe 15,36 To",      cap: 15.36, iops: 160000, bw: 6.0, type: "NVMe" },
+  ],
+};
 
-  const chartData=[
-    {name:"Brut total",value:+r.rawTotal.toFixed(1)},
-    {name:"Utile (RAID)",value:+r.usableRaw.toFixed(1)},
-    {name:"Utile (dédup)",value:+r.usableWithDedup.toFixed(1)},
-    {name:"Cible",value:rawCapacity},
+const CHASSIS_TYPES = [
+  { id: "3.5-12", label: '12 baies 3,5"', slots: 12, form: "3.5" },
+  { id: "2.5-24", label: '24 baies 2,5"', slots: 24, form: "2.5" },
+];
+
+const RAID_OPTIONS = [
+  { value: "raid1",  label: "RAID 1",  minDisks: 2 },
+  { value: "raid5",  label: "RAID 5",  minDisks: 3 },
+  { value: "raid6",  label: "RAID 6",  minDisks: 4 },
+  { value: "raid10", label: "RAID 10", minDisks: 4 },
+  { value: "none",   label: "JBOD",    minDisks: 1 },
+];
+
+const TYPE_COLORS = { NLSAS: "#8b90a0", SAS: "#0099ff", SSD: "#00d4aa", NVMe: "#ff6b35" };
+
+let groupIdCounter = 1;
+const newGroup = (form) => ({
+  id: groupIdCounter++,
+  diskId: DISK_CATALOG[form][0].id,
+  count: 4,
+  raid: "raid6",
+  hotSpares: 0,
+});
+
+let chassisIdCounter = 1;
+const newChassis = (typeId) => {
+  const t = CHASSIS_TYPES.find(c => c.id === typeId);
+  return { id: chassisIdCounter++, typeId, label: t.label, slots: t.slots, form: t.form, groups: [newGroup(t.form)] };
+};
+
+function raidUsableRatio(raid, n) {
+  if (n < 1) return 0;
+  switch (raid) {
+    case "raid1":  return n >= 2 ? 0.5 : 0;
+    case "raid5":  return n >= 3 ? (n - 1) / n : 0;
+    case "raid6":  return n >= 4 ? (n - 2) / n : 0;
+    case "raid10": return n >= 4 && n % 2 === 0 ? 0.5 : 0;
+    case "none":   return 1;
+    default:       return 0;
+  }
+}
+
+function calcGroup(group, catalog) {
+  const disk = catalog.find(d => d.id === group.diskId) || catalog[0];
+  const dataDisks = Math.max(0, group.count - group.hotSpares);
+  const ratio = raidUsableRatio(group.raid, dataDisks);
+  const physical = group.count * disk.cap;
+  const usable = dataDisks * disk.cap * ratio;
+  const iops = dataDisks * disk.iops * (group.raid === "raid5" ? 0.75 : group.raid === "raid6" ? 0.65 : 1);
+  const bw = dataDisks * disk.bw;
+  return { disk, physical, usable, iops, bw, ratio, dataDisks };
+}
+
+
+function StorageCalc({ th }) {
+  
+
+  const [chassisList, setChassisList] = useState([newChassis("3.5-12")]);
+  const [dedup, setDedup] = useState(1);
+  const [iopsTarget, setIopsTarget] = useState(50000);
+
+  // ── Chassis CRUD ──
+  const addChassis = () => setChassisList(prev => [...prev, newChassis("3.5-12")]);
+  const removeChassis = (cid) => setChassisList(prev => prev.filter(c => c.id !== cid));
+  const updateChassisType = (cid, typeId) => {
+    const t = CHASSIS_TYPES.find(x => x.id === typeId);
+    setChassisList(prev => prev.map(c => c.id === cid
+      ? { ...c, typeId, label: t.label, slots: t.slots, form: t.form, groups: [newGroup(t.form)] }
+      : c));
+  };
+
+  // ── Group CRUD ──
+  const addGroup = (cid) => {
+    setChassisList(prev => prev.map(c => {
+      if (c.id !== cid) return c;
+      const usedSlots = c.groups.reduce((s, g) => s + g.count + g.hotSpares, 0);
+      if (usedSlots >= c.slots) return c;
+      return { ...c, groups: [...c.groups, newGroup(c.form)] };
+    }));
+  };
+  const removeGroup = (cid, gid) => setChassisList(prev => prev.map(c =>
+    c.id !== cid ? c : { ...c, groups: c.groups.filter(g => g.id !== gid) }));
+  const updateGroup = (cid, gid, patch) => setChassisList(prev => prev.map(c =>
+    c.id !== cid ? c : { ...c, groups: c.groups.map(g => g.id === gid ? { ...g, ...patch } : g) }));
+
+  // ── Totaux ──
+  const totals = useMemo(() => {
+    let physical = 0, usable = 0, effective = 0, iops = 0, bw = 0;
+    chassisList.forEach(c => {
+      const catalog = DISK_CATALOG[c.form];
+      c.groups.forEach(g => {
+        const r = calcGroup(g, catalog);
+        physical += r.physical;
+        usable += r.usable;
+        effective += r.usable * dedup;
+        iops += r.iops;
+        bw += r.bw;
+      });
+    });
+    return { physical, usable, effective, iops, bw, iopsOk: iops >= iopsTarget };
+  }, [chassisList, dedup, iopsTarget]);
+
+  const chartData = [
+    { name: "Capacité physique", value: +totals.physical.toFixed(2) },
+    { name: "Utile (RAID)", value: +totals.usable.toFixed(2) },
+    { name: "Effective (dédup)", value: +totals.effective.toFixed(2) },
   ];
-  const tt={background:th.tooltipBg,border:`1px solid ${th.border2}`,borderRadius:4,fontSize:11,color:th.t1};
+
+  const s = {
+    tag: (color) => ({ display:"inline-block", fontSize:9, padding:"2px 6px", borderRadius:3, background:color+"22", color, border:`1px solid ${color}44`, fontFamily:"monospace", marginLeft:6 }),
+    groupCard: { background:th.bg2, border:`1px solid ${th.border}`, borderRadius:4, padding:"12px 14px", marginBottom:10 },
+    row: { display:"flex", alignItems:"center", gap:10, marginBottom:8 },
+    label: { fontSize:10, color:th.t3, fontFamily:"monospace", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:4, display:"block" },
+    input: { background:th.bg1, border:`1px solid ${th.border}`, borderRadius:4, padding:"6px 8px", color:th.t1, fontFamily:"monospace", fontSize:12, width:"100%", boxSizing:"border-box" },
+    select: { background:th.bg1, border:`1px solid ${th.border}`, borderRadius:4, padding:"6px 8px", color:th.t1, fontFamily:"monospace", fontSize:12, width:"100%", boxSizing:"border-box" },
+    btn: (color) => ({ cursor:"pointer", fontSize:11, padding:"5px 12px", borderRadius:4, border:`1px solid ${color}44`, background:color+"11", color, fontFamily:"monospace" }),
+    btnSm: (color) => ({ cursor:"pointer", fontSize:10, padding:"3px 8px", borderRadius:3, border:`1px solid ${color}44`, background:color+"11", color, fontFamily:"monospace" }),
+    divider: { border:"none", borderTop:`1px solid ${th.border}`, margin:"12px 0" },
+    sectionTitle: { fontSize:10, fontWeight:600, color:th.t2, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:14, paddingBottom:8, borderBottom:`1px solid ${th.border}`, fontFamily:"monospace" },
+  };
+
+  
+  const tt = { background:th.tooltipBg, border:`1px solid ${th.border2}`, borderRadius:4, fontSize:11, color:th.t1 };
 
   return (
     <div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:20}}>
-        <KpiCard label="Capacité brute" value={fmt(r.rawTotal,1)+" To"} th={th} />
-        <KpiCard label="Capacité utile" value={fmt(r.usableWithDedup,1)+" To"} color={r.capacityOk?th.accent:th.warn} th={th} />
-        <KpiCard label="IOPS disponibles" value={fmt(r.iopsAvail)} color={r.iopsOk?th.t1:th.warn} th={th} />
-        <KpiCard label="Efficacité RAID" value={fmt(r.overhead,0)+" %"} color={th.accent2} th={th} />
+      {/* KPIs */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10,marginBottom:20}}>
+        {[
+          {label:"Capacité physique", val:fmt(totals.physical,2)+" To", color:th.t1},
+          {label:"Utile (RAID)", val:fmt(totals.usable,2)+" To", color:th.accent},
+          {label:"Effective (dédup)", val:fmt(totals.effective,2)+" To", color:th.accent},
+          {label:"IOPS totaux", val:fmt(totals.iops), color:totals.iopsOk?th.accent:th.warn},
+          {label:"Bande passante", val:fmt(totals.bw,2)+" GB/s", color:th.accent2},
+        ].map(k => (
+          <div key={k.label} style={{background:th.cardBg,border:`1px solid ${th.border}`,borderRadius:6,padding:14}}>
+            <div style={{fontSize:10,color:th.t3,fontFamily:"monospace",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>{k.label}</div>
+            <div style={{fontSize:20,fontWeight:600,fontFamily:"monospace",color:k.color}}>{k.val}</div>
+          </div>
+        ))}
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14}}>
-        <Card accent="accent" th={th}>
-          <SectionTitle th={th}>Configuration baie</SectionTitle>
-          <NumField label="Capacité cible nette" value={rawCapacity} onChange={setRawCapacity} min={1} step={10} unit="To" note="Besoin réel après marge de croissance" th={th} />
-          <NumField label="Nombre de disques" value={driveCount} onChange={setDriveCount} min={4} max={500} unit="disques" th={th} />
-          <NumField label="Taille par disque" value={driveSize} onChange={setDriveSize} min={0.96} max={100} step={0.96} unit="To" note="NVMe : 3,84 / 7,68 / 15,36 To" th={th} />
-          <SelectField label="Niveau RAID" value={raidLevel} onChange={setRaidLevel} th={th}
-            options={[{value:"raid1",label:"RAID 1 (miroir, eff. 50%)"},{value:"raid5",label:"RAID 5 (N-1 parité)"},{value:"raid6",label:"RAID 6 (N-2 parités, recommandé)"},{value:"raid10",label:"RAID 10 (miroir+stripe, eff. 50%)"},{value:"none",label:"Sans RAID (raw)"}]} />
-          <NumField label="Ratio dédup/compression" value={dedupRatio} onChange={setDedupRatio} min={1} max={10} step={0.1} unit="×" note="1 = pas de dédup" th={th} />
-        </Card>
-        <Card accent="accent2" th={th}>
-          <SectionTitle th={th}>Performances IOPS</SectionTitle>
-          <NumField label="IOPS cibles" value={iopsTarget} onChange={setIopsTarget} min={1000} max={10000000} step={5000} unit="IOPS" note="Cible IOPS recommandée" th={th} />
-          <NumField label="IOPS par disque" value={iopsPerDrive} onChange={setIopsPerDrive} min={10000} max={2000000} step={50000} unit="IOPS/disque" note="NVMe SSD : 350 000 – 700 000 IOPS" th={th} />
-          <NumField label="Bande passante cible" value={bwTarget} onChange={setBwTarget} min={1} max={400} unit="Gbps" note="Bande passante recommandée" th={th} />
-          <hr style={{border:"none",borderTop:`1px solid ${th.border}`,margin:"12px 0"}} />
-          <InfoBox type={r.iopsOk?"ok":"alert"} th={th}>{r.iopsOk?"IOPS suffisants":"IOPS insuffisants — ajouter des disques"}</InfoBox>
-          <ResultRow label="IOPS disponibles" value={fmt(r.iopsAvail)} highlight={r.iopsOk} warn={!r.iopsOk} th={th} />
-          <ResultRow label="Ratio IOPS dispo/cible" value={fmt(r.iopsAvail/iopsTarget,2)+" ×"} th={th} />
-          <ResultRow label="Hot spare(s)" value={fmt(r.hotSpares)+" disque(s)"} th={th} />
-          <ResultRow label="Utile avec hot spares" value={fmt(r.usableWithSpares,1)+" To"} highlight={r.usableWithSpares>=rawCapacity} th={th} />
-          <ResultRow label="Taux de remplissage" value={fmt(r.pctUsed,1)+" %"} warn={r.pctUsed>80} th={th} />
-        </Card>
-        <Card th={th}>
-          <SectionTitle th={th}>Visualisation capacité</SectionTitle>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={chartData} layout="vertical" barCategoryGap="20%">
-              <CartesianGrid strokeDasharray="3 3" stroke={th.border} horizontal={false} />
-              <XAxis type="number" tick={{fontSize:10,fill:th.t2}} unit=" To" />
-              <YAxis dataKey="name" type="category" tick={{fontSize:10,fill:th.t2}} width={90} />
-              <Tooltip contentStyle={tt} formatter={v=>[fmt(v,1)+" To"]} />
-              <Bar dataKey="value" fill={th.accent} radius={[0,3,3,0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </Card>
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 380px",gap:14}}>
+        {/* Colonne gauche — config chassis */}
+        <div>
+          {chassisList.map((chassis, ci) => {
+            const catalog = DISK_CATALOG[chassis.form];
+            const usedSlots = chassis.groups.reduce((s, g) => s + g.count, 0);
+            const remainSlots = chassis.slots - usedSlots;
+
+            return (
+              <div key={chassis.id} style={{background:th.cardBg,border:`1px solid ${th.border}`,borderLeft:`2px solid ${th.accent}`,borderRadius:6,padding:16,marginBottom:14}}>
+                {/* Header chassis */}
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10}}>
+                    <span style={{fontSize:12,fontWeight:600,color:th.t1,fontFamily:"monospace"}}>Chassis {ci+1}</span>
+                    <select value={chassis.typeId} onChange={e=>updateChassisType(chassis.id,e.target.value)} style={{...s.select,width:"auto"}}>
+                      {CHASSIS_TYPES.map(t=><option key={t.id} value={t.id}>{t.label}</option>)}
+                    </select>
+                    <span style={{fontSize:10,color:remainSlots<0?th.danger:th.t3,fontFamily:"monospace"}}>
+                      {usedSlots}/{chassis.slots} baies utilisées
+                    </span>
+                    {remainSlots < 0 && <span style={s.tag(th.danger)}>DÉPASSEMENT</span>}
+                  </div>
+                  <div style={{display:"flex",gap:6}}>
+                    <button onClick={()=>addGroup(chassis.id)} style={s.btnSm(th.accent)}>+ Groupe</button>
+                    {chassisList.length > 1 && <button onClick={()=>removeChassis(chassis.id)} style={s.btnSm(th.danger)}>✕ Chassis</button>}
+                  </div>
+                </div>
+
+                {/* Groupes de disques */}
+                {chassis.groups.map((group, gi) => {
+                  const disk = catalog.find(d=>d.id===group.diskId)||catalog[0];
+                  const gr = calcGroup(group, catalog);
+                  return (
+                    <div key={group.id} style={s.groupCard}>
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                        <span style={{fontSize:11,fontWeight:600,color:th.t2,fontFamily:"monospace"}}>
+                          Groupe {gi+1}
+                          <span style={s.tag(TYPE_COLORS[disk.type]||th.t2)}>{disk.type}</span>
+                        </span>
+                        {chassis.groups.length > 1 && <button onClick={()=>removeGroup(chassis.id,group.id)} style={s.btnSm(th.danger)}>✕</button>}
+                      </div>
+
+                      <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr",gap:8,marginBottom:8}}>
+                        <div>
+                          <label style={s.label}>Type de disque</label>
+                          <select value={group.diskId} onChange={e=>updateGroup(chassis.id,group.id,{diskId:e.target.value})} style={s.select}>
+                            {catalog.map(d=><option key={d.id} value={d.id}>{d.label}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label style={s.label}>Nb disques</label>
+                          <input type="number" min={1} max={chassis.slots} value={group.count}
+                            onChange={e=>updateGroup(chassis.id,group.id,{count:Math.max(1,Number(e.target.value))})}
+                            style={s.input} />
+                        </div>
+                        <div>
+                          <label style={s.label}>Niveau RAID</label>
+                          <select value={group.raid} onChange={e=>updateGroup(chassis.id,group.id,{raid:e.target.value})} style={s.select}>
+                            {RAID_OPTIONS.map(r=><option key={r.value} value={r.value}>{r.label}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label style={s.label}>Hot spares</label>
+                          <input type="number" min={0} max={Math.max(0,group.count-1)} value={group.hotSpares}
+                            onChange={e=>updateGroup(chassis.id,group.id,{hotSpares:Math.max(0,Number(e.target.value))})}
+                            style={s.input} />
+                        </div>
+                      </div>
+
+                      {/* Résumé groupe */}
+                      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6}}>
+                        {[
+                          {label:"Physique",val:fmt(gr.physical,2)+" To",color:th.t2},
+                          {label:"Utile RAID",val:fmt(gr.usable,2)+" To",color:th.accent},
+                          {label:"IOPS",val:fmt(gr.iops),color:TYPE_COLORS[disk.type]||th.t1},
+                          {label:"BW",val:fmt(gr.bw,2)+" GB/s",color:th.accent2},
+                        ].map(k=>(
+                          <div key={k.label} style={{background:th.bg0,borderRadius:4,padding:"6px 8px",border:`1px solid ${th.border}`}}>
+                            <div style={{fontSize:9,color:th.t3,fontFamily:"monospace",textTransform:"uppercase",marginBottom:3}}>{k.label}</div>
+                            <div style={{fontSize:12,fontWeight:600,fontFamily:"monospace",color:k.color}}>{k.val}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+
+          <button onClick={addChassis} style={{...s.btn(th.accent),width:"100%",marginBottom:14}}>+ Ajouter un chassis</button>
+
+          {/* Dédup global */}
+          <div style={{background:th.cardBg,border:`1px solid ${th.border}`,borderLeft:`2px solid ${th.accent2}`,borderRadius:6,padding:16}}>
+            <div style={s.sectionTitle}>Paramètres globaux du pool</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+              <div>
+                <label style={s.label}>Ratio déduplication / compression</label>
+                <select value={String(dedup)} onChange={e=>setDedup(Number(e.target.value))} style={s.select}>
+                  {[["1","1:1 — aucune"],["1.5","1.5:1 — légère"],["2","2:1 — standard"],["3","3:1 — agressive"],["4","4:1 — maximale"],["5","5:1 — extrême"]].map(([v,l])=>
+                    <option key={v} value={v}>{l}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={s.label}>IOPS cibles (validation)</label>
+                <input type="number" min={1000} step={5000} value={iopsTarget}
+                  onChange={e=>setIopsTarget(Number(e.target.value))}
+                  style={s.input} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Colonne droite — résultats */}
+        <div style={{display:"flex",flexDirection:"column",gap:14}}>
+          <div style={{background:th.cardBg,border:`1px solid ${th.border}`,borderLeft:`2px solid ${th.accent2}`,borderRadius:6,padding:16}}>
+            <div style={s.sectionTitle}>Récapitulatif pool</div>
+            {[
+              {label:"Capacité physique brute", val:fmt(totals.physical,2)+" To", color:th.t2},
+              {label:"Utile après RAID", val:fmt(totals.usable,2)+" To", color:th.accent},
+              {label:"Effective après dédup ×"+dedup, val:fmt(totals.effective,2)+" To", color:th.accent, highlight:true},
+              {label:"IOPS totaux agrégés", val:fmt(totals.iops), color:totals.iopsOk?th.accent:th.warn},
+              {label:"Bande passante totale", val:fmt(totals.bw,2)+" GB/s", color:th.accent2},
+              {label:"Validation IOPS cible", val:totals.iopsOk?"✓ Atteinte":"✗ Insuffisants", color:totals.iopsOk?th.accent:th.danger},
+            ].map(r=>(
+              <div key={r.label} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${th.border}`}}>
+                <span style={{fontSize:12,color:th.t2}}>{r.label}</span>
+                <span style={{fontFamily:"monospace",fontWeight:600,fontSize:13,color:r.color}}>{r.val}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Graphique capacité */}
+          <div style={{background:th.cardBg,border:`1px solid ${th.border}`,borderRadius:6,padding:16,flex:1}}>
+            <div style={s.sectionTitle}>Visualisation capacité (To)</div>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={chartData} layout="vertical" barCategoryGap="20%">
+                <CartesianGrid strokeDasharray="3 3" stroke={th.border} horizontal={false} />
+                <XAxis type="number" tick={{fontSize:10,fill:th.t2}} unit=" To" />
+                <YAxis dataKey="name" type="category" tick={{fontSize:10,fill:th.t2}} width={110} />
+                <Tooltip contentStyle={tt} formatter={v=>[fmt(v,2)+" To"]} />
+                <Bar dataKey="value" radius={[0,3,3,0]}
+                  fill={th.accent}
+                  label={{position:"right",fontSize:10,fill:th.t2,formatter:v=>fmt(v,2)+" To"}} />
+              </BarChart>
+            </ResponsiveContainer>
+            <div style={{fontSize:10,color:th.t3,marginTop:8,fontFamily:"monospace",textAlign:"center"}}>
+              Ratio dédup ×{dedup} — Gain : +{fmt((totals.effective-totals.usable),2)} To
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
+
 
 // ─── 5. Veeam ─────────────────────────────────────────────────────────────────
 function VeeamCalc({th}) {
