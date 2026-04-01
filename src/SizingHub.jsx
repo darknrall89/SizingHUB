@@ -524,7 +524,7 @@ function StorageCalc({ th }) {
         ))}
       </div>
 
-      <div style={{display:"grid",gridTemplateColumns:"1fr 380px",gap:14}}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
         {/* Colonne gauche — config chassis */}
         <div>
           {chassisList.map((chassis, ci) => {
