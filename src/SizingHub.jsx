@@ -5,7 +5,7 @@ import {
   Info, Sun, Moon
 } from "lucide-react";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer
 } from "recharts";
 
@@ -666,8 +666,9 @@ function StorageCalc({ th }) {
                 <YAxis dataKey="name" type="category" tick={{fontSize:10,fill:th.t2}} width={110} />
                 <Tooltip contentStyle={tt} formatter={v=>[fmt(v,2)+" To"]} />
                 <Bar dataKey="value" radius={[0,3,3,0]}
-                  fill={th.accent}
-                  label={{position:"right",fontSize:10,fill:th.t2,formatter:v=>fmt(v,2)+" To"}} />
+                  fill="#dummy"
+                  label={{position:"right",fontSize:10,fill:th.t2,formatter:v=>fmt(v,2)+" To"}}
+                  cells={chartData.map((_,i)=><Cell key={i} fill={["#ef4444","#3b82f6","#22c55e"][i]} />)} />
               </BarChart>
             </ResponsiveContainer>
             <div style={{fontSize:10,color:th.t3,marginTop:8,fontFamily:"monospace",textAlign:"center"}}>
