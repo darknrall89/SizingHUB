@@ -1066,7 +1066,7 @@ function ComputeCalc({ th }) {
 
       {/* Section HCI */}
       {hciEnabled && (
-        <div style={{display:"grid",gridTemplateColumns:"1fr 380px",gap:14,alignItems:"start"}}>
+        <div style={{display:"grid",gridTemplateColumns:"3fr 2fr",gap:14,alignItems:"start"}}>
 
           {/* Config + résultats */}
           <div style={s.card(th.accent)}>
