@@ -665,10 +665,9 @@ function StorageCalc({ th }) {
                 <XAxis type="number" tick={{fontSize:10,fill:th.t2}} unit=" To" />
                 <YAxis dataKey="name" type="category" tick={{fontSize:10,fill:th.t2}} width={110} />
                 <Tooltip contentStyle={tt} formatter={v=>[fmt(v,2)+" To"]} />
-                <Bar dataKey="value" radius={[0,3,3,0]}
-                  fill="#dummy"
-                  label={{position:"right",fontSize:10,fill:th.t2,formatter:v=>fmt(v,2)+" To"}}
-                  cells={chartData.map((_,i)=><Cell key={i} fill={["#ef4444","#3b82f6","#22c55e"][i]} />)} />
+                <Bar dataKey="value" radius={[0,3,3,0]} label={{position:"right",fontSize:10,fill:th.t2,formatter:v=>fmt(v,2)+" To"}}>
+                  {chartData.map((_,i)=><Cell key={i} fill={["#ef4444","#3b82f6","#22c55e"][i]} />)}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
             <div style={{fontSize:10,color:th.t3,marginTop:8,fontFamily:"monospace",textAlign:"center"}}>
