@@ -142,13 +142,13 @@ function VMwareCalc({th}) {
     const haCores=(nodes-1)*sockets*cores;
     const haVcpu=haCores*overcommit;
     const haPct=nodes>0?(1/nodes)*100:0;
-    return {totalSockets,totalPhys,billedPerSocket,totalBilled,totalRamTo,vcpuTotal,haRam,haCores,haVcpu,haPct,haRamOk:haRam>=4.5,haVcpuOk:haVcpu>=750};
+    return {totalSockets,totalPhys,billedPerSocket,totalBilled,totalRamTo,vcpuTotal,haRam,haCores,haVcpu,haPct,haRamOk:haRam>0,haVcpuOk:haVcpu>0};
   },[nodes,sockets,cores,ram,overcommit]);
 
   const chartData=[
     {name:"Normal",RAM:+r.totalRamTo.toFixed(2),vCPU:+(r.vcpuTotal/100).toFixed(1)},
     {name:"HA (N-1)",RAM:+r.haRam.toFixed(2),vCPU:+(r.haVcpu/100).toFixed(1)},
-    {name:"Cible CDC",RAM:4.5,vCPU:7.5},
+    
   ];
   const tt={background:th.tooltipBg,border:`1px solid ${th.border2}`,borderRadius:4,fontSize:11,color:th.t1};
 
@@ -168,7 +168,7 @@ function VMwareCalc({th}) {
           <SliderField label="Sockets / nœud" min={1} max={4} value={sockets} onChange={setSockets} th={th} />
           <SliderField label="Cœurs physiques / socket" min={4} max={64} step={2} value={cores} onChange={setCores} th={th} />
           <NumField label="RAM / nœud" value={ram} onChange={setRam} min={64} max={6144} step={64} unit="Go" note="Xeon typique : 256, 512, 768 Go" th={th} />
-          <NumField label="Overcommit vCPU" value={overcommit} onChange={setOvercommit} min={1} max={10} step={0.25} unit="vCPU/cœur" note="CDC CESI : 3,75 recommandé" th={th} />
+          <NumField label="Overcommit vCPU" value={overcommit} onChange={setOvercommit} min={1} max={10} step={0.25} unit="vCPU/cœur" note="Ratio standard recommandé" th={th} />
         </Card>
         <Card accent="accent2" th={th}>
           <SectionTitle th={th}>Résultats licensing</SectionTitle>
@@ -184,7 +184,7 @@ function VMwareCalc({th}) {
           <ResultRow label="Capacité perdue HA" value={fmt(r.haPct,1)+" %"} warn={r.haPct>20} th={th} />
         </Card>
         <Card th={th}>
-          <SectionTitle th={th}>Normal vs HA vs Cible CDC</SectionTitle>
+          <SectionTitle th={th}>Normal vs HA vs Cible projet</SectionTitle>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={chartData} barCategoryGap="30%">
               <CartesianGrid strokeDasharray="3 3" stroke={th.border} />
@@ -196,7 +196,7 @@ function VMwareCalc({th}) {
               <Bar dataKey="vCPU" name="vCPU (×100)" fill={th.accent} radius={[3,3,0,0]} />
             </BarChart>
           </ResponsiveContainer>
-          <div style={{fontSize:10,color:th.t3,marginTop:8,fontFamily:"monospace"}}>Cibles CDC : RAM ≥ 4,5 To · vCPU ≥ 750 · perte &lt; 20 %</div>
+          <div style={{fontSize:10,color:th.t3,marginTop:8,fontFamily:"monospace"}}>Adapter les seuils selon les besoins du projet</div>
         </Card>
       </div>
     </div>
@@ -390,9 +390,9 @@ function StorageCalc({th}) {
         </Card>
         <Card accent="accent2" th={th}>
           <SectionTitle th={th}>Performances IOPS</SectionTitle>
-          <NumField label="IOPS cibles" value={iopsTarget} onChange={setIopsTarget} min={1000} max={10000000} step={5000} unit="IOPS" note="CDC CESI : ≥ 50 000 IOPS" th={th} />
+          <NumField label="IOPS cibles" value={iopsTarget} onChange={setIopsTarget} min={1000} max={10000000} step={5000} unit="IOPS" note="Cible IOPS recommandée" th={th} />
           <NumField label="IOPS par disque" value={iopsPerDrive} onChange={setIopsPerDrive} min={10000} max={2000000} step={50000} unit="IOPS/disque" note="NVMe SSD : 350 000 – 700 000 IOPS" th={th} />
-          <NumField label="Bande passante cible" value={bwTarget} onChange={setBwTarget} min={1} max={400} unit="Gbps" note="CDC CESI : 25 Gbps minimum" th={th} />
+          <NumField label="Bande passante cible" value={bwTarget} onChange={setBwTarget} min={1} max={400} unit="Gbps" note="Bande passante recommandée" th={th} />
           <hr style={{border:"none",borderTop:`1px solid ${th.border}`,margin:"12px 0"}} />
           <InfoBox type={r.iopsOk?"ok":"alert"} th={th}>{r.iopsOk?"IOPS suffisants":"IOPS insuffisants — ajouter des disques"}</InfoBox>
           <ResultRow label="IOPS disponibles" value={fmt(r.iopsAvail)} highlight={r.iopsOk} warn={!r.iopsOk} th={th} />
