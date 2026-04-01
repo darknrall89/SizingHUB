@@ -769,13 +769,13 @@ function VeeamCalc({th}) {
 // ─── Compute & HCI Planning v2 ───────────────────────────────────────────────
 
 const HCI_PROFILES = {
-  nutanix:      { label:"Nutanix AOS/AHV",   color:"#00d4aa", overhead:0.20, minNodes:3, metadataReserve:0.05,
+  nutanix:      { label:"Nutanix AOS/AHV",   color:"#00d4aa", overhead:0.20, minNodes:3, metadataReserve:0.05, defaultDedup:3.0,
     resiliency:[{id:"rf2",label:"RF2 (1 panne)",factor:2},{id:"rf3",label:"RF3 (2 pannes)",factor:3}] },
-  vsan:         { label:"VMware vSAN",        color:"#0099ff", overhead:0.25, minNodes:4, metadataReserve:0.07,
+  vsan:         { label:"VMware vSAN",        color:"#0099ff", overhead:0.25, minNodes:4, metadataReserve:0.07, defaultDedup:2.0,
     resiliency:[{id:"ftt1r1",label:"FTT=1 RAID-1",factor:2},{id:"ftt1r5",label:"FTT=1 RAID-5",factor:1.33},{id:"ftt2r1",label:"FTT=2 RAID-1",factor:3},{id:"ftt2r6",label:"FTT=2 RAID-6",factor:1.5}] },
-  azurestackhci:{ label:"Azure Stack HCI",   color:"#ff6b35", overhead:0.25, minNodes:2, metadataReserve:0.08,
+  azurestackhci:{ label:"Azure Stack HCI",   color:"#ff6b35", overhead:0.25, minNodes:2, metadataReserve:0.08, defaultDedup:2.0,
     resiliency:[{id:"2way",label:"2-way mirror",factor:2},{id:"3way",label:"3-way mirror",factor:3},{id:"rs42",label:"RS 4+2",factor:1.5}] },
-  ceph:         { label:"Ceph",              color:"#ffb347", overhead:0.20, minNodes:3, metadataReserve:0.05,
+  ceph:         { label:"Ceph",              color:"#ffb347", overhead:0.20, minNodes:3, metadataReserve:0.05, defaultDedup:1.5,
     resiliency:[{id:"rep2",label:"Réplication ×2",factor:2},{id:"rep3",label:"Réplication ×3",factor:3},{id:"ec42",label:"Erasure 4+2",factor:1.5},{id:"ec82",label:"Erasure 8+2",factor:1.25}] },
 };
 
@@ -810,6 +810,8 @@ function ComputeCalc({ th }) {
   const [hciDiskId,        setHciDiskId]        = useState("nvme-384");
   const [hciDisksPerNode,  setHciDisksPerNode]  = useState(8);
   const [hciStorageTarget, setHciStorageTarget] = useState(100);
+  const [dedupEnabled, setDedupEnabled] = useState(false);
+  const [dedupRatio, setDedupRatio] = useState(3.0);
 
   const hciProfile = HCI_PROFILES[hciSolution];
   const hciResilOpt = hciProfile.resiliency.find(r => r.id === hciResil) || hciProfile.resiliency[0];
@@ -844,16 +846,20 @@ function ComputeCalc({ th }) {
     const usable      = afterOH / hciResilOpt.factor * (1 - hciProfile.metadataReserve);
     const storageOk   = usable >= hciStorageTarget;
 
+    const effective = dedupEnabled ? usable * dedupRatio : usable;
+    const savedByDedup = dedupEnabled ? effective - usable : 0;
+
     return {
       srcTotalCores, srcTotalFreq, srcTotalRam,
       tgtTotalCores, tgtTotalFreq, tgtTotalRam,
       haCores, haFreq, haRam, haPct,
       gainCores, gainRam, gainFreq,
-      rawCluster, usable, storageOk,
+      rawCluster, usable, storageOk, effective, savedByDedup,
     };
   }, [srcNodes, srcSockets, srcCores, srcFreq, srcRam,
       tgtNodes, tgtSockets, tgtCores, tgtFreq, tgtRam,
-      haPolicy, hciDisk, hciDisksPerNode, hciProfile, hciResilOpt, hciStorageTarget]);
+      haPolicy, hciDisk, hciDisksPerNode, hciProfile, hciResilOpt, hciStorageTarget,
+      dedupEnabled, dedupRatio]);
 
   const tt = { background: th.tooltipBg, border: `1px solid ${th.border2}`, borderRadius: 4, fontSize: 11, color: th.t1 };
 
@@ -911,7 +917,9 @@ function ComputeCalc({ th }) {
           <XAxis dataKey="name" tick={{fontSize:10,fill:th.t2}} />
           <YAxis tick={{fontSize:10,fill:th.t2}} unit={unit?" "+unit:""} />
           <Tooltip contentStyle={tt} formatter={v=>[fmt(v,1)+(unit?" "+unit:"")]} />
-          <Bar dataKey="value" radius={[3,3,0,0]} isAnimationActive={false} fill="#00d4aa"/>
+          <Bar dataKey="value" radius={[3,3,0,0]} isAnimationActive={false}>
+            {data.map((d,i)=><Cell key={i} fill={d.fill}/>)}
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
     );
@@ -1034,7 +1042,7 @@ function ComputeCalc({ th }) {
         <div style={{display:"grid",gridTemplateColumns:"1fr",gap:14}}>
           <div style={s.card(th.accent)}>
             <div style={s.secTitle}>Configuration HCI</div>
-            <SF label="Solution HCI" value={hciSolution} onChange={v=>{setHciSolution(v);setHciResil(HCI_PROFILES[v].resiliency[0].id);}}
+            <SF label="Solution HCI" value={hciSolution} onChange={v=>{setHciSolution(v);setHciResil(HCI_PROFILES[v].resiliency[0].id);setDedupRatio(HCI_PROFILES[v].defaultDedup);}}
               options={Object.entries(HCI_PROFILES).map(([k,p])=>({value:k,label:p.label}))} />
             <SF label="Politique de résilience" value={hciResil} onChange={setHciResil}
               options={hciProfile.resiliency.map(r=>({value:r.id,label:r.label}))} />
@@ -1043,6 +1051,25 @@ function ComputeCalc({ th }) {
             <NF label="Disques / nœud" value={hciDisksPerNode} onChange={setHciDisksPerNode} min={1} max={24} unit="disques" />
             <NF label="Capacité utile cible" value={hciStorageTarget} onChange={setHciStorageTarget} min={1} step={10} unit="To" />
             <hr style={s.divider}/>
+            <div style={{marginBottom:12}}>
+              <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:12,color:dedupEnabled?th.accent:th.t2,fontFamily:"monospace"}}>
+                <input type="checkbox" checked={dedupEnabled} onChange={e=>{setDedupEnabled(e.target.checked);if(e.target.checked)setDedupRatio(hciProfile.defaultDedup);}} style={{accentColor:th.accent}} />
+                Déduplication / Compression
+                {dedupEnabled && <span style={{fontSize:10,color:th.t3,marginLeft:4}}>ratio par défaut : {hciProfile.defaultDedup}:1</span>}
+              </label>
+              {dedupEnabled && (
+                <div style={{marginTop:8}}>
+                  <label style={s.label}>Ratio dédup / compression</label>
+                  <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                    <input type="range" min={1} max={10} step={0.5} value={dedupRatio}
+                      onChange={e=>setDedupRatio(Number(e.target.value))}
+                      style={{flex:1,accentColor:th.accent}} />
+                    <span style={{fontFamily:"monospace",fontSize:12,color:th.accent,minWidth:40,textAlign:"right"}}>{dedupRatio}:1</span>
+                  </div>
+                </div>
+              )}
+            </div>
+            <hr style={s.divider}/>
             <RR label="Brut / nœud" value={fmt(hciDisksPerNode*hciDisk.cap,2)+" To"} />
             <RR label="Brut cluster" value={fmt(r.rawCluster,2)+" To"} />
             <RR label="Overhead" value={fmt(hciProfile.overhead*100,0)+" %"} color={th.warn} />
@@ -1050,6 +1077,27 @@ function ComputeCalc({ th }) {
             <RR label="Réserve metadata" value={fmt(hciProfile.metadataReserve*100,0)+" %"} color={th.warn} />
             <RR label="Capacité utile" value={fmt(r.usable,2)+" To"} color={r.storageOk?th.accent:th.danger} />
             <RR label="Objectif atteint" value={r.storageOk?"✓ OUI":"✗ NON — ajouter des disques"} color={r.storageOk?th.accent:th.danger} />
+            {dedupEnabled && (<>
+              <hr style={s.divider}/>
+              <RR label={"Capacité effective (×"+dedupRatio+")"} value={fmt(r.effective,2)+" To"} color={th.accent} />
+              <RR label="Économie dédup/compression" value={"+"+fmt(r.savedByDedup,2)+" To"} color={th.accent} />
+              <div style={{marginTop:12}}>
+                <div style={{fontSize:10,color:th.t3,fontFamily:"monospace",marginBottom:6,textTransform:"uppercase",letterSpacing:"0.08em"}}>Utile vs Effective</div>
+                <div style={{display:"flex",gap:6,alignItems:"flex-end",height:60}}>
+                  {[{label:"Utile",val:r.usable,color:th.accent2},{label:"Effective",val:r.effective,color:th.accent}].map((b,i)=>{
+                    const maxVal = Math.max(r.usable, r.effective);
+                    const h = maxVal > 0 ? Math.round((b.val/maxVal)*50)+8 : 8;
+                    return (
+                      <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                        <span style={{fontSize:10,fontFamily:"monospace",color:b.color,fontWeight:600}}>{fmt(b.val,1)} To</span>
+                        <div style={{width:"100%",height:h,background:b.color,borderRadius:"3px 3px 0 0",opacity:0.85}}/>
+                        <span style={{fontSize:9,color:th.t3,fontFamily:"monospace"}}>{b.label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </>)}
           </div>
 
         </div>
