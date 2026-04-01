@@ -1,204 +1,231 @@
 import { useState, useMemo } from "react";
 import {
-  Server, HardDrive, Cloud, Users, Sun, Moon,
-  CheckCircle, AlertTriangle, Info, ChevronRight,
-  Cpu, Database, BarChart2, Settings
+  Server, HardDrive, Cloud, Users, Cpu,
+  Database, BarChart2, Settings, Shield,
+  CheckCircle, AlertTriangle, Info, ChevronRight
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  Legend, ResponsiveContainer, RadarChart, Radar,
-  PolarGrid, PolarAngleAxis, PolarRadiusAxis
+  Legend, ResponsiveContainer
 } from "recharts";
 
+// ─── Design tokens ────────────────────────────────────────────────────────────
+const T = {
+  bg0: "#0a0b0d", bg1: "#111318", bg2: "#181b22", bg3: "#1e2230",
+  accent: "#00d4aa", accent2: "#0099ff", accent3: "#ff6b35",
+  warn: "#ffb347", danger: "#ff5555",
+  t1: "#e8eaf0", t2: "#8b90a0", t3: "#4a5068",
+  border: "rgba(255,255,255,0.07)", border2: "rgba(0,212,170,0.2)",
+};
+
+const css = {
+  root: { fontFamily: "'Inter', system-ui, sans-serif", background: T.bg0, color: T.t1, minHeight: "100vh", display: "flex" },
+  sidebar: { width: 210, minWidth: 210, background: T.bg1, borderRight: `1px solid ${T.border}`, display: "flex", flexDirection: "column", padding: "16px 0" },
+  logo: { padding: "0 16px 16px", borderBottom: `1px solid ${T.border}`, marginBottom: 12 },
+  logoTitle: { fontSize: 15, fontWeight: 700, color: T.accent, letterSpacing: "0.08em", textTransform: "uppercase" },
+  logoSub: { fontSize: 10, color: T.t3, fontFamily: "monospace", marginTop: 2 },
+  navSection: { padding: "8px 16px 4px", fontSize: 9, color: T.t3, textTransform: "uppercase", letterSpacing: "0.12em", fontFamily: "monospace" },
+  main: { flex: 1, overflowY: "auto", padding: 28 },
+  topbar: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 },
+  pageTitle: { fontSize: 20, fontWeight: 700, color: T.t1 },
+  pageSub: { fontSize: 11, color: T.t3, fontFamily: "monospace", marginTop: 3 },
+  badge: { fontSize: 9, background: "rgba(0,212,170,0.1)", color: T.accent, padding: "4px 10px", borderRadius: 3, fontFamily: "monospace", border: `1px solid ${T.border2}`, textTransform: "uppercase", letterSpacing: "0.08em" },
+  grid2: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 },
+  grid3: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 14 },
+  grid4: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 20 },
+  card: { background: T.bg1, border: `1px solid ${T.border}`, borderRadius: 6, padding: 18 },
+  cardAccent: { borderLeft: `2px solid ${T.accent}` },
+  cardAccent2: { borderLeft: `2px solid ${T.accent2}` },
+  cardAccent3: { borderLeft: `2px solid ${T.accent3}` },
+  cardWarn: { borderLeft: `2px solid ${T.warn}` },
+  sectionTitle: { fontSize: 10, fontWeight: 600, color: T.t2, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 14, paddingBottom: 8, borderBottom: `1px solid ${T.border}`, fontFamily: "monospace" },
+  kpiLabel: { fontSize: 10, color: T.t3, fontFamily: "monospace", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 },
+  kpiVal: (color = T.t1) => ({ fontSize: 24, fontWeight: 600, fontFamily: "monospace", color }),
+  kpiSub: { fontSize: 10, color: T.t3, fontFamily: "monospace", marginTop: 3 },
+  field: { marginBottom: 14 },
+  label: { display: "block", fontSize: 10, color: T.t3, fontFamily: "monospace", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 5 },
+  input: { width: "100%", background: T.bg2, border: `1px solid ${T.border}`, borderRadius: 4, padding: "7px 10px", color: T.t1, fontFamily: "monospace", fontSize: 13, boxSizing: "border-box" },
+  select: { width: "100%", background: T.bg2, border: `1px solid ${T.border}`, borderRadius: 4, padding: "7px 10px", color: T.t1, fontFamily: "monospace", fontSize: 12, boxSizing: "border-box" },
+  resultRow: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${T.border}` },
+  resultLabel: { fontSize: 12, color: T.t2 },
+  infoBox: { background: "rgba(0,153,255,0.08)", border: `1px solid rgba(0,153,255,0.2)`, borderRadius: 4, padding: "8px 12px", fontSize: 11, color: "#7ab8ff", fontFamily: "monospace", marginBottom: 14, display: "flex", gap: 8, alignItems: "flex-start" },
+  alertBox: { background: "rgba(255,107,53,0.08)", border: `1px solid rgba(255,107,53,0.25)`, borderRadius: 4, padding: "8px 12px", fontSize: 11, color: T.warn, fontFamily: "monospace", marginBottom: 12, display: "flex", gap: 8, alignItems: "flex-start" },
+  okBox: { background: "rgba(0,212,170,0.07)", border: `1px solid rgba(0,212,170,0.2)`, borderRadius: 4, padding: "8px 12px", fontSize: 11, color: T.accent, fontFamily: "monospace", marginBottom: 12, display: "flex", gap: 8, alignItems: "flex-start" },
+  divider: { border: "none", borderTop: `1px solid ${T.border}`, margin: "14px 0" },
+};
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-const fmt = (n, dec = 0) =>
-  Number.isFinite(n) ? n.toLocaleString("fr-FR", { maximumFractionDigits: dec }) : "—";
+const fmt = (n, dec = 0) => Number.isFinite(n) ? n.toLocaleString("fr-FR", { maximumFractionDigits: dec }) : "—";
 
-const Badge = ({ ok, children }) => (
-  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold
-    ${ok ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
-    {ok ? <CheckCircle size={11} /> : <AlertTriangle size={11} />}
-    {children}
-  </span>
-);
-
-const Card = ({ title, icon: Icon, children, dark }) => (
-  <div className={`rounded-2xl border p-5 shadow-sm
-    ${dark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"}`}>
-    {title && (
-      <div className="flex items-center gap-2 mb-4">
-        {Icon && <Icon size={16} className="text-indigo-500" />}
-        <h3 className={`font-semibold text-sm ${dark ? "text-slate-200" : "text-slate-700"}`}>
-          {title}
-        </h3>
-      </div>
-    )}
-    {children}
-  </div>
-);
-
-const Input = ({ label, value, onChange, min, max, step = 1, unit, dark, note }) => (
-  <div className="flex flex-col gap-1">
-    <label className={`text-xs font-medium ${dark ? "text-slate-400" : "text-slate-500"}`}>
+function NavItem({ icon: Icon, label, active, onClick }) {
+  return (
+    <div onClick={onClick} style={{
+      display: "flex", alignItems: "center", gap: 8, padding: "8px 16px",
+      cursor: "pointer", fontSize: 12, color: active ? T.accent : T.t2,
+      borderLeft: `2px solid ${active ? T.accent : "transparent"}`,
+      background: active ? "rgba(0,212,170,0.06)" : "transparent",
+      transition: "all 0.15s",
+    }}>
+      <Icon size={13} />
       {label}
-    </label>
-    <div className="flex items-center gap-2">
-      <input
-        type="number" value={value} min={min} max={max} step={step}
-        onChange={e => onChange(Number(e.target.value))}
-        className={`w-full rounded-lg border px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-400
-          ${dark
-            ? "bg-slate-700 border-slate-600 text-indigo-300"
-            : "bg-indigo-50 border-indigo-200 text-indigo-700"}`}
-      />
-      {unit && <span className={`text-xs whitespace-nowrap ${dark ? "text-slate-400" : "text-slate-400"}`}>{unit}</span>}
     </div>
-    {note && <p className={`text-xs italic ${dark ? "text-slate-500" : "text-slate-400"}`}>{note}</p>}
-  </div>
-);
+  );
+}
 
-const Select = ({ label, value, onChange, options, dark }) => (
-  <div className="flex flex-col gap-1">
-    <label className={`text-xs font-medium ${dark ? "text-slate-400" : "text-slate-500"}`}>{label}</label>
-    <select
-      value={value} onChange={e => onChange(e.target.value)}
-      className={`rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400
-        ${dark ? "bg-slate-700 border-slate-600 text-indigo-300" : "bg-indigo-50 border-indigo-200 text-indigo-700"}`}>
-      {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-    </select>
-  </div>
-);
-
-const ResultRow = ({ label, value, unit, highlight, dark, ok }) => (
-  <div className={`flex items-center justify-between py-2 px-3 rounded-lg
-    ${highlight
-      ? dark ? "bg-indigo-900/40 border border-indigo-600" : "bg-indigo-50 border border-indigo-200"
-      : dark ? "bg-slate-700/40" : "bg-slate-50"}`}>
-    <span className={`text-sm ${dark ? "text-slate-300" : "text-slate-600"}`}>{label}</span>
-    <div className="flex items-center gap-2">
-      <span className={`text-sm font-bold font-mono
-        ${highlight
-          ? dark ? "text-indigo-300" : "text-indigo-700"
-          : dark ? "text-slate-200" : "text-slate-800"}`}>
-        {value}
-      </span>
-      {unit && <span className={`text-xs ${dark ? "text-slate-500" : "text-slate-400"}`}>{unit}</span>}
-      {ok !== undefined && <Badge ok={ok}>{ok ? "OK" : "Attention"}</Badge>}
+function KpiCard({ label, value, color, sub }) {
+  return (
+    <div style={css.card}>
+      <div style={css.kpiLabel}>{label}</div>
+      <div style={css.kpiVal(color || T.accent)}>{value}</div>
+      {sub && <div style={css.kpiSub}>{sub}</div>}
     </div>
-  </div>
-);
+  );
+}
 
-const SectionTitle = ({ children, dark }) => (
-  <h2 className={`text-lg font-bold mb-4 ${dark ? "text-white" : "text-slate-800"}`}>{children}</h2>
-);
+function ResultRow({ label, value, highlight, warn, danger }) {
+  const color = danger ? T.danger : warn ? T.warn : highlight ? T.accent : T.t1;
+  return (
+    <div style={{ ...css.resultRow }}>
+      <span style={css.resultLabel}>{label}</span>
+      <span style={{ fontFamily: "monospace", fontWeight: 600, fontSize: 13, color }}>{value}</span>
+    </div>
+  );
+}
 
-// ─── 1. VMware Calculator ─────────────────────────────────────────────────────
-function VMwareCalc({ dark }) {
+function Field({ label, children }) {
+  return <div style={css.field}><label style={css.label}>{label}</label>{children}</div>;
+}
+
+function SliderField({ label, min, max, step = 1, value, onChange, display }) {
+  return (
+    <Field label={label}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <input type="range" min={min} max={max} step={step} value={value}
+          onChange={e => onChange(Number(e.target.value))}
+          style={{ flex: 1, accentColor: T.accent }} />
+        <span style={{ fontFamily: "monospace", fontSize: 12, color: T.accent, minWidth: 50, textAlign: "right" }}>
+          {display || value}
+        </span>
+      </div>
+    </Field>
+  );
+}
+
+function NumField({ label, min, max, step = 1, value, onChange, unit, note }) {
+  return (
+    <Field label={label}>
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <input type="number" min={min} max={max} step={step} value={value}
+          onChange={e => onChange(Number(e.target.value))}
+          style={css.input} />
+        {unit && <span style={{ fontSize: 11, color: T.t3, whiteSpace: "nowrap" }}>{unit}</span>}
+      </div>
+      {note && <div style={{ fontSize: 10, color: T.t3, marginTop: 3 }}>{note}</div>}
+    </Field>
+  );
+}
+
+function SelectField({ label, value, onChange, options }) {
+  return (
+    <Field label={label}>
+      <select value={value} onChange={e => onChange(e.target.value)} style={css.select}>
+        {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+    </Field>
+  );
+}
+
+const tooltipStyle = { background: T.bg2, border: `1px solid ${T.border2}`, borderRadius: 4, fontSize: 11 };
+
+// ─── 1. VMware ────────────────────────────────────────────────────────────────
+function VMwareCalc() {
   const [nodes, setNodes] = useState(6);
   const [sockets, setSockets] = useState(1);
   const [cores, setCores] = useState(32);
   const [ram, setRam] = useState(768);
   const [overcommit, setOvercommit] = useState(3.75);
-  const MIN_CORES = 16;
 
   const r = useMemo(() => {
     const totalSockets = nodes * sockets;
-    const totalPhysicalCores = totalSockets * cores;
-    const billedCoresPerSocket = Math.max(cores, MIN_CORES);
-    const totalBilledCores = totalSockets * billedCoresPerSocket;
-    const totalRamGo = nodes * ram;
-    const totalRamTo = totalRamGo / 1024;
-    const vcpuTotal = totalPhysicalCores * overcommit;
-    const haRam = (nodes - 1) * ram / 1024;
+    const totalPhys = totalSockets * cores;
+    const billedPerSocket = Math.max(cores, 16);
+    const totalBilled = totalSockets * billedPerSocket;
+    const totalRamTo = (nodes * ram) / 1024;
+    const vcpuTotal = totalPhys * overcommit;
+    const haRam = ((nodes - 1) * ram) / 1024;
     const haCores = (nodes - 1) * sockets * cores;
     const haVcpu = haCores * overcommit;
-    const haRamOk = haRam >= 4.5;
-    const haVcpuOk = haVcpu >= 750;
     const haPct = nodes > 0 ? (1 / nodes) * 100 : 0;
-    return {
-      totalSockets, totalPhysicalCores, billedCoresPerSocket,
-      totalBilledCores, totalRamGo, totalRamTo, vcpuTotal,
-      haRam, haCores, haVcpu, haRamOk, haVcpuOk, haPct
-    };
+    return { totalSockets, totalPhys, billedPerSocket, totalBilled, totalRamTo, vcpuTotal, haRam, haCores, haVcpu, haPct, haRamOk: haRam >= 4.5, haVcpuOk: haVcpu >= 750 };
   }, [nodes, sockets, cores, ram, overcommit]);
 
   const chartData = [
-    { name: "Normal", RAM: r.totalRamTo, vCPU: r.vcpuTotal / 100 },
-    { name: "HA (N-1)", RAM: r.haRam, vCPU: r.haVcpu / 100 },
+    { name: "Normal", RAM: +r.totalRamTo.toFixed(2), vCPU: +(r.vcpuTotal / 100).toFixed(1) },
+    { name: "HA (N-1)", RAM: +r.haRam.toFixed(2), vCPU: +(r.haVcpu / 100).toFixed(1) },
     { name: "Cible CDC", RAM: 4.5, vCPU: 7.5 },
   ];
 
   return (
-    <div className="space-y-5">
-      <SectionTitle dark={dark}>🖥 Licences VMware — Broadcom VVF/VCF</SectionTitle>
-      <div className={`flex items-start gap-2 p-3 rounded-xl text-xs
-        ${dark ? "bg-blue-900/30 text-blue-300 border border-blue-700" : "bg-blue-50 text-blue-700 border border-blue-200"}`}>
-        <Info size={14} className="mt-0.5 shrink-0" />
-        Modèle Broadcom (2024+) : facturation par cœur physique, minimum 16 cœurs par socket.
-        Les cœurs en dessous du seuil sont automatiquement arrondis à 16.
+    <div>
+      <div style={{ ...css.infoBox }}>
+        <Info size={13} style={{ marginTop: 1, flexShrink: 0 }} />
+        Broadcom 2024+ : facturation par cœur physique, minimum 16 cœurs par socket.
       </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card title="Paramètres Infrastructure" icon={Server} dark={dark}>
-          <div className="space-y-3">
-            <Input label="Nombre de nœuds" value={nodes} onChange={setNodes} min={1} max={32} unit="serveurs" dark={dark} />
-            <Input label="Sockets par nœud" value={sockets} onChange={setSockets} min={1} max={4} unit="sockets" dark={dark} note="1 = mono-proc | 2 = bi-proc" />
-            <Input label="Cœurs par socket" value={cores} onChange={setCores} min={4} max={128} step={2} unit="cœurs" dark={dark} note="Modèle Xeon : 16, 24, 32, 36, 48..." />
-            <Input label="RAM par nœud" value={ram} onChange={setRam} min={64} max={6144} step={64} unit="Go" dark={dark} />
-            <Input label="Overcommit vCPU" value={overcommit} onChange={setOvercommit} min={1} max={10} step={0.25} unit="vCPU/cœur" dark={dark} note="CDC CESI : 3,75 recommandé" />
-          </div>
-        </Card>
-
-        <Card title="Résultats Licences" icon={Cpu} dark={dark}>
-          <div className="space-y-2">
-            <ResultRow label="Total sockets" value={fmt(r.totalSockets)} unit="sockets" dark={dark} />
-            <ResultRow label="Cœurs physiques" value={fmt(r.totalPhysicalCores)} unit="cœurs" dark={dark} />
-            <ResultRow label="Min. Broadcom/socket" value={fmt(r.billedCoresPerSocket)} unit="cœurs" dark={dark} />
-            <ResultRow label="⭐ Cœurs facturés VMware" value={fmt(r.totalBilledCores)} unit="cœurs" highlight dark={dark} />
-            <div className={`mt-3 pt-3 border-t ${dark ? "border-slate-700" : "border-slate-100"}`}>
-              <ResultRow label="RAM totale" value={fmt(r.totalRamTo, 2)} unit="To" dark={dark} />
-              <ResultRow label="vCPU cluster" value={fmt(r.vcpuTotal)} unit="vCPU" dark={dark} />
-            </div>
-          </div>
-        </Card>
-
-        <Card title="Analyse HA (N+1)" icon={Settings} dark={dark}>
-          <div className="space-y-2">
-            <ResultRow label="Hosts disponibles" value={fmt(nodes - 1)} unit="hosts" dark={dark} ok={nodes - 1 >= 1} />
-            <ResultRow label="RAM disponible" value={fmt(r.haRam, 2)} unit="To" dark={dark} ok={r.haRamOk} />
-            <ResultRow label="Cœurs disponibles" value={fmt(r.haCores)} unit="cœurs" dark={dark} ok={r.haCores >= 100} />
-            <ResultRow label="vCPU disponibles" value={fmt(r.haVcpu)} unit="vCPU" dark={dark} ok={r.haVcpuOk} />
-            <ResultRow label="Capacité perdue" value={`${fmt(r.haPct, 1)} %`} dark={dark} ok={r.haPct <= 20} />
-          </div>
-          <div className={`mt-3 p-2 rounded-lg text-xs italic
-            ${dark ? "bg-slate-700 text-slate-400" : "bg-slate-50 text-slate-500"}`}>
+      <div style={css.grid4}>
+        <KpiCard label="Nœuds" value={nodes} />
+        <KpiCard label="Cœurs facturés" value={fmt(r.totalBilled)} />
+        <KpiCard label="RAM totale" value={fmt(r.totalRamTo, 2) + " To"} color={T.t1} />
+        <KpiCard label="Statut HA" value={r.haRamOk && r.haVcpuOk ? "OK" : "WARN"} color={r.haRamOk && r.haVcpuOk ? T.accent : T.warn} />
+      </div>
+      <div style={css.grid3}>
+        <div style={{ ...css.card, ...css.cardAccent }}>
+          <div style={css.sectionTitle}>Paramètres cluster</div>
+          <SliderField label="Nœuds" min={2} max={32} value={nodes} onChange={setNodes} />
+          <SliderField label="Sockets / nœud" min={1} max={4} value={sockets} onChange={setSockets} />
+          <SliderField label="Cœurs physiques / socket" min={4} max={64} step={2} value={cores} onChange={setCores} />
+          <NumField label="RAM / nœud" value={ram} onChange={setRam} min={64} max={6144} step={64} unit="Go" note="Xeon typique : 256, 512, 768 Go" />
+          <NumField label="Overcommit vCPU" value={overcommit} onChange={setOvercommit} min={1} max={10} step={0.25} unit="vCPU/cœur" note="CDC CESI : 3,75 recommandé" />
+        </div>
+        <div style={{ ...css.card, ...css.cardAccent2 }}>
+          <div style={css.sectionTitle}>Résultats licensing</div>
+          {r.haRamOk && r.haVcpuOk
+            ? <div style={css.okBox}><CheckCircle size={13} />Cluster HA validé — N-1 nominal</div>
+            : <div style={css.alertBox}><AlertTriangle size={13} />Capacité HA insuffisante</div>}
+          <ResultRow label="Total sockets" value={fmt(r.totalSockets) + " sockets"} />
+          <ResultRow label="Cœurs physiques totaux" value={fmt(r.totalPhys) + " cœurs"} />
+          <ResultRow label="Règle min 16/socket" value={fmt(r.billedPerSocket) + " cœurs"} />
+          <ResultRow label="Cœurs facturés VMware" value={fmt(r.totalBilled) + " cœurs"} highlight />
+          <ResultRow label="Packs 2-cœurs" value={fmt(Math.ceil(r.totalBilled / 2)) + " packs"} highlight />
+          <hr style={css.divider} />
+          <ResultRow label="Cœurs N-1 (HA)" value={fmt(r.haCores) + " cœurs"} />
+          <ResultRow label="RAM N-1 (HA)" value={fmt(r.haRam, 2) + " To"} />
+          <ResultRow label="vCPU N-1" value={fmt(r.haVcpu) + " vCPU"} />
+          <ResultRow label="Capacité perdue HA" value={fmt(r.haPct, 1) + " %"} warn={r.haPct > 20} />
+        </div>
+        <div style={{ ...css.card }}>
+          <div style={css.sectionTitle}>Normal vs HA vs Cible CDC</div>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={chartData} barCategoryGap="30%">
+              <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
+              <XAxis dataKey="name" tick={{ fontSize: 11, fill: T.t2 }} />
+              <YAxis tick={{ fontSize: 10, fill: T.t2 }} />
+              <Tooltip contentStyle={tooltipStyle} />
+              <Legend wrapperStyle={{ fontSize: 11, color: T.t2 }} />
+              <Bar dataKey="RAM" name="RAM (To)" fill={T.accent2} radius={[3, 3, 0, 0]} />
+              <Bar dataKey="vCPU" name="vCPU (×100)" fill={T.accent} radius={[3, 3, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+          <div style={{ fontSize: 10, color: T.t3, marginTop: 8, fontFamily: "monospace" }}>
             Cibles CDC : RAM ≥ 4,5 To · vCPU ≥ 750 · perte &lt; 20 %
           </div>
-        </Card>
+        </div>
       </div>
-
-      <Card title="Comparaison Normal vs HA vs Cible CDC" icon={BarChart2} dark={dark}>
-        <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={chartData} barCategoryGap="30%">
-            <CartesianGrid strokeDasharray="3 3" stroke={dark ? "#334155" : "#e2e8f0"} />
-            <XAxis dataKey="name" tick={{ fontSize: 12, fill: dark ? "#94a3b8" : "#64748b" }} />
-            <YAxis tick={{ fontSize: 11, fill: dark ? "#94a3b8" : "#64748b" }} />
-            <Tooltip
-              contentStyle={{ background: dark ? "#1e293b" : "#fff", border: "1px solid #6366f1", borderRadius: 8 }}
-              labelStyle={{ color: dark ? "#e2e8f0" : "#1e293b" }}
-            />
-            <Legend />
-            <Bar dataKey="RAM" name="RAM (To)" fill="#6366f1" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="vCPU" name="vCPU (×100)" fill="#10b981" radius={[4, 4, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </Card>
     </div>
   );
 }
 
-// ─── 2. Microsoft Windows Server / SQL Server ──────────────────────────────────
-function MicrosoftServerCalc({ dark }) {
+// ─── 2. Windows Server & SQL ──────────────────────────────────────────────────
+function WindowsCalc() {
   const [servers, setServers] = useState(6);
   const [coresPerServer, setCoresPerServer] = useState(32);
   const [vms, setVms] = useState(136);
@@ -208,314 +235,151 @@ function MicrosoftServerCalc({ dark }) {
   const [sqlEdition, setSqlEdition] = useState("standard");
 
   const r = useMemo(() => {
-    const coresPerLic = 2; // vendu par pack de 2
-    const minCoresPerServer = 16;
-    const effectiveCores = Math.max(coresPerServer, minCoresPerServer);
-    const corePacksPerServer = Math.ceil(effectiveCores / coresPerLic);
-
+    const effective = Math.max(coresPerServer, 16);
+    const packsPerServer = Math.ceil(effective / 2);
     let wsLicenses, wsComment;
     if (wsEdition === "datacenter") {
-      wsLicenses = servers * corePacksPerServer;
+      wsLicenses = servers * packsPerServer;
       wsComment = "Datacenter : VMs illimitées par serveur licencié";
     } else {
-      const licPerServer = Math.ceil(vms / servers / 2);
-      const licPacksPerServer = Math.max(corePacksPerServer, licPerServer * corePacksPerServer);
-      wsLicenses = servers * Math.max(corePacksPerServer, Math.ceil(vms / 2) * corePacksPerServer / corePacksPerServer);
-      wsLicenses = servers * corePacksPerServer * Math.ceil(vms / (servers * 2));
-      wsComment = `Standard : 2 VMs par licence serveur → ${Math.ceil(vms / 2)} licences totales requises`;
-      wsLicenses = Math.ceil(vms / 2) * corePacksPerServer;
+      wsLicenses = Math.ceil(vms / 2) * packsPerServer;
+      wsComment = `Standard : 2 VMs par licence → ${Math.ceil(vms / 2)} licences requises`;
     }
-
-    const sqlCorePacksPerInstance = Math.max(4, Math.ceil(sqlCores / 2));
-    let sqlLicenses;
-    if (sqlEdition === "standard") {
-      sqlLicenses = sqlInstances * sqlCorePacksPerInstance;
-    } else {
-      sqlLicenses = sqlInstances * Math.max(4, Math.ceil(sqlCores / 2));
-    }
-
-    return {
-      effectiveCores,
-      corePacksPerServer,
-      wsLicenses,
-      wsComment,
-      sqlLicenses,
-      sqlCorePacksPerInstance,
-      totalCorePacksWs: servers * corePacksPerServer,
-    };
+    const sqlPacksPerInst = Math.max(4, Math.ceil(sqlCores / 2));
+    const sqlLicenses = sqlInstances * sqlPacksPerInst;
+    return { effective, packsPerServer, wsLicenses, wsComment, sqlPacksPerInst, sqlLicenses };
   }, [servers, coresPerServer, vms, wsEdition, sqlInstances, sqlCores, sqlEdition]);
 
+  const sqlWarn = sqlEdition === "standard" && sqlCores > 24;
+
   return (
-    <div className="space-y-5">
-      <SectionTitle dark={dark}>🪟 Licences Microsoft — Windows Server & SQL Server</SectionTitle>
-      <div className={`flex items-start gap-2 p-3 rounded-xl text-xs
-        ${dark ? "bg-violet-900/30 text-violet-300 border border-violet-700" : "bg-violet-50 text-violet-700 border border-violet-200"}`}>
-        <Info size={14} className="mt-0.5 shrink-0" />
-        Windows Server : vendu par packs de 2 cœurs, minimum 16 cœurs/serveur (8 packs).
-        Datacenter = VMs illimitées. Standard = 2 VMs par licence serveur complète.
+    <div>
+      <div style={css.infoBox}>
+        <Info size={13} style={{ marginTop: 1, flexShrink: 0 }} />
+        Windows Server vendu par packs de 2 cœurs, minimum 16 cœurs/serveur. Datacenter = VMs illimitées. Standard = 2 VMs/licence.
       </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card title="Windows Server" icon={Server} dark={dark}>
-          <div className="space-y-3 mb-4">
-            <Input label="Nombre de serveurs physiques" value={servers} onChange={setServers} min={1} max={100} unit="serveurs" dark={dark} />
-            <Input label="Cœurs physiques par serveur" value={coresPerServer} onChange={setCoresPerServer} min={4} max={128} step={2} unit="cœurs" dark={dark} />
-            <Input label="Nombre de VMs total" value={vms} onChange={setVms} min={1} max={5000} unit="VMs" dark={dark} />
-            <Select label="Édition" value={wsEdition} onChange={setWsEdition} dark={dark}
-              options={[
-                { value: "datacenter", label: "Datacenter (VMs illimitées)" },
-                { value: "standard", label: "Standard (2 VMs / licence)" },
-              ]} />
-          </div>
-          <div className="space-y-2">
-            <ResultRow label="Cœurs effectifs/serveur" value={fmt(r.effectiveCores)} unit="cœurs" dark={dark} />
-            <ResultRow label="Packs 2-cœurs/serveur" value={fmt(r.corePacksPerServer)} unit="packs" dark={dark} />
-            <ResultRow label="⭐ Packs licences Windows Server" value={fmt(r.wsLicenses)} unit="packs de 2c" highlight dark={dark} />
-            <div className={`p-2 rounded-lg text-xs italic mt-2
-              ${dark ? "bg-slate-700 text-slate-400" : "bg-slate-50 text-slate-500"}`}>
-              {r.wsComment}
-            </div>
-          </div>
-        </Card>
-
-        <Card title="SQL Server" icon={Database} dark={dark}>
-          <div className="space-y-3 mb-4">
-            <Input label="Instances SQL Server" value={sqlInstances} onChange={setSqlInstances} min={1} max={100} unit="instances" dark={dark} />
-            <Input label="Cœurs par instance" value={sqlCores} onChange={setSqlCores} min={4} max={128} step={2} unit="cœurs" dark={dark} />
-            <Select label="Édition SQL" value={sqlEdition} onChange={setSqlEdition} dark={dark}
-              options={[
-                { value: "standard", label: "Standard (max 24c, 128 Go RAM)" },
-                { value: "enterprise", label: "Enterprise (illimité)" },
-              ]} />
-          </div>
-          <div className="space-y-2">
-            <ResultRow label="Packs 2-cœurs/instance" value={fmt(r.sqlCorePacksPerInstance)} unit="packs" dark={dark} />
-            <ResultRow label="⭐ Packs licences SQL Server" value={fmt(r.sqlLicenses)} unit="packs de 2c" highlight dark={dark} />
-            {sqlEdition === "standard" && sqlCores > 24 && (
-              <div className={`flex items-start gap-2 p-2 rounded-lg text-xs
-                ${dark ? "bg-amber-900/30 text-amber-300 border border-amber-700" : "bg-amber-50 text-amber-700 border border-amber-200"}`}>
-                <AlertTriangle size={12} className="shrink-0 mt-0.5" />
-                SQL Standard est limité à 24 cœurs — envisagez l'édition Enterprise.
-              </div>
-            )}
-            <div className={`p-2 rounded-lg text-xs italic mt-2
-              ${dark ? "bg-slate-700 text-slate-400" : "bg-slate-50 text-slate-500"}`}>
-              {sqlEdition === "standard"
-                ? "Standard : 4 cœurs min/instance, max 24 cœurs et 128 Go RAM"
-                : "Enterprise : pas de limite de cœurs ou de RAM"}
-            </div>
-          </div>
-        </Card>
+      <div style={css.grid4}>
+        <KpiCard label="Packs WS" value={fmt(r.wsLicenses)} />
+        <KpiCard label="Packs SQL" value={fmt(r.sqlLicenses)} color={T.accent2} />
+        <KpiCard label="VMs couvertes" value={wsEdition === "datacenter" ? "Illimitées" : fmt(vms)} color={T.t1} />
+        <KpiCard label="Statut SQL" value={sqlWarn ? "WARN" : "OK"} color={sqlWarn ? T.warn : T.accent} />
       </div>
-
-      <Card title="Récapitulatif" icon={BarChart2} dark={dark}>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {[
-            { label: "Serveurs physiques", value: fmt(servers), sub: "hôtes" },
-            { label: "VMs hébergées", value: fmt(vms), sub: "machines virtuelles" },
-            { label: "Packs Windows Server", value: fmt(r.wsLicenses), sub: "packs 2-cœurs" },
-            { label: "Packs SQL Server", value: fmt(r.sqlLicenses), sub: "packs 2-cœurs" },
-          ].map((item, i) => (
-            <div key={i} className={`rounded-xl p-4 text-center border
-              ${dark ? "bg-slate-700 border-slate-600" : "bg-indigo-50 border-indigo-100"}`}>
-              <div className={`text-2xl font-bold ${dark ? "text-indigo-300" : "text-indigo-700"}`}>
-                {item.value}
-              </div>
-              <div className={`text-xs font-medium mt-1 ${dark ? "text-slate-300" : "text-slate-700"}`}>
-                {item.label}
-              </div>
-              <div className={`text-xs mt-0.5 ${dark ? "text-slate-500" : "text-slate-400"}`}>
-                {item.sub}
-              </div>
-            </div>
-          ))}
+      <div style={css.grid2}>
+        <div style={{ ...css.card, ...css.cardAccent }}>
+          <div style={css.sectionTitle}>Windows Server</div>
+          <NumField label="Serveurs physiques" value={servers} onChange={setServers} min={1} max={100} unit="serveurs" />
+          <NumField label="Cœurs / serveur" value={coresPerServer} onChange={setCoresPerServer} min={4} max={128} step={2} unit="cœurs" />
+          <NumField label="Nombre de VMs" value={vms} onChange={setVms} min={1} max={5000} unit="VMs" />
+          <SelectField label="Édition Windows Server" value={wsEdition} onChange={setWsEdition}
+            options={[{ value: "datacenter", label: "Datacenter (VMs illimitées)" }, { value: "standard", label: "Standard (2 VMs / licence)" }]} />
+          <hr style={css.divider} />
+          <ResultRow label="Cœurs effectifs/serveur" value={fmt(r.effective) + " cœurs"} />
+          <ResultRow label="Packs 2-cœurs/serveur" value={fmt(r.packsPerServer) + " packs"} />
+          <ResultRow label="Packs Windows Server" value={fmt(r.wsLicenses) + " packs"} highlight />
+          <div style={{ fontSize: 10, color: T.t3, marginTop: 8, fontFamily: "monospace" }}>{r.wsComment}</div>
         </div>
-      </Card>
+        <div style={{ ...css.card, ...css.cardAccent2 }}>
+          <div style={css.sectionTitle}>SQL Server</div>
+          <NumField label="Instances SQL" value={sqlInstances} onChange={setSqlInstances} min={1} max={100} unit="instances" />
+          <NumField label="Cœurs / instance" value={sqlCores} onChange={setSqlCores} min={4} max={128} step={2} unit="cœurs" />
+          <SelectField label="Édition SQL" value={sqlEdition} onChange={setSqlEdition}
+            options={[{ value: "standard", label: "Standard (max 24c, 128 Go RAM)" }, { value: "enterprise", label: "Enterprise (illimité)" }]} />
+          <hr style={css.divider} />
+          {sqlWarn
+            ? <div style={css.alertBox}><AlertTriangle size={13} />SQL Standard limité à 24 cœurs — envisager Enterprise</div>
+            : <div style={css.okBox}><CheckCircle size={13} />Configuration SQL validée</div>}
+          <ResultRow label="Packs 2-cœurs / instance" value={fmt(r.sqlPacksPerInst) + " packs"} />
+          <ResultRow label="Packs SQL Server total" value={fmt(r.sqlLicenses) + " packs"} highlight />
+          <div style={{ fontSize: 10, color: T.t3, marginTop: 8, fontFamily: "monospace" }}>
+            {sqlEdition === "standard" ? "Standard : 4 cœurs min/instance, max 24c et 128 Go RAM" : "Enterprise : pas de limite de cœurs ou RAM"}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
 
-// ─── 3. Microsoft 365 ──────────────────────────────────────────────────────────
+// ─── 3. Microsoft 365 ─────────────────────────────────────────────────────────
 const M365_PLANS = [
-  { id: "f1",  name: "F1",  price: 2.25,  desc: "Terrain — accès web uniquement",       features: ["Teams", "SharePoint (lecture)", "Exchange 2 Go"] },
-  { id: "f3",  name: "F3",  price: 8,     desc: "Terrain + apps Office web",             features: ["Office Web Apps", "Teams", "SharePoint", "Intune (limité)"] },
-  { id: "bp",  name: "Business Basic", price: 6, desc: "PME — cloud uniquement",          features: ["Teams", "Exchange 50 Go", "SharePoint", "OneDrive 1 To"] },
-  { id: "bs",  name: "Business Standard", price: 12.50, desc: "PME — apps desktop",      features: ["Apps Office desktop", "Teams", "Exchange", "OneDrive"] },
-  { id: "bprem", name: "Business Premium", price: 22, desc: "PME — sécurité avancée",    features: ["Tout Business Standard", "Intune", "Entra P1", "Defender"] },
-  { id: "e3",  name: "Enterprise E3", price: 36, desc: "Entreprise — conformité",        features: ["Apps Office", "Teams", "Exchange", "Compliance", "Entra P1"] },
-  { id: "e5",  name: "Enterprise E5", price: 57, desc: "Entreprise — sécurité maximale", features: ["Tout E3", "Defender P2", "Entra P2", "Purview", "Power BI Pro"] },
+  { id: "f1", name: "F1", price: 2.25, desc: "Terrain / Firstline, pas d'apps desktop", features: ["Teams", "SharePoint", "Exchange basique"] },
+  { id: "bp", name: "Business Premium", price: 10.50, desc: "PME, sécurité intégrée", features: ["Apps Office", "Intune", "Defender"] },
+  { id: "e3", name: "E3", price: 32.00, desc: "Entreprise, conformité avancée", features: ["Apps Office", "Purview", "eDiscovery"] },
+  { id: "e5", name: "E5", price: 55.00, desc: "Sécurité maximale + analytics", features: ["Defender P2", "Sentinel", "Power BI Pro"] },
 ];
 
-function M365Calc({ dark }) {
+function M365Calc() {
   const [frontline, setFrontline] = useState(50);
-  const [business, setBusiness] = useState(150);
+  const [business, setBusiness] = useState(100);
   const [power, setPower] = useState(30);
-  const [security, setSecurity] = useState(true);
-  const [compliance, setCompliance] = useState(false);
+  const [needsCompliance, setNeedsCompliance] = useState(false);
+  const [needsAdvSec, setNeedsAdvSec] = useState(false);
 
-  const recommend = useMemo(() => {
+  const r = useMemo(() => {
+    const frontPlan = M365_PLANS.find(p => p.id === "f1");
+    const bizPlan = M365_PLANS.find(p => p.id === (needsCompliance ? "e3" : needsAdvSec ? "bp" : "bp"));
+    const powerPlan = M365_PLANS.find(p => p.id === (needsCompliance ? "e5" : "e3"));
     const total = frontline + business + power;
-    const recs = {};
-    if (frontline > 0) recs.frontline = security ? "f3" : "f1";
-    if (business > 0) recs.business = security ? "bprem" : "bs";
-    if (power > 0) recs.power = compliance ? "e5" : "e3";
-    return { recs, total };
-  }, [frontline, business, power, security, compliance]);
+    const monthly = frontline * frontPlan.price + business * bizPlan.price + power * powerPlan.price;
+    return { total, monthly, annual: monthly * 12, ppu: total > 0 ? monthly / total : 0, frontPlan, bizPlan, powerPlan };
+  }, [frontline, business, power, needsCompliance, needsAdvSec]);
 
-  const totalMonthly = useMemo(() => {
-    let t = 0;
-    const map = { frontline, business, power };
-    const counts = { frontline, business, power };
-    Object.entries(recommend.recs).forEach(([key, planId]) => {
-      const plan = M365_PLANS.find(p => p.id === planId);
-      if (plan) t += (counts[key] || 0) * plan.price;
-    });
-    return t;
-  }, [recommend, frontline, business, power]);
+  const barData = [
+    { name: "Terrain (F1)", cost: +(frontline * r.frontPlan.price).toFixed(0) },
+    { name: "Bureautique", cost: +(business * r.bizPlan.price).toFixed(0) },
+    { name: "Avancés", cost: +(power * r.powerPlan.price).toFixed(0) },
+  ];
 
   return (
-    <div className="space-y-5">
-      <SectionTitle dark={dark}>☁️ Licences Microsoft 365</SectionTitle>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card title="Profils Utilisateurs" icon={Users} dark={dark}>
-          <div className="space-y-3">
-            <Input label="Utilisateurs terrain (Frontline)" value={frontline} onChange={setFrontline} min={0} max={10000} unit="users" dark={dark} note="Sans bureau fixe, accès mobile/web" />
-            <Input label="Utilisateurs bureautique" value={business} onChange={setBusiness} min={0} max={10000} unit="users" dark={dark} note="Travail quotidien Office + Teams" />
-            <Input label="Utilisateurs avancés / IT" value={power} onChange={setPower} min={0} max={10000} unit="users" dark={dark} note="Besoins conformité, sécurité avancée" />
-            <div className={`border-t pt-3 mt-1 space-y-2 ${dark ? "border-slate-700" : "border-slate-100"}`}>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={security} onChange={e => setSecurity(e.target.checked)}
-                  className="rounded text-indigo-600" />
-                <span className={`text-xs ${dark ? "text-slate-300" : "text-slate-600"}`}>
-                  Sécurité avancée requise (Intune, Entra P1)
-                </span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={compliance} onChange={e => setCompliance(e.target.checked)}
-                  className="rounded text-indigo-600" />
-                <span className={`text-xs ${dark ? "text-slate-300" : "text-slate-600"}`}>
-                  Conformité & eDiscovery (Purview, Defender P2)
-                </span>
-              </label>
-            </div>
-          </div>
-        </Card>
-
-        <Card title="Recommandations" icon={CheckCircle} dark={dark}>
-          <div className="space-y-3">
-            {[
-              { key: "frontline", label: "Terrain", count: frontline },
-              { key: "business", label: "Bureautique", count: business },
-              { key: "power", label: "Avancés / IT", count: power },
-            ].filter(p => p.count > 0).map(profile => {
-              const planId = recommend.recs[profile.key];
-              const plan = M365_PLANS.find(p => p.id === planId);
-              return plan ? (
-                <div key={profile.key} className={`rounded-xl p-3 border
-                  ${dark ? "bg-slate-700 border-slate-600" : "bg-indigo-50 border-indigo-100"}`}>
-                  <div className="flex justify-between items-start mb-1">
-                    <div>
-                      <span className={`text-xs font-medium ${dark ? "text-slate-400" : "text-slate-500"}`}>
-                        {profile.label} — {fmt(profile.count)} users
-                      </span>
-                      <div className={`font-bold text-sm ${dark ? "text-indigo-300" : "text-indigo-700"}`}>
-                        M365 {plan.name}
-                      </div>
-                    </div>
-                    <span className={`text-xs font-mono font-bold ${dark ? "text-emerald-400" : "text-emerald-600"}`}>
-                      {plan.price.toFixed(2)} €/u/m
-                    </span>
-                  </div>
-                  <p className={`text-xs mb-1 ${dark ? "text-slate-400" : "text-slate-500"}`}>{plan.desc}</p>
-                  <div className="flex flex-wrap gap-1">
-                    {plan.features.map(f => (
-                      <span key={f} className={`text-xs px-1.5 py-0.5 rounded
-                        ${dark ? "bg-slate-600 text-slate-300" : "bg-white text-slate-600 border border-slate-200"}`}>
-                        {f}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ) : null;
-            })}
-          </div>
-        </Card>
-
-        <Card title="Budget mensuel estimé" icon={BarChart2} dark={dark}>
-          <div className={`rounded-2xl p-5 text-center mb-4 ${dark ? "bg-indigo-900/40 border border-indigo-700" : "bg-indigo-50 border border-indigo-200"}`}>
-            <div className={`text-4xl font-bold font-mono ${dark ? "text-indigo-300" : "text-indigo-700"}`}>
-              {fmt(totalMonthly, 0)} €
-            </div>
-            <div className={`text-xs mt-1 ${dark ? "text-slate-400" : "text-slate-500"}`}>
-              / mois · {fmt(recommend.total)} utilisateurs
-            </div>
-            <div className={`text-sm mt-2 font-medium ${dark ? "text-slate-300" : "text-slate-600"}`}>
-              ≈ {fmt(totalMonthly * 12, 0)} € / an
-            </div>
-          </div>
-          <div className="space-y-2">
-            {[
-              { key: "frontline", label: "Terrain", count: frontline },
-              { key: "business", label: "Bureautique", count: business },
-              { key: "power", label: "Avancés", count: power },
-            ].filter(p => p.count > 0).map(profile => {
-              const plan = M365_PLANS.find(p => p.id === recommend.recs[profile.key]);
-              const cost = plan ? profile.count * plan.price : 0;
-              return (
-                <ResultRow key={profile.key}
-                  label={`${profile.label} (${profile.count} × ${plan?.price.toFixed(2)} €)`}
-                  value={fmt(cost, 0)} unit="€/mois" dark={dark} />
-              );
-            })}
-          </div>
-        </Card>
+    <div>
+      <div style={css.grid4}>
+        <KpiCard label="Total users" value={fmt(r.total)} />
+        <KpiCard label="Budget mensuel" value={fmt(r.monthly, 0) + " €"} />
+        <KpiCard label="Budget annuel" value={fmt(r.annual, 0) + " €"} color={T.t1} />
+        <KpiCard label="Coût / user / mois" value={fmt(r.ppu, 2) + " €"} color={T.accent2} />
       </div>
-
-      <Card title="Comparatif tous les plans M365" icon={BarChart2} dark={dark}>
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className={dark ? "text-slate-400" : "text-slate-500"}>
-                <th className="text-left py-2 px-2">Plan</th>
-                <th className="text-center py-2 px-2">Prix/u/m</th>
-                <th className="text-left py-2 px-2">Description</th>
-                <th className="text-center py-2 px-2">Recommandé pour</th>
-              </tr>
-            </thead>
-            <tbody>
-              {M365_PLANS.map((plan, i) => {
-                const isRec = Object.values(recommend.recs).includes(plan.id);
-                return (
-                  <tr key={plan.id}
-                    className={`border-t ${dark ? "border-slate-700" : "border-slate-100"}
-                    ${isRec ? dark ? "bg-indigo-900/20" : "bg-indigo-50" : ""}`}>
-                    <td className="py-2 px-2">
-                      <span className={`font-bold ${isRec ? dark ? "text-indigo-300" : "text-indigo-700" : dark ? "text-slate-300" : "text-slate-700"}`}>
-                        M365 {plan.name}
-                      </span>
-                      {isRec && <span className="ml-1 text-emerald-500">✓</span>}
-                    </td>
-                    <td className={`py-2 px-2 text-center font-mono font-bold ${dark ? "text-emerald-400" : "text-emerald-600"}`}>
-                      {plan.price.toFixed(2)} €
-                    </td>
-                    <td className={`py-2 px-2 ${dark ? "text-slate-400" : "text-slate-500"}`}>{plan.desc}</td>
-                    <td className={`py-2 px-2 text-center ${dark ? "text-slate-400" : "text-slate-500"}`}>
-                      {Object.entries(recommend.recs).find(([, v]) => v === plan.id)?.[0] || "—"}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+      <div style={css.grid2}>
+        <div style={{ ...css.card, ...css.cardAccent }}>
+          <div style={css.sectionTitle}>Profils utilisateurs</div>
+          <SliderField label="Terrain / Firstline" min={0} max={500} step={5} value={frontline} onChange={setFrontline} display={frontline + " users → " + r.frontPlan.name + " (" + r.frontPlan.price + " €/u/m)"} />
+          <SliderField label="Bureautique" min={0} max={500} step={5} value={business} onChange={setBusiness} display={business + " users → " + r.bizPlan.name + " (" + r.bizPlan.price + " €/u/m)"} />
+          <SliderField label="Avancés / Power users" min={0} max={200} step={5} value={power} onChange={setPower} display={power + " users → " + r.powerPlan.name + " (" + r.powerPlan.price + " €/u/m)"} />
+          <hr style={css.divider} />
+          <div style={css.sectionTitle}>Besoins additionnels</div>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: T.t2, marginBottom: 8, cursor: "pointer" }}>
+            <input type="checkbox" checked={needsCompliance} onChange={e => setNeedsCompliance(e.target.checked)} style={{ accentColor: T.accent }} />
+            Conformité / eDiscovery / Purview (→ E3/E5)
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: T.t2, cursor: "pointer" }}>
+            <input type="checkbox" checked={needsAdvSec} onChange={e => setNeedsAdvSec(e.target.checked)} style={{ accentColor: T.accent }} />
+            Sécurité avancée / Intune / Defender
+          </label>
         </div>
-      </Card>
+        <div style={{ ...css.card, ...css.cardAccent2 }}>
+          <div style={css.sectionTitle}>Répartition budget mensuel</div>
+          <ResponsiveContainer width="100%" height={160}>
+            <BarChart data={barData} layout="vertical" barCategoryGap="20%">
+              <CartesianGrid strokeDasharray="3 3" stroke={T.border} horizontal={false} />
+              <XAxis type="number" tick={{ fontSize: 10, fill: T.t2 }} unit=" €" />
+              <YAxis dataKey="name" type="category" tick={{ fontSize: 10, fill: T.t2 }} width={100} />
+              <Tooltip contentStyle={tooltipStyle} formatter={v => [fmt(v, 0) + " €"]} />
+              <Bar dataKey="cost" fill={T.accent} radius={[0, 3, 3, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+          <hr style={css.divider} />
+          <ResultRow label={"Terrain (" + frontline + " × " + r.frontPlan.price + " €)"} value={fmt(frontline * r.frontPlan.price, 0) + " €/m"} />
+          <ResultRow label={"Bureautique (" + business + " × " + r.bizPlan.price + " €)"} value={fmt(business * r.bizPlan.price, 0) + " €/m"} />
+          <ResultRow label={"Avancés (" + power + " × " + r.powerPlan.price + " €)"} value={fmt(power * r.powerPlan.price, 0) + " €/m"} />
+          <hr style={css.divider} />
+          <ResultRow label="Total mensuel" value={fmt(r.monthly, 0) + " €"} highlight />
+          <ResultRow label="Total annuel" value={fmt(r.annual, 0) + " €"} highlight />
+        </div>
+      </div>
     </div>
   );
 }
 
-// ─── 4. Stockage / Capacity Planning ─────────────────────────────────────────
-function StorageCalc({ dark }) {
+// ─── 4. Stockage ──────────────────────────────────────────────────────────────
+function StorageCalc() {
   const [rawCapacity, setRawCapacity] = useState(230);
   const [raidLevel, setRaidLevel] = useState("raid6");
   const [dedupRatio, setDedupRatio] = useState(1);
@@ -526,199 +390,239 @@ function StorageCalc({ dark }) {
   const [bwTarget, setBwTarget] = useState(25);
 
   const r = useMemo(() => {
-    const RAID_OVERHEAD = {
-      raid1: 0.5, raid5: (driveCount - 1) / driveCount,
-      raid6: (driveCount - 2) / driveCount,
-      raid10: 0.5, none: 1
-    };
-    const overhead = RAID_OVERHEAD[raidLevel] || 1;
+    const RAID = { raid1: 0.5, raid5: (driveCount - 1) / driveCount, raid6: (driveCount - 2) / driveCount, raid10: 0.5, none: 1 };
+    const overhead = RAID[raidLevel] || 1;
     const rawTotal = driveCount * driveSize;
     const usableRaw = rawTotal * overhead;
     const usableWithDedup = usableRaw * dedupRatio;
     const iopsAvail = driveCount * iopsPerDrive;
-    const iopsOk = iopsAvail >= iopsTarget;
-    const capacityOk = usableWithDedup >= rawCapacity;
     const hotSpares = driveCount > 12 ? 2 : 1;
     const usableWithSpares = (driveCount - hotSpares) * driveSize * overhead * dedupRatio;
     const pctUsed = rawCapacity / usableWithDedup * 100;
-
     return {
-      rawTotal, usableRaw, usableWithDedup, usableWithSpares,
-      iopsAvail, iopsOk, capacityOk, hotSpares,
-      overhead: overhead * 100, pctUsed
+      rawTotal, usableRaw, usableWithDedup, usableWithSpares, iopsAvail,
+      hotSpares, overhead: overhead * 100, pctUsed,
+      iopsOk: iopsAvail >= iopsTarget, capacityOk: usableWithDedup >= rawCapacity
     };
   }, [rawCapacity, raidLevel, dedupRatio, driveSize, driveCount, iopsTarget, iopsPerDrive]);
 
   const chartData = [
-    { name: "Brut total", value: r.rawTotal },
-    { name: "Utile (RAID)", value: r.usableRaw },
-    { name: "Utile (dédup)", value: r.usableWithDedup },
+    { name: "Brut total", value: +r.rawTotal.toFixed(1) },
+    { name: "Utile (RAID)", value: +r.usableRaw.toFixed(1) },
+    { name: "Utile (dédup)", value: +r.usableWithDedup.toFixed(1) },
     { name: "Cible", value: rawCapacity },
   ];
 
   return (
-    <div className="space-y-5">
-      <SectionTitle dark={dark}>💾 Capacity Planning Stockage (SAN/NAS)</SectionTitle>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card title="Paramètres Baie" icon={HardDrive} dark={dark}>
-          <div className="space-y-3">
-            <Input label="Capacité cible nette" value={rawCapacity} onChange={setRawCapacity} min={1} step={10} unit="To" dark={dark} note="Besoin réel après marge de croissance" />
-            <Input label="Nombre de disques" value={driveCount} onChange={setDriveCount} min={4} max={500} unit="disques" dark={dark} />
-            <Input label="Taille par disque" value={driveSize} onChange={setDriveSize} min={0.96} max={100} step={0.96} unit="To" dark={dark} note="NVMe : 3,84 / 7,68 / 15,36 To" />
-            <Select label="Niveau RAID" value={raidLevel} onChange={setRaidLevel} dark={dark}
-              options={[
-                { value: "raid1", label: "RAID 1 (miroir, eff. 50%)" },
-                { value: "raid5", label: "RAID 5 (N-1 parité)" },
-                { value: "raid6", label: "RAID 6 (N-2 parités, recommandé)" },
-                { value: "raid10", label: "RAID 10 (miroir+stripe, eff. 50%)" },
-                { value: "none", label: "Sans RAID (raw)" },
-              ]} />
-            <Input label="Ratio déduplication/compression" value={dedupRatio} onChange={setDedupRatio} min={1} max={10} step={0.1} unit="×" dark={dark} note="1 = pas de dédup (recommandé CDC)" />
-          </div>
-        </Card>
-
-        <Card title="Performances" icon={Cpu} dark={dark}>
-          <div className="space-y-3 mb-4">
-            <Input label="IOPS cibles" value={iopsTarget} onChange={setIopsTarget} min={1000} max={10000000} step={5000} unit="IOPS" dark={dark} note="CDC CESI : ≥ 50 000 IOPS" />
-            <Input label="IOPS par disque (NVMe)" value={iopsPerDrive} onChange={setIopsPerDrive} min={10000} max={2000000} step={50000} unit="IOPS/disque" dark={dark} note="NVMe SSD : 350 000 – 700 000 IOPS" />
-            <Input label="Bande passante cible" value={bwTarget} onChange={setBwTarget} min={1} max={400} unit="Gbps" dark={dark} note="CDC CESI : 25 Gbps minimum" />
-          </div>
-          <div className="space-y-2">
-            <ResultRow label="IOPS disponibles (total)" value={fmt(r.iopsAvail)} unit="IOPS" dark={dark} ok={r.iopsOk} />
-            <ResultRow label="Ratio IOPS dispo / cible" value={`${fmt(r.iopsAvail / iopsTarget, 1)} ×`} dark={dark} ok={r.iopsAvail >= iopsTarget} />
-          </div>
-        </Card>
-
-        <Card title="Résultats Capacité" icon={Database} dark={dark}>
-          <div className="space-y-2">
-            <ResultRow label="Capacité brute totale" value={fmt(r.rawTotal, 1)} unit="To" dark={dark} />
-            <ResultRow label={`Efficacité RAID (${raidLevel.toUpperCase()})`} value={`${fmt(r.overhead, 0)} %`} dark={dark} />
-            <ResultRow label="Capacité utile (RAID)" value={fmt(r.usableRaw, 1)} unit="To" dark={dark} />
-            <ResultRow label="Avec dédup/compression" value={fmt(r.usableWithDedup, 1)} unit="To" dark={dark} ok={r.capacityOk} />
-            <ResultRow label="Hot spare(s) réservé(s)" value={fmt(r.hotSpares)} unit="disques" dark={dark} />
-            <ResultRow label="⭐ Utile avec hot spares" value={fmt(r.usableWithSpares, 1)} unit="To" highlight dark={dark} ok={r.usableWithSpares >= rawCapacity} />
-            <ResultRow label="Taux de remplissage" value={`${fmt(r.pctUsed, 1)} %`} dark={dark} ok={r.pctUsed <= 80} />
-          </div>
-        </Card>
+    <div>
+      <div style={css.grid4}>
+        <KpiCard label="Capacité brute" value={fmt(r.rawTotal, 1) + " To"} />
+        <KpiCard label="Capacité utile" value={fmt(r.usableWithDedup, 1) + " To"} color={r.capacityOk ? T.accent : T.warn} />
+        <KpiCard label="IOPS disponibles" value={fmt(r.iopsAvail)} color={r.iopsOk ? T.t1 : T.warn} />
+        <KpiCard label="Efficacité RAID" value={fmt(r.overhead, 0) + " %"} color={T.accent2} />
       </div>
+      <div style={css.grid3}>
+        <div style={{ ...css.card, ...css.cardAccent }}>
+          <div style={css.sectionTitle}>Configuration baie</div>
+          <NumField label="Capacité cible nette" value={rawCapacity} onChange={setRawCapacity} min={1} step={10} unit="To" note="Besoin réel après marge de croissance" />
+          <NumField label="Nombre de disques" value={driveCount} onChange={setDriveCount} min={4} max={500} unit="disques" />
+          <NumField label="Taille par disque" value={driveSize} onChange={setDriveSize} min={0.96} max={100} step={0.96} unit="To" note="NVMe : 3,84 / 7,68 / 15,36 To" />
+          <SelectField label="Niveau RAID" value={raidLevel} onChange={setRaidLevel}
+            options={[
+              { value: "raid1", label: "RAID 1 (miroir, eff. 50%)" },
+              { value: "raid5", label: "RAID 5 (N-1 parité)" },
+              { value: "raid6", label: "RAID 6 (N-2 parités, recommandé)" },
+              { value: "raid10", label: "RAID 10 (miroir+stripe, eff. 50%)" },
+              { value: "none", label: "Sans RAID (raw)" },
+            ]} />
+          <NumField label="Ratio déduplication/compression" value={dedupRatio} onChange={setDedupRatio} min={1} max={10} step={0.1} unit="×" note="1 = pas de dédup" />
+        </div>
+        <div style={{ ...css.card, ...css.cardAccent2 }}>
+          <div style={css.sectionTitle}>Performances IOPS</div>
+          <NumField label="IOPS cibles" value={iopsTarget} onChange={setIopsTarget} min={1000} max={10000000} step={5000} unit="IOPS" note="CDC CESI : ≥ 50 000 IOPS" />
+          <NumField label="IOPS par disque" value={iopsPerDrive} onChange={setIopsPerDrive} min={10000} max={2000000} step={50000} unit="IOPS/disque" note="NVMe SSD : 350 000 – 700 000 IOPS" />
+          <NumField label="Bande passante cible" value={bwTarget} onChange={setBwTarget} min={1} max={400} unit="Gbps" note="CDC CESI : 25 Gbps minimum" />
+          <hr style={css.divider} />
+          {r.iopsOk
+            ? <div style={css.okBox}><CheckCircle size={13} />IOPS suffisants</div>
+            : <div style={css.alertBox}><AlertTriangle size={13} />IOPS insuffisants — ajouter des disques</div>}
+          <ResultRow label="IOPS disponibles" value={fmt(r.iopsAvail)} highlight={r.iopsOk} warn={!r.iopsOk} />
+          <ResultRow label="Ratio IOPS dispo/cible" value={fmt(r.iopsAvail / iopsTarget, 2) + " ×"} />
+          <ResultRow label="Hot spare(s)" value={fmt(r.hotSpares) + " disque(s)"} />
+          <ResultRow label="Utile avec hot spares" value={fmt(r.usableWithSpares, 1) + " To"} highlight={r.usableWithSpares >= rawCapacity} />
+          <ResultRow label="Taux de remplissage" value={fmt(r.pctUsed, 1) + " %"} warn={r.pctUsed > 80} />
+        </div>
+        <div style={css.card}>
+          <div style={css.sectionTitle}>Visualisation capacité</div>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={chartData} layout="vertical" barCategoryGap="20%">
+              <CartesianGrid strokeDasharray="3 3" stroke={T.border} horizontal={false} />
+              <XAxis type="number" tick={{ fontSize: 10, fill: T.t2 }} unit=" To" />
+              <YAxis dataKey="name" type="category" tick={{ fontSize: 10, fill: T.t2 }} width={90} />
+              <Tooltip contentStyle={tooltipStyle} formatter={v => [fmt(v, 1) + " To"]} />
+              <Bar dataKey="value" fill={T.accent} radius={[0, 3, 3, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-      <Card title="Visualisation capacité" icon={BarChart2} dark={dark}>
-        <ResponsiveContainer width="100%" height={200}>
-          <BarChart data={chartData} layout="vertical" barCategoryGap="20%">
-            <CartesianGrid strokeDasharray="3 3" stroke={dark ? "#334155" : "#e2e8f0"} horizontal={false} />
-            <XAxis type="number" tick={{ fontSize: 11, fill: dark ? "#94a3b8" : "#64748b" }} unit=" To" />
-            <YAxis dataKey="name" type="category" tick={{ fontSize: 11, fill: dark ? "#94a3b8" : "#64748b" }} width={110} />
-            <Tooltip
-              contentStyle={{ background: dark ? "#1e293b" : "#fff", border: "1px solid #6366f1", borderRadius: 8 }}
-              formatter={v => [`${fmt(v, 1)} To`]}
-            />
-            <Bar dataKey="value" name="Capacité (To)" radius={[0, 4, 4, 0]}
-              fill="#6366f1"
-              label={{ position: "right", fontSize: 11, fill: dark ? "#94a3b8" : "#64748b", formatter: v => `${fmt(v, 1)} To` }}
-            />
-          </BarChart>
-        </ResponsiveContainer>
-      </Card>
+// ─── 5. Veeam Backup ─────────────────────────────────────────────────────────
+function VeeamCalc() {
+  const [vms, setVms] = useState(50);
+  const [vmSizeGb, setVmSizeGb] = useState(200);
+  const [changeRate, setChangeRate] = useState(5);
+  const [retention, setRetention] = useState(30);
+  const [compRatio, setCompRatio] = useState(2);
+  const [windowH, setWindowH] = useState(8);
+  const [copies, setCopies] = useState(2);
+  const [repoType, setRepoType] = useState("sobr");
+  const [licType, setLicType] = useState("vul");
+
+  const r = useMemo(() => {
+    const srcTB = (vms * vmSizeGb) / 1024;
+    const fullComp = srcTB / compRatio;
+    const dailyInc = (srcTB * changeRate / 100) / compRatio;
+    const incTotal = dailyInc * retention;
+    const totalRepo = (fullComp + incTotal) * copies;
+    const dataMoved = srcTB * changeRate / 100;
+    const bwGbps = (dataMoved * 1024 * 8) / (windowH * 3600);
+    const windowOk = bwGbps < 10;
+    const repoMargin = totalRepo * 1.2;
+    return { srcTB, fullComp, dailyInc, incTotal, totalRepo, repoMargin, bwGbps, windowOk };
+  }, [vms, vmSizeGb, changeRate, retention, compRatio, windowH, copies]);
+
+  const barData = [
+    { name: "Full compressé", value: +r.fullComp.toFixed(2) },
+    { name: "Incrémentaux", value: +r.incTotal.toFixed(2) },
+    { name: "Total repo", value: +r.totalRepo.toFixed(2) },
+    { name: "Repo +20%", value: +r.repoMargin.toFixed(2) },
+  ];
+
+  return (
+    <div>
+      <div style={css.infoBox}>
+        <Info size={13} style={{ marginTop: 1, flexShrink: 0 }} />
+        Veeam VBR v12 : sizing repo = Full compressé + (incrémentiaux × rétention) × copies. Ajouter 20% de marge opérationnelle.
+      </div>
+      <div style={css.grid4}>
+        <KpiCard label="Données source" value={fmt(r.srcTB, 2) + " To"} />
+        <KpiCard label="Stockage repo" value={fmt(r.repoMargin, 2) + " To"} color={T.accent} />
+        <KpiCard label="Fenêtre backup" value={r.windowOk ? "OK" : "SERRÉ"} color={r.windowOk ? T.accent : T.warn} />
+        <KpiCard label="Licences VMs" value={fmt(vms)} color={T.accent2} />
+      </div>
+      <div style={css.grid3}>
+        <div style={{ ...css.card, ...css.cardAccent }}>
+          <div style={css.sectionTitle}>Environnement source</div>
+          <SliderField label="Nombre de VMs" min={1} max={1000} step={5} value={vms} onChange={setVms} />
+          <NumField label="Taille moyenne / VM" value={vmSizeGb} onChange={setVmSizeGb} min={10} max={5000} step={10} unit="Go" />
+          <SliderField label="Taux de changement journalier" min={1} max={30} value={changeRate} onChange={setChangeRate} display={changeRate + " %"} />
+          <SliderField label="Rétention" min={7} max={365} step={7} value={retention} onChange={setRetention} display={retention + " jours"} />
+          <SelectField label="Type de licence Veeam" value={licType} onChange={setLicType}
+            options={[
+              { value: "vul", label: "VUL (Universal License)" },
+              { value: "socket", label: "Per-Socket" },
+              { value: "vbr", label: "VBR Enterprise Plus" },
+              { value: "baas", label: "BaaS (Cloud Connect)" },
+            ]} />
+        </div>
+        <div style={{ ...css.card, ...css.cardAccent2 }}>
+          <div style={css.sectionTitle}>Paramètres backup</div>
+          <SelectField label="Ratio compression / dédup Veeam" value={String(compRatio)} onChange={v => setCompRatio(Number(v))}
+            options={[
+              { value: "1", label: "1:1 — aucune compression" },
+              { value: "1.5", label: "1.5:1 — auto (dédup désactivée)" },
+              { value: "2", label: "2:1 — optimal (recommandé)" },
+              { value: "3", label: "3:1 — extrême" },
+            ]} />
+          <SliderField label="Fenêtre de backup" min={2} max={12} value={windowH} onChange={setWindowH} display={windowH + " h"} />
+          <SliderField label="Copies (GFS / immuables)" min={1} max={5} value={copies} onChange={setCopies} />
+          <SelectField label="Type de repo cible" value={repoType} onChange={setRepoType}
+            options={[
+              { value: "sobr", label: "SOBR (Scale-Out Backup Repo)" },
+              { value: "s3", label: "Object Storage S3 / MinIO" },
+              { value: "vcc", label: "Veeam Cloud Connect (BaaS)" },
+              { value: "xfs", label: "Linux XFS + Immutable Backup" },
+            ]} />
+          <hr style={css.divider} />
+          {r.windowOk
+            ? <div style={css.okBox}><CheckCircle size={13} />Fenêtre de backup nominale</div>
+            : <div style={css.alertBox}><AlertTriangle size={13} />Bande passante élevée — backup synthétique recommandé</div>}
+          <ResultRow label="Données source" value={fmt(r.srcTB, 2) + " To"} />
+          <ResultRow label="Full backup compressé" value={fmt(r.fullComp, 2) + " To"} />
+          <ResultRow label="Incrémentaux (rétention)" value={fmt(r.incTotal, 2) + " To"} />
+          <ResultRow label="Stockage repo total" value={fmt(r.totalRepo, 2) + " To"} highlight />
+          <ResultRow label="Repo recommandé (+20%)" value={fmt(r.repoMargin, 2) + " To"} highlight />
+          <ResultRow label="Bande passante backup" value={fmt(r.bwGbps, 3) + " Gbps"} warn={!r.windowOk} />
+        </div>
+        <div style={css.card}>
+          <div style={css.sectionTitle}>Sizing repo</div>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={barData} layout="vertical" barCategoryGap="20%">
+              <CartesianGrid strokeDasharray="3 3" stroke={T.border} horizontal={false} />
+              <XAxis type="number" tick={{ fontSize: 10, fill: T.t2 }} unit=" To" />
+              <YAxis dataKey="name" type="category" tick={{ fontSize: 10, fill: T.t2 }} width={100} />
+              <Tooltip contentStyle={tooltipStyle} formatter={v => [fmt(v, 2) + " To"]} />
+              <Bar dataKey="value" fill={T.accent3} radius={[0, 3, 3, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+          <div style={{ fontSize: 10, color: T.t3, marginTop: 8, fontFamily: "monospace" }}>
+            Licence : {licType.toUpperCase()} · Repo : {repoType.toUpperCase()} · {copies} copie(s)
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
 
 // ─── App Shell ────────────────────────────────────────────────────────────────
 const TOOLS = [
-  { id: "vmware",   label: "VMware",          icon: Cpu,       sub: "Broadcom VVF/VCF",    comp: VMwareCalc },
-  { id: "winserver",label: "Windows Server",  icon: Server,    sub: "WS & SQL Server",      comp: MicrosoftServerCalc },
-  { id: "m365",     label: "Microsoft 365",   icon: Cloud,     sub: "Plans & Budget",       comp: M365Calc },
-  { id: "storage",  label: "Stockage",        icon: HardDrive, sub: "SAN · NAS · IOPS",    comp: StorageCalc },
+  { id: "vmware",   label: "VMware / VCF",      icon: Cpu,      section: "VIRTUALISATION", comp: VMwareCalc,  badge: "VVF / VCF",   sub: "VVF · VCF · Licence par cœur" },
+  { id: "windows",  label: "Windows & SQL",      icon: Server,   section: "MICROSOFT",      comp: WindowsCalc, badge: "Microsoft",   sub: "Packs 2-cœurs · DC / STD" },
+  { id: "m365",     label: "Microsoft 365",      icon: Cloud,    section: "MICROSOFT",      comp: M365Calc,    badge: "M365",        sub: "Sizing par profil utilisateur" },
+  { id: "storage",  label: "Capacity Planning",  icon: HardDrive,section: "STOCKAGE",       comp: StorageCalc, badge: "Storage",     sub: "SAN · NAS · IOPS · RAID" },
+  { id: "veeam",    label: "Veeam Backup",       icon: Shield,   section: "BACKUP",         comp: VeeamCalc,   badge: "Veeam v12",   sub: "VBR · Cloud Connect · BaaS" },
 ];
 
 export default function SizingHub() {
   const [active, setActive] = useState("vmware");
-  const [dark, setDark] = useState(false);
+  const tool = TOOLS.find(t => t.id === active);
+  const ActiveComp = tool.comp;
 
-  const ActiveComp = TOOLS.find(t => t.id === active)?.comp || VMwareCalc;
+  const sections = [...new Set(TOOLS.map(t => t.section))];
 
   return (
-    <div className={`flex h-screen overflow-hidden font-sans text-sm
-      ${dark ? "bg-slate-900 text-slate-200" : "bg-slate-100 text-slate-800"}`}>
+    <div style={css.root}>
+      {/* Sidebar */}
+      <div style={css.sidebar}>
+        <div style={css.logo}>
+          <div style={css.logoTitle}>SizingHub</div>
+          <div style={css.logoSub}>v2.0 · Infrastructure Sizing</div>
+        </div>
+        {sections.map(section => (
+          <div key={section}>
+            <div style={css.navSection}>{section}</div>
+            {TOOLS.filter(t => t.section === section).map(t => (
+              <NavItem key={t.id} icon={t.icon} label={t.label} active={active === t.id} onClick={() => setActive(t.id)} />
+            ))}
+          </div>
+        ))}
+      </div>
 
-      {/* ── Sidebar ── */}
-      <aside className={`w-56 flex flex-col shrink-0 border-r
-        ${dark ? "bg-slate-900 border-slate-700" : "bg-slate-900"}`}>
-        {/* Logo */}
-        <div className="px-5 py-5 border-b border-slate-700">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
-              <BarChart2 size={16} className="text-white" />
-            </div>
+      {/* Main */}
+      <div style={{ flex: 1, overflowY: "auto" }}>
+        <div style={css.main}>
+          <div style={css.topbar}>
             <div>
-              <div className="text-white font-bold text-sm leading-tight">SizingHub</div>
-              <div className="text-slate-400 text-xs">Infrastructure Tools</div>
+              <div style={css.pageTitle}>{tool.label}</div>
+              <div style={css.pageSub}>{tool.sub}</div>
             </div>
+            <div style={css.badge}>{tool.badge}</div>
           </div>
+          <ActiveComp />
         </div>
-
-        {/* Nav */}
-        <nav className="flex-1 p-3 space-y-1">
-          <p className="text-slate-500 text-xs uppercase tracking-wider px-2 py-2 font-semibold">
-            Calculateurs
-          </p>
-          {TOOLS.map(tool => {
-            const Icon = tool.icon;
-            const isActive = active === tool.id;
-            return (
-              <button key={tool.id} onClick={() => setActive(tool.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all
-                  ${isActive
-                    ? "bg-indigo-600 text-white shadow-lg shadow-indigo-900/40"
-                    : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"}`}>
-                <Icon size={16} className={isActive ? "text-white" : "text-slate-500"} />
-                <div>
-                  <div className={`text-xs font-semibold leading-tight ${isActive ? "text-white" : ""}`}>
-                    {tool.label}
-                  </div>
-                  <div className={`text-xs leading-tight ${isActive ? "text-indigo-200" : "text-slate-600"}`}>
-                    {tool.sub}
-                  </div>
-                </div>
-                {isActive && <ChevronRight size={12} className="ml-auto text-indigo-300" />}
-              </button>
-            );
-          })}
-        </nav>
-
-        {/* Footer */}
-        <div className="p-4 border-t border-slate-700 text-xs text-slate-600 text-center">
-          SizingHub v1.0 · 2026
-        </div>
-      </aside>
-
-      {/* ── Main ── */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <header className={`flex items-center justify-between px-6 py-3 border-b shrink-0
-          ${dark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200"}`}>
-          <div>
-            <h1 className={`font-bold text-base ${dark ? "text-white" : "text-slate-800"}`}>
-              {TOOLS.find(t => t.id === active)?.label}
-            </h1>
-            <p className={`text-xs ${dark ? "text-slate-400" : "text-slate-500"}`}>
-              {TOOLS.find(t => t.id === active)?.sub}
-            </p>
-          </div>
-          <button onClick={() => setDark(d => !d)}
-            className={`p-2 rounded-lg border transition-colors
-              ${dark
-                ? "bg-slate-700 border-slate-600 text-yellow-400 hover:bg-slate-600"
-                : "bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200"}`}>
-            {dark ? <Sun size={16} /> : <Moon size={16} />}
-          </button>
-        </header>
-
-        {/* Content */}
-        <main className="flex-1 overflow-y-auto p-6">
-          <ActiveComp dark={dark} />
-        </main>
       </div>
     </div>
   );
