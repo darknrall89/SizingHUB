@@ -974,7 +974,7 @@ function ComputeCalc({ th }) {
             </div>
           )}
           {data.map((b,i)=>{
-            const h=Math.max(8,Math.round((b.val/maxVal)*(height-30)));
+            const h=Math.max(8,Math.round((b.val/maxVal)*(height-50)));
             return (
               <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
                 <div style={{width:"100%",height:h,background:b.color,borderRadius:"4px 4px 0 0",
