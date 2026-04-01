@@ -233,7 +233,7 @@ function WindowsCalc({th}) {
         <KpiCard label="VMs couvertes" value={wsEdition==="datacenter"?"Illimitées":fmt(vms)} color={th.t1} th={th} />
         <KpiCard label="Statut SQL" value={sqlWarn?"WARN":"OK"} color={sqlWarn?th.warn:th.accent} th={th} />
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,alignItems:"start"}}>
+      <div style={{display:"grid",gridTemplateColumns:"3fr 2fr",gap:14,alignItems:"start"}}>
         <Card accent="accent" th={th}>
           <SectionTitle th={th}>Windows Server</SectionTitle>
           <NumField label="Serveurs physiques" value={servers} onChange={setServers} min={1} max={100} unit="serveurs" th={th} />
@@ -524,7 +524,7 @@ function StorageCalc({ th }) {
         ))}
       </div>
 
-      <div style={{display:"grid",gridTemplateColumns:"1fr 380px",gap:14}}>
+      <div style={{display:"grid",gridTemplateColumns:"3fr 2fr",gap:14}}>
         {/* Colonne gauche — config chassis */}
         <div>
           {chassisList.map((chassis, ci) => {
