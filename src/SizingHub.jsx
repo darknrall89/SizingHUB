@@ -766,427 +766,326 @@ function VeeamCalc({th}) {
   );
 }
 
-// ─── Compute & HCI Planning ───────────────────────────────────────────────────
-
-const NODE_PROFILES = {
-  dell: {
-    label: "Dell PowerEdge",
-    nodes: [
-      { id: "r650-32",  label: "R650 — 2S/32c/2.9GHz", sockets:2, cores:32, freq:2.9, ramMax:1024, ramTypical:256 },
-      { id: "r650-48",  label: "R650 — 2S/48c/2.6GHz", sockets:2, cores:48, freq:2.6, ramMax:1024, ramTypical:512 },
-      { id: "r750-32",  label: "R750 — 2S/32c/3.0GHz", sockets:2, cores:32, freq:3.0, ramMax:2048, ramTypical:512 },
-      { id: "r750-48",  label: "R750 — 2S/48c/2.8GHz", sockets:2, cores:48, freq:2.8, ramMax:2048, ramTypical:768 },
-      { id: "r760-64",  label: "R760 — 2S/64c/2.4GHz", sockets:2, cores:64, freq:2.4, ramMax:4096, ramTypical:1024 },
-      { id: "r760-96",  label: "R760 — 2S/96c/2.1GHz", sockets:2, cores:96, freq:2.1, ramMax:4096, ramTypical:1536 },
-    ]
-  },
-  hpe: {
-    label: "HPE ProLiant",
-    nodes: [
-      { id: "dl360-32", label: "DL360 Gen11 — 1S/32c/3.0GHz", sockets:1, cores:32, freq:3.0, ramMax:512,  ramTypical:256 },
-      { id: "dl380-32", label: "DL380 Gen11 — 2S/32c/2.9GHz", sockets:2, cores:32, freq:2.9, ramMax:2048, ramTypical:512 },
-      { id: "dl380-48", label: "DL380 Gen11 — 2S/48c/2.6GHz", sockets:2, cores:48, freq:2.6, ramMax:2048, ramTypical:768 },
-      { id: "dl380-60", label: "DL380 Gen11 — 2S/60c/2.4GHz", sockets:2, cores:60, freq:2.4, ramMax:2048, ramTypical:1024 },
-      { id: "dl560-96", label: "DL560 Gen11 — 4S/96c/2.1GHz", sockets:4, cores:96, freq:2.1, ramMax:6144, ramTypical:1536 },
-    ]
-  },
-  cisco: {
-    label: "Cisco UCS",
-    nodes: [
-      { id: "b200-32",  label: "UCS B200 M7 — 2S/32c/2.9GHz", sockets:2, cores:32, freq:2.9, ramMax:1024, ramTypical:256 },
-      { id: "b200-48",  label: "UCS B200 M7 — 2S/48c/2.6GHz", sockets:2, cores:48, freq:2.6, ramMax:1024, ramTypical:512 },
-      { id: "c220-32",  label: "UCS C220 M7 — 2S/32c/3.0GHz", sockets:2, cores:32, freq:3.0, ramMax:2048, ramTypical:512 },
-      { id: "c240-48",  label: "UCS C240 M7 — 2S/48c/2.8GHz", sockets:2, cores:48, freq:2.8, ramMax:2048, ramTypical:768 },
-      { id: "c480-96",  label: "UCS C480 M7 — 4S/96c/2.1GHz", sockets:4, cores:96, freq:2.1, ramMax:6144, ramTypical:1536 },
-    ]
-  }
-};
+// ─── Compute & HCI Planning v2 ───────────────────────────────────────────────
 
 const HCI_PROFILES = {
-  nutanix: {
-    label: "Nutanix AOS/AHV",
-    color: "#00d4aa",
-    overhead: 0.20,
-    minNodes: 3,
-    resiliency: [
-      { id: "rf2", label: "RF2 (1 panne)", factor: 2 },
-      { id: "rf3", label: "RF3 (2 pannes)", factor: 3 },
-    ],
-    metadataReserve: 0.05,
-  },
-  vsan: {
-    label: "VMware vSAN",
-    color: "#0099ff",
-    overhead: 0.25,
-    minNodes: 4,
-    resiliency: [
-      { id: "ftt1-raid1", label: "FTT=1 RAID-1", factor: 2 },
-      { id: "ftt1-raid5", label: "FTT=1 RAID-5 (≥4 nœuds)", factor: 1.33 },
-      { id: "ftt2-raid1", label: "FTT=2 RAID-1 (≥6 nœuds)", factor: 3 },
-      { id: "ftt2-raid6", label: "FTT=2 RAID-6 (≥6 nœuds)", factor: 1.5 },
-    ],
-    metadataReserve: 0.07,
-  },
-  azurestackhci: {
-    label: "Azure Stack HCI",
-    color: "#ff6b35",
-    overhead: 0.25,
-    minNodes: 2,
-    resiliency: [
-      { id: "2way", label: "2-way mirror", factor: 2 },
-      { id: "3way", label: "3-way mirror", factor: 3 },
-      { id: "rs4",  label: "Reed-Solomon 4+2", factor: 1.5 },
-    ],
-    metadataReserve: 0.08,
-  },
-  ceph: {
-    label: "Ceph",
-    color: "#ffb347",
-    overhead: 0.20,
-    minNodes: 3,
-    resiliency: [
-      { id: "rep2", label: "Réplication ×2", factor: 2 },
-      { id: "rep3", label: "Réplication ×3", factor: 3 },
-      { id: "ec42", label: "Erasure 4+2", factor: 1.5 },
-      { id: "ec82", label: "Erasure 8+2", factor: 1.25 },
-    ],
-    metadataReserve: 0.05,
-  },
+  nutanix:      { label:"Nutanix AOS/AHV",   color:"#00d4aa", overhead:0.20, minNodes:3, metadataReserve:0.05,
+    resiliency:[{id:"rf2",label:"RF2 (1 panne)",factor:2},{id:"rf3",label:"RF3 (2 pannes)",factor:3}] },
+  vsan:         { label:"VMware vSAN",        color:"#0099ff", overhead:0.25, minNodes:4, metadataReserve:0.07,
+    resiliency:[{id:"ftt1r1",label:"FTT=1 RAID-1",factor:2},{id:"ftt1r5",label:"FTT=1 RAID-5",factor:1.33},{id:"ftt2r1",label:"FTT=2 RAID-1",factor:3},{id:"ftt2r6",label:"FTT=2 RAID-6",factor:1.5}] },
+  azurestackhci:{ label:"Azure Stack HCI",   color:"#ff6b35", overhead:0.25, minNodes:2, metadataReserve:0.08,
+    resiliency:[{id:"2way",label:"2-way mirror",factor:2},{id:"3way",label:"3-way mirror",factor:3},{id:"rs42",label:"RS 4+2",factor:1.5}] },
+  ceph:         { label:"Ceph",              color:"#ffb347", overhead:0.20, minNodes:3, metadataReserve:0.05,
+    resiliency:[{id:"rep2",label:"Réplication ×2",factor:2},{id:"rep3",label:"Réplication ×3",factor:3},{id:"ec42",label:"Erasure 4+2",factor:1.5},{id:"ec82",label:"Erasure 8+2",factor:1.25}] },
 };
 
-const HCI_DISK_OPTIONS = [
-  { id: "ssd-192",  label: "SSD 1,92 To", cap: 1.92 },
-  { id: "ssd-384",  label: "SSD 3,84 To", cap: 3.84 },
-  { id: "ssd-768",  label: "SSD 7,68 To", cap: 7.68 },
-  { id: "nvme-192", label: "NVMe 1,92 To", cap: 1.92 },
-  { id: "nvme-384", label: "NVMe 3,84 To", cap: 3.84 },
-  { id: "nvme-768", label: "NVMe 7,68 To", cap: 7.68 },
-  { id: "nvme-1536",label: "NVMe 15,36 To", cap: 15.36 },
+const HCI_DISKS = [
+  {id:"ssd-192",label:"SSD 1,92 To",cap:1.92},{id:"ssd-384",label:"SSD 3,84 To",cap:3.84},
+  {id:"ssd-768",label:"SSD 7,68 To",cap:7.68},{id:"nvme-192",label:"NVMe 1,92 To",cap:1.92},
+  {id:"nvme-384",label:"NVMe 3,84 To",cap:3.84},{id:"nvme-768",label:"NVMe 7,68 To",cap:7.68},
+  {id:"nvme-1536",label:"NVMe 15,36 To",cap:15.36},{id:"nvme-3072",label:"NVMe 30,72 To",cap:30.72},
 ];
 
 function ComputeCalc({ th }) {
   const [hciEnabled, setHciEnabled] = useState(false);
 
-  // Source (existant)
-  const [srcNodes,    setSrcNodes]    = useState(3);
-  const [srcCores,    setSrcCores]    = useState(32);
-  const [srcFreq,     setSrcFreq]     = useState(2.4);
-  const [srcRam,      setSrcRam]      = useState(256);
+  // Existant
+  const [srcNodes,   setSrcNodes]   = useState(3);
+  const [srcSockets, setSrcSockets] = useState(2);
+  const [srcCores,   setSrcCores]   = useState(16);
+  const [srcFreq,    setSrcFreq]    = useState(2.4);
+  const [srcRam,     setSrcRam]     = useState(256);
 
-  // Cible — workload
-  const [tgtVms,      setTgtVms]      = useState(100);
-  const [tgtVcpu,     setTgtVcpu]     = useState(4);
-  const [tgtRamVm,    setTgtRamVm]    = useState(16);
-  const [overcommit,  setOvercommit]  = useState(4);
-
-  // Cible — profil nœud
-  const [vendor,      setVendor]      = useState("dell");
-  const [nodeId,      setNodeId]      = useState("r750-48");
-  const [nodeRam,     setNodeRam]     = useState(512);
-  const [haPolicy,    setHaPolicy]    = useState(1);
+  // Cible
+  const [tgtNodes,   setTgtNodes]   = useState(4);
+  const [tgtSockets, setTgtSockets] = useState(2);
+  const [tgtCores,   setTgtCores]   = useState(32);
+  const [tgtFreq,    setTgtFreq]    = useState(3.0);
+  const [tgtRam,     setTgtRam]     = useState(512);
+  const [haPolicy,   setHaPolicy]   = useState(1);
 
   // HCI
-  const [hciSolution, setHciSolution] = useState("nutanix");
-  const [hciResil,    setHciResil]    = useState("rf2");
-  const [hciDiskId,   setHciDiskId]   = useState("nvme-384");
-  const [hciDisksPerNode, setHciDisksPerNode] = useState(8);
+  const [hciSolution,      setHciSolution]      = useState("nutanix");
+  const [hciResil,         setHciResil]         = useState("rf2");
+  const [hciDiskId,        setHciDiskId]        = useState("nvme-384");
+  const [hciDisksPerNode,  setHciDisksPerNode]  = useState(8);
   const [hciStorageTarget, setHciStorageTarget] = useState(100);
 
-  const allNodes = Object.values(NODE_PROFILES).flatMap(v => v.nodes);
-  const selectedNode = allNodes.find(n => n.id === nodeId) || allNodes[0];
   const hciProfile = HCI_PROFILES[hciSolution];
-  const hciResilOption = hciProfile.resiliency.find(r => r.id === hciResil) || hciProfile.resiliency[0];
-  const hciDisk = HCI_DISK_OPTIONS.find(d => d.id === hciDiskId) || HCI_DISK_OPTIONS[0];
+  const hciResilOpt = hciProfile.resiliency.find(r => r.id === hciResil) || hciProfile.resiliency[0];
+  const hciDisk = HCI_DISKS.find(d => d.id === hciDiskId) || HCI_DISKS[0];
 
   const r = useMemo(() => {
-    // Besoins cible
-    const neededVcpus = tgtVms * tgtVcpu;
-    const neededRam   = tgtVms * tgtRamVm;
-    const neededCores = Math.ceil(neededVcpus / overcommit);
-
-    // Nœuds requis (max de contrainte CPU et RAM)
-    const nodesByCpu = Math.ceil(neededCores / selectedNode.cores);
-    const nodesByRam = Math.ceil(neededRam / nodeRam);
-    const nodesRequired = Math.max(nodesByCpu, nodesByRam) + haPolicy;
-
-    // Cluster cible
-    const tgtTotalCores = nodesRequired * selectedNode.cores;
-    const tgtTotalFreq  = nodesRequired * selectedNode.cores * selectedNode.freq;
-    const tgtTotalRam   = nodesRequired * nodeRam;
-    const tgtHaCores    = (nodesRequired - haPolicy) * selectedNode.cores;
-    const tgtHaRam      = (nodesRequired - haPolicy) * nodeRam;
-    const tgtHaFreq     = (nodesRequired - haPolicy) * selectedNode.cores * selectedNode.freq;
-
-    // Cluster source
-    const srcTotalCores = srcNodes * srcCores;
-    const srcTotalFreq  = srcNodes * srcCores * srcFreq;
+    // Existant
+    const srcTotalCores = srcNodes * srcSockets * srcCores;
+    const srcTotalFreq  = srcTotalCores * srcFreq;
     const srcTotalRam   = srcNodes * srcRam;
 
-    // HCI
-    const rawPerNode    = hciDisksPerNode * hciDisk.cap;
-    const rawCluster    = nodesRequired * rawPerNode;
-    const afterOverhead = rawCluster * (1 - hciProfile.overhead);
-    const afterResil    = afterOverhead / hciResilOption.factor;
-    const usable        = afterResil * (1 - hciProfile.metadataReserve);
-    const storageOk     = usable >= hciStorageTarget;
+    // Cible
+    const tgtTotalCores = tgtNodes * tgtSockets * tgtCores;
+    const tgtTotalFreq  = tgtTotalCores * tgtFreq;
+    const tgtTotalRam   = tgtNodes * tgtRam;
 
-    // Comparaison HCI toutes solutions
+    // HA N-x
+    const haCores = (tgtNodes - haPolicy) * tgtSockets * tgtCores;
+    const haFreq  = haCores * tgtFreq;
+    const haRam   = (tgtNodes - haPolicy) * tgtRam;
+    const haPct   = tgtNodes > 0 ? (haPolicy / tgtNodes) * 100 : 0;
+
+    // Gains
+    const gainCores = tgtTotalCores - srcTotalCores;
+    const gainRam   = tgtTotalRam - srcTotalRam;
+    const gainFreq  = tgtTotalFreq - srcTotalFreq;
+
+    // HCI
+    const rawPerNode  = hciDisksPerNode * hciDisk.cap;
+    const rawCluster  = tgtNodes * rawPerNode;
+    const afterOH     = rawCluster * (1 - hciProfile.overhead);
+    const usable      = afterOH / hciResilOpt.factor * (1 - hciProfile.metadataReserve);
+    const storageOk   = usable >= hciStorageTarget;
+
+    // Comparaison 4 solutions (résilience niveau 1 par défaut)
     const hciComparison = Object.entries(HCI_PROFILES).map(([key, p]) => {
-      const resil = p.resiliency[0];
-      const raw   = nodesRequired * rawPerNode;
-      const u     = raw * (1 - p.overhead) / resil.factor * (1 - p.metadataReserve);
+      const res = p.resiliency[0];
+      const u = tgtNodes * rawPerNode * (1 - p.overhead) / res.factor * (1 - p.metadataReserve);
       return { key, label: p.label, color: p.color, usable: +u.toFixed(2) };
     });
 
     return {
-      neededVcpus, neededRam, neededCores,
-      nodesByCpu, nodesByRam, nodesRequired,
-      tgtTotalCores, tgtTotalFreq, tgtTotalRam,
-      tgtHaCores, tgtHaRam, tgtHaFreq,
       srcTotalCores, srcTotalFreq, srcTotalRam,
-      rawCluster, usable, storageOk,
-      hciComparison,
+      tgtTotalCores, tgtTotalFreq, tgtTotalRam,
+      haCores, haFreq, haRam, haPct,
+      gainCores, gainRam, gainFreq,
+      rawCluster, usable, storageOk, hciComparison,
     };
-  }, [srcNodes, srcCores, srcFreq, srcRam, tgtVms, tgtVcpu, tgtRamVm, overcommit,
-      selectedNode, nodeRam, haPolicy, hciSolution, hciResil, hciDisk,
-      hciDisksPerNode, hciStorageTarget, hciProfile, hciResilOption]);
-
-  // Données graphes
-  const chartCores = [
-    { name: "Existant", value: r.srcTotalCores, fill: "#8b90a0" },
-    { name: "Cible total", value: r.tgtTotalCores, fill: th.accent2 },
-    { name: "Cible HA N-"+haPolicy, value: r.tgtHaCores, fill: th.accent },
-  ];
-  const chartRam = [
-    { name: "Existant", value: r.srcTotalRam, fill: "#8b90a0" },
-    { name: "Cible total", value: r.tgtTotalRam, fill: th.accent2 },
-    { name: "Cible HA N-"+haPolicy, value: r.tgtHaRam, fill: th.accent },
-  ];
-  const chartFreq = [
-    { name: "Existant", value: +r.srcTotalFreq.toFixed(0), fill: "#8b90a0" },
-    { name: "Cible total", value: +r.tgtTotalFreq.toFixed(0), fill: th.accent2 },
-    { name: "Cible HA N-"+haPolicy, value: +r.tgtHaFreq.toFixed(0), fill: th.accent },
-  ];
+  }, [srcNodes, srcSockets, srcCores, srcFreq, srcRam,
+      tgtNodes, tgtSockets, tgtCores, tgtFreq, tgtRam,
+      haPolicy, hciDisk, hciDisksPerNode, hciProfile, hciResilOpt, hciStorageTarget]);
 
   const tt = { background: th.tooltipBg, border: `1px solid ${th.border2}`, borderRadius: 4, fontSize: 11, color: th.t1 };
 
   const s = {
-    card: { background: th.cardBg, border: `1px solid ${th.border}`, borderRadius: 6, padding: 16 },
-    cardA: { background: th.cardBg, border: `1px solid ${th.border}`, borderLeft: `2px solid ${th.accent}`, borderRadius: 6, padding: 16 },
-    cardA2: { background: th.cardBg, border: `1px solid ${th.border}`, borderLeft: `2px solid ${th.accent2}`, borderRadius: 6, padding: 16 },
-    sectionTitle: { fontSize: 10, fontWeight: 600, color: th.t2, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 14, paddingBottom: 8, borderBottom: `1px solid ${th.border}`, fontFamily: "monospace" },
-    label: { display: "block", fontSize: 10, color: th.t3, fontFamily: "monospace", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 5 },
-    input: { width: "100%", background: th.bg2, border: `1px solid ${th.border}`, borderRadius: 4, padding: "7px 10px", color: th.t1, fontFamily: "monospace", fontSize: 13, boxSizing: "border-box" },
-    select: { width: "100%", background: th.bg2, border: `1px solid ${th.border}`, borderRadius: 4, padding: "7px 10px", color: th.t1, fontFamily: "monospace", fontSize: 12, boxSizing: "border-box" },
     field: { marginBottom: 12 },
-    row: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", borderBottom: `1px solid ${th.border}` },
-    divider: { border: "none", borderTop: `1px solid ${th.border}`, margin: "12px 0" },
-    toggle: {
-      display: "flex", alignItems: "center", gap: 10, padding: "10px 14px",
-      background: hciEnabled ? `rgba(0,212,170,0.08)` : th.bg2,
-      border: `1px solid ${hciEnabled ? th.accent : th.border}`,
-      borderRadius: 6, cursor: "pointer", marginBottom: 16,
-    },
+    label: { display:"block", fontSize:10, color:th.t3, fontFamily:"monospace", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:5 },
+    input: { width:"100%", background:th.bg2, border:`1px solid ${th.border}`, borderRadius:4, padding:"7px 10px", color:th.t1, fontFamily:"monospace", fontSize:13, boxSizing:"border-box" },
+    select: { width:"100%", background:th.bg2, border:`1px solid ${th.border}`, borderRadius:4, padding:"7px 10px", color:th.t1, fontFamily:"monospace", fontSize:12, boxSizing:"border-box" },
+    row: { display:"flex", justifyContent:"space-between", alignItems:"center", padding:"7px 0", borderBottom:`1px solid ${th.border}` },
+    divider: { border:"none", borderTop:`1px solid ${th.border}`, margin:"12px 0" },
+    card: (accent) => ({ background:th.cardBg, border:`1px solid ${th.border}`, borderLeft: accent ? `2px solid ${accent}` : undefined, borderRadius:6, padding:16 }),
+    secTitle: { fontSize:10, fontWeight:600, color:th.t2, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:14, paddingBottom:8, borderBottom:`1px solid ${th.border}`, fontFamily:"monospace" },
   };
 
-  function NumF({ label, value, onChange, min, max, step=1, unit, note }) {
+  function NF({ label, value, onChange, min, max, step=1, unit, note }) {
     return (
       <div style={s.field}>
         <label style={s.label}>{label}</label>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
           <input type="number" min={min} max={max} step={step} value={value}
-            onChange={e => onChange(Number(e.target.value))} style={s.input} />
-          {unit && <span style={{ fontSize: 11, color: th.t3, whiteSpace: "nowrap" }}>{unit}</span>}
+            onChange={e=>onChange(Number(e.target.value))} style={s.input} />
+          {unit && <span style={{fontSize:11,color:th.t3,whiteSpace:"nowrap"}}>{unit}</span>}
         </div>
-        {note && <div style={{ fontSize: 10, color: th.t3, marginTop: 3 }}>{note}</div>}
+        {note && <div style={{fontSize:10,color:th.t3,marginTop:3}}>{note}</div>}
       </div>
     );
   }
 
-  function SelF({ label, value, onChange, options }) {
+  function SF({ label, value, onChange, options }) {
     return (
       <div style={s.field}>
         <label style={s.label}>{label}</label>
-        <select value={value} onChange={e => onChange(e.target.value)} style={s.select}>
-          {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        <select value={value} onChange={e=>onChange(e.target.value)} style={s.select}>
+          {options.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       </div>
     );
   }
 
-  function RRow({ label, value, color }) {
+  function RR({ label, value, color }) {
     return (
       <div style={s.row}>
-        <span style={{ fontSize: 12, color: th.t2 }}>{label}</span>
-        <span style={{ fontFamily: "monospace", fontWeight: 600, fontSize: 13, color: color || th.t1 }}>{value}</span>
+        <span style={{fontSize:12,color:th.t2}}>{label}</span>
+        <span style={{fontFamily:"monospace",fontWeight:600,fontSize:13,color:color||th.t1}}>{value}</span>
       </div>
     );
   }
 
-  function MiniBarChart({ data, unit, height=160 }) {
+  function MBC({ data, unit, height=180 }) {
+    const haCell = typeof Cell !== 'undefined';
     return (
       <ResponsiveContainer width="100%" height={height}>
-        <BarChart data={data} barCategoryGap="30%">
+        <BarChart data={data} barCategoryGap="25%">
           <CartesianGrid strokeDasharray="3 3" stroke={th.border} />
-          <XAxis dataKey="name" tick={{ fontSize: 10, fill: th.t2 }} />
-          <YAxis tick={{ fontSize: 10, fill: th.t2 }} unit={unit ? " "+unit : ""} />
-          <Tooltip contentStyle={tt} formatter={v => [fmt(v) + (unit ? " "+unit : "")]} />
+          <XAxis dataKey="name" tick={{fontSize:10,fill:th.t2}} />
+          <YAxis tick={{fontSize:10,fill:th.t2}} unit={unit?" "+unit:""} />
+          <Tooltip contentStyle={tt} formatter={v=>[fmt(v,1)+(unit?" "+unit:"")]} />
           <Bar dataKey="value" radius={[3,3,0,0]} isAnimationActive={false}>
-            {data.map((d, i) => <Cell key={i} fill={d.fill} />)}
+            {data.map((d,i)=><Cell key={i} fill={d.fill}/>)}
           </Bar>
         </BarChart>
       </ResponsiveContainer>
     );
   }
 
-  const vendorNodes = NODE_PROFILES[vendor]?.nodes || [];
+  const chartCores = [
+    {name:"Existant",    value:r.srcTotalCores, fill:"#8b90a0"},
+    {name:"Cible total", value:r.tgtTotalCores, fill:th.accent2},
+    {name:"HA N-"+haPolicy, value:r.haCores,   fill:th.accent},
+  ];
+  const chartFreq = [
+    {name:"Existant",    value:+r.srcTotalFreq.toFixed(0), fill:"#8b90a0"},
+    {name:"Cible total", value:+r.tgtTotalFreq.toFixed(0), fill:th.accent2},
+    {name:"HA N-"+haPolicy, value:+r.haFreq.toFixed(0),   fill:th.accent},
+  ];
+  const chartRam = [
+    {name:"Existant",    value:r.srcTotalRam, fill:"#8b90a0"},
+    {name:"Cible total", value:r.tgtTotalRam, fill:th.accent2},
+    {name:"HA N-"+haPolicy, value:r.haRam,   fill:th.accent},
+  ];
 
   return (
     <div>
       {/* KPIs */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 10, marginBottom: 20 }}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10,marginBottom:20}}>
         {[
-          { label: "Nœuds requis",    value: r.nodesRequired,              color: th.accent },
-          { label: "vCPUs demandés",  value: fmt(r.neededVcpus),           color: th.t1 },
-          { label: "RAM demandée",    value: fmt(r.neededRam)+" Go",       color: th.t1 },
-          { label: "Cœurs cible",     value: fmt(r.tgtTotalCores),         color: th.accent2 },
-          { label: "RAM cible",       value: fmt(r.tgtTotalRam)+" Go",     color: th.accent2 },
-        ].map(k => (
-          <div key={k.label} style={{ background: th.cardBg, border: `1px solid ${th.border}`, borderRadius: 6, padding: 14 }}>
-            <div style={{ fontSize: 10, color: th.t3, fontFamily: "monospace", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>{k.label}</div>
-            <div style={{ fontSize: 20, fontWeight: 600, fontFamily: "monospace", color: k.color }}>{k.value}</div>
+          {label:"Nœuds cible",    value:tgtNodes,                                        color:th.accent},
+          {label:"Cœurs cible",    value:fmt(r.tgtTotalCores),                            color:th.accent2},
+          {label:"GHz agrégés",    value:fmt(r.tgtTotalFreq,0)+" GHz",                   color:th.accent2},
+          {label:"RAM cible",      value:fmt(r.tgtTotalRam)+" Go",                        color:th.accent2},
+          {label:"Capacité HA",    value:fmt(r.haPct,0)+" % perdu",                       color:r.haPct<=25?th.accent:th.warn},
+        ].map(k=>(
+          <div key={k.label} style={{background:th.cardBg,border:`1px solid ${th.border}`,borderRadius:6,padding:14}}>
+            <div style={{fontSize:10,color:th.t3,fontFamily:"monospace",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>{k.label}</div>
+            <div style={{fontSize:20,fontWeight:600,fontFamily:"monospace",color:k.color}}>{k.value}</div>
           </div>
         ))}
       </div>
 
-      {/* Ligne 1 — Saisie source + cible */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 14 }}>
+      {/* Saisie Existant + Cible */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
 
-        {/* Source */}
-        <div style={s.cardA}>
-          <div style={s.sectionTitle}>Infrastructure existante</div>
-          <NumF label="Nœuds existants" value={srcNodes} onChange={setSrcNodes} min={0} max={100} unit="nœuds" />
-          <NumF label="Cœurs / nœud" value={srcCores} onChange={setSrcCores} min={1} max={128} step={2} unit="cœurs" />
-          <NumF label="Fréquence CPU" value={srcFreq} onChange={setSrcFreq} min={1} max={5} step={0.1} unit="GHz" />
-          <NumF label="RAM / nœud" value={srcRam} onChange={setSrcRam} min={32} max={4096} step={32} unit="Go" />
-          <hr style={s.divider} />
-          <RRow label="Cœurs totaux" value={fmt(r.srcTotalCores)+" cœurs"} />
-          <RRow label="GHz agrégés" value={fmt(r.srcTotalFreq,0)+" GHz"} />
-          <RRow label="RAM totale" value={fmt(r.srcTotalRam)+" Go"} />
+        {/* Existant */}
+        <div style={s.card(th.accent)}>
+          <div style={s.secTitle}>Infrastructure existante</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <NF label="Nœuds" value={srcNodes} onChange={setSrcNodes} min={0} max={200} unit="nœuds" />
+            <NF label="Sockets / nœud" value={srcSockets} onChange={setSrcSockets} min={1} max={8} unit="sockets" />
+            <NF label="Cœurs / socket" value={srcCores} onChange={setSrcCores} min={1} max={128} step={2} unit="cœurs" />
+            <NF label="Fréquence CPU" value={srcFreq} onChange={setSrcFreq} min={0.5} max={5} step={0.1} unit="GHz" />
+            <NF label="RAM / nœud" value={srcRam} onChange={setSrcRam} min={0} max={4096} step={32} unit="Go" />
+          </div>
+          <hr style={s.divider}/>
+          <RR label="Cœurs totaux" value={fmt(r.srcTotalCores)+" cœurs"} />
+          <RR label="GHz agrégés" value={fmt(r.srcTotalFreq,0)+" GHz"} />
+          <RR label="RAM totale" value={fmt(r.srcTotalRam)+" Go"} />
         </div>
 
-        {/* Workload cible */}
-        <div style={s.cardA2}>
-          <div style={s.sectionTitle}>Charge de travail cible</div>
-          <NumF label="Nombre de VMs" value={tgtVms} onChange={setTgtVms} min={1} max={5000} unit="VMs" />
-          <NumF label="vCPUs / VM" value={tgtVcpu} onChange={setTgtVcpu} min={1} max={64} unit="vCPUs" />
-          <NumF label="RAM / VM" value={tgtRamVm} onChange={setTgtRamVm} min={1} max={1024} step={4} unit="Go" />
-          <NumF label="Ratio overcommit CPU" value={overcommit} onChange={setOvercommit} min={1} max={16} step={0.5} unit="vCPU/cœur" note="Standard : 4:1 — Intensif : 2:1" />
-          <hr style={s.divider} />
-          <RRow label="vCPUs totaux" value={fmt(r.neededVcpus)+" vCPUs"} />
-          <RRow label="Cœurs physiques requis" value={fmt(r.neededCores)+" cœurs"} />
-          <RRow label="RAM totale requise" value={fmt(r.neededRam)+" Go"} />
-        </div>
-
-        {/* Profil nœud */}
-        <div style={s.card}>
-          <div style={s.sectionTitle}>Profil nœud cible</div>
-          <SelF label="Constructeur" value={vendor} onChange={v => { setVendor(v); setNodeId(NODE_PROFILES[v].nodes[0].id); }}
-            options={Object.entries(NODE_PROFILES).map(([k,v]) => ({ value: k, label: v.label }))} />
-          <SelF label="Modèle" value={nodeId} onChange={setNodeId}
-            options={vendorNodes.map(n => ({ value: n.id, label: n.label }))} />
-          <NumF label="RAM configurée / nœud" value={nodeRam} onChange={setNodeRam} min={64} max={selectedNode.ramMax} step={64} unit="Go" note={`Max : ${selectedNode.ramMax} Go`} />
-          <SelF label="Politique HA" value={String(haPolicy)} onChange={v => setHaPolicy(Number(v))}
-            options={[{ value:"1", label:"N-1 (1 nœud réservé)" }, { value:"2", label:"N-2 (2 nœuds réservés)" }]} />
-          <hr style={s.divider} />
-          <RRow label="Nœuds par contrainte CPU" value={r.nodesByCpu+" nœuds"} />
-          <RRow label="Nœuds par contrainte RAM" value={r.nodesByRam+" nœuds"} />
-          <RRow label="Nœuds requis (+ HA)" value={r.nodesRequired+" nœuds"} color={th.accent} />
+        {/* Cible */}
+        <div style={s.card(th.accent2)}>
+          <div style={s.secTitle}>Infrastructure cible</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <NF label="Nœuds" value={tgtNodes} onChange={setTgtNodes} min={1} max={200} unit="nœuds" />
+            <NF label="Sockets / nœud" value={tgtSockets} onChange={setTgtSockets} min={1} max={8} unit="sockets" />
+            <NF label="Cœurs / socket" value={tgtCores} onChange={setTgtCores} min={1} max={128} step={2} unit="cœurs" />
+            <NF label="Fréquence CPU" value={tgtFreq} onChange={setTgtFreq} min={0.5} max={5} step={0.1} unit="GHz" />
+            <NF label="RAM / nœud" value={tgtRam} onChange={setTgtRam} min={32} max={4096} step={32} unit="Go" />
+          </div>
+          <SF label="Politique HA" value={String(haPolicy)} onChange={v=>setHaPolicy(Number(v))}
+            options={[{value:"1",label:"N-1 (1 nœud réservé)"},{value:"2",label:"N-2 (2 nœuds réservés)"}]} />
+          <hr style={s.divider}/>
+          <RR label="Cœurs totaux" value={fmt(r.tgtTotalCores)+" cœurs"} color={th.accent2} />
+          <RR label="GHz agrégés" value={fmt(r.tgtTotalFreq,0)+" GHz"} color={th.accent2} />
+          <RR label="RAM totale" value={fmt(r.tgtTotalRam)+" Go"} color={th.accent2} />
+          <hr style={s.divider}/>
+          <RR label={"Cœurs HA N-"+haPolicy} value={fmt(r.haCores)+" cœurs"} color={th.accent} />
+          <RR label={"RAM HA N-"+haPolicy} value={fmt(r.haRam)+" Go"} color={th.accent} />
+          <RR label="Capacité perdue HA" value={fmt(r.haPct,1)+" %"} color={r.haPct<=25?th.accent:th.warn} />
+          <hr style={s.divider}/>
+          <RR label="Gain cœurs vs existant" value={(r.gainCores>=0?"+":"")+fmt(r.gainCores)+" cœurs"} color={r.gainCores>=0?th.accent:th.danger} />
+          <RR label="Gain RAM vs existant" value={(r.gainRam>=0?"+":"")+fmt(r.gainRam)+" Go"} color={r.gainRam>=0?th.accent:th.danger} />
         </div>
       </div>
 
-      {/* Ligne 2 — Graphes comparaison */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 14 }}>
-        <div style={s.card}>
-          <div style={s.sectionTitle}>Cœurs CPU — Existant vs Cible</div>
-          <MiniBarChart data={chartCores} unit="cœurs" />
+      {/* Graphes comparaison */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14,marginBottom:14}}>
+        <div style={s.card()}>
+          <div style={s.secTitle}>Cœurs CPU — Existant vs Cible vs HA</div>
+          <MBC data={chartCores} unit="cœurs" />
         </div>
-        <div style={s.card}>
-          <div style={s.sectionTitle}>GHz agrégés — Existant vs Cible</div>
-          <MiniBarChart data={chartFreq} unit="GHz" />
+        <div style={s.card()}>
+          <div style={s.secTitle}>GHz agrégés — Existant vs Cible vs HA</div>
+          <MBC data={chartFreq} unit="GHz" />
         </div>
-        <div style={s.card}>
-          <div style={s.sectionTitle}>RAM — Existant vs Cible</div>
-          <MiniBarChart data={chartRam} unit="Go" />
+        <div style={s.card()}>
+          <div style={s.secTitle}>RAM — Existant vs Cible vs HA</div>
+          <MBC data={chartRam} unit="Go" />
         </div>
       </div>
 
       {/* Toggle HCI */}
-      <div style={s.toggle} onClick={() => setHciEnabled(h => !h)}>
-        <div style={{ width: 36, height: 20, borderRadius: 10, background: hciEnabled ? th.accent : th.t3, position: "relative", transition: "background 0.2s", flexShrink: 0 }}>
-          <div style={{ position: "absolute", top: 3, left: hciEnabled ? 18 : 3, width: 14, height: 14, borderRadius: "50%", background: "#fff", transition: "left 0.2s" }} />
+      <div onClick={()=>setHciEnabled(h=>!h)} style={{
+        display:"flex", alignItems:"center", gap:10, padding:"10px 14px", cursor:"pointer", marginBottom:14,
+        background: hciEnabled?`rgba(0,212,170,0.08)`:th.bg2,
+        border:`1px solid ${hciEnabled?th.accent:th.border}`, borderRadius:6,
+      }}>
+        <div style={{width:36,height:20,borderRadius:10,background:hciEnabled?th.accent:th.t3,position:"relative",transition:"background 0.2s",flexShrink:0}}>
+          <div style={{position:"absolute",top:3,left:hciEnabled?18:3,width:14,height:14,borderRadius:"50%",background:"#fff",transition:"left 0.2s"}}/>
         </div>
-        <span style={{ fontSize: 12, fontWeight: 600, color: hciEnabled ? th.accent : th.t2, fontFamily: "monospace" }}>
+        <span style={{fontSize:12,fontWeight:600,color:hciEnabled?th.accent:th.t2,fontFamily:"monospace"}}>
           Mode HCI — Hyperconvergé
         </span>
-        {hciEnabled && <span style={{ fontSize: 10, color: th.t3, fontFamily: "monospace", marginLeft: "auto" }}>
-          {r.nodesRequired} nœuds · {hciProfile.label}
+        {hciEnabled && <span style={{fontSize:10,color:th.t3,fontFamily:"monospace",marginLeft:"auto"}}>
+          {tgtNodes} nœuds · {hciProfile.label}
         </span>}
       </div>
 
       {/* Section HCI */}
       {hciEnabled && (
-        <div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
-
-            {/* Config HCI */}
-            <div style={s.cardA}>
-              <div style={s.sectionTitle}>Configuration HCI</div>
-              <SelF label="Solution HCI" value={hciSolution} onChange={v => { setHciSolution(v); setHciResil(HCI_PROFILES[v].resiliency[0].id); }}
-                options={Object.entries(HCI_PROFILES).map(([k,p]) => ({ value: k, label: p.label }))} />
-              <SelF label="Politique de résilience" value={hciResil} onChange={setHciResil}
-                options={hciProfile.resiliency.map(r => ({ value: r.id, label: r.label }))} />
-              <SelF label="Disques de données / nœud" value={hciDiskId} onChange={setHciDiskId}
-                options={HCI_DISK_OPTIONS.map(d => ({ value: d.id, label: d.label }))} />
-              <NumF label="Nombre de disques / nœud" value={hciDisksPerNode} onChange={setHciDisksPerNode} min={1} max={24} unit="disques" />
-              <NumF label="Capacité utile cible" value={hciStorageTarget} onChange={setHciStorageTarget} min={1} step={10} unit="To" note="Besoin net en stockage" />
-              <hr style={s.divider} />
-              <RRow label="Brut par nœud" value={fmt(hciDisksPerNode * hciDisk.cap, 2)+" To"} />
-              <RRow label="Brut cluster" value={fmt(r.rawCluster, 2)+" To"} />
-              <RRow label={"Overhead "+hciProfile.label} value={fmt(hciProfile.overhead*100,0)+" %"} color={th.warn} />
-              <RRow label={"Facteur résilience ("+hciResilOption.label+")"} value={"÷ "+hciResilOption.factor} color={th.warn} />
-              <RRow label="Réserve metadata" value={fmt(hciProfile.metadataReserve*100,0)+" %"} color={th.warn} />
-              <RRow label="Capacité utile" value={fmt(r.usable, 2)+" To"} color={r.storageOk ? th.accent : th.danger} />
-              <RRow label="Objectif atteint" value={r.storageOk ? "✓ OUI" : "✗ NON — ajouter des disques"} color={r.storageOk ? th.accent : th.danger} />
-            </div>
-
-            {/* Comparaison 4 solutions */}
-            <div style={s.cardA2}>
-              <div style={s.sectionTitle}>Comparaison capacité utile — 4 solutions</div>
-              <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={r.hciComparison} barCategoryGap="30%">
-                  <CartesianGrid strokeDasharray="3 3" stroke={th.border} />
-                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: th.t2 }} />
-                  <YAxis tick={{ fontSize: 10, fill: th.t2 }} unit=" To" />
-                  <Tooltip contentStyle={tt} formatter={v => [fmt(v,2)+" To", "Capacité utile"]} />
-                  <Bar dataKey="usable" radius={[3,3,0,0]} isAnimationActive={false} label={{ position:"top", fontSize:10, fill:th.t2, formatter:v=>fmt(v,2)+" To" }}>
-                    {r.hciComparison.map((d,i) => <Cell key={i} fill={d.color} />)}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-              <div style={{ fontSize: 10, color: th.t3, marginTop: 8, fontFamily: "monospace", textAlign: "center" }}>
-                Base : {r.nodesRequired} nœuds · {hciDisksPerNode}× {hciDisk.label} · résilience niveau 1 par défaut
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+          <div style={s.card(th.accent)}>
+            <div style={s.secTitle}>Configuration HCI</div>
+            <SF label="Solution HCI" value={hciSolution} onChange={v=>{setHciSolution(v);setHciResil(HCI_PROFILES[v].resiliency[0].id);}}
+              options={Object.entries(HCI_PROFILES).map(([k,p])=>({value:k,label:p.label}))} />
+            <SF label="Politique de résilience" value={hciResil} onChange={setHciResil}
+              options={hciProfile.resiliency.map(r=>({value:r.id,label:r.label}))} />
+            <SF label="Type de disque" value={hciDiskId} onChange={setHciDiskId}
+              options={HCI_DISKS.map(d=>({value:d.id,label:d.label}))} />
+            <NF label="Disques / nœud" value={hciDisksPerNode} onChange={setHciDisksPerNode} min={1} max={24} unit="disques" />
+            <NF label="Capacité utile cible" value={hciStorageTarget} onChange={setHciStorageTarget} min={1} step={10} unit="To" />
+            <hr style={s.divider}/>
+            <RR label="Brut / nœud" value={fmt(hciDisksPerNode*hciDisk.cap,2)+" To"} />
+            <RR label="Brut cluster" value={fmt(r.rawCluster,2)+" To"} />
+            <RR label="Overhead" value={fmt(hciProfile.overhead*100,0)+" %"} color={th.warn} />
+            <RR label={"Résilience ("+hciResilOpt.label+")"} value={"÷ "+hciResilOpt.factor} color={th.warn} />
+            <RR label="Réserve metadata" value={fmt(hciProfile.metadataReserve*100,0)+" %"} color={th.warn} />
+            <RR label="Capacité utile" value={fmt(r.usable,2)+" To"} color={r.storageOk?th.accent:th.danger} />
+            <RR label="Objectif atteint" value={r.storageOk?"✓ OUI":"✗ NON — ajouter des disques"} color={r.storageOk?th.accent:th.danger} />
+          </div>
+          <div style={s.card(th.accent2)}>
+            <div style={s.secTitle}>Comparaison capacité utile — 4 solutions</div>
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={r.hciComparison} barCategoryGap="30%">
+                <CartesianGrid strokeDasharray="3 3" stroke={th.border} />
+                <XAxis dataKey="label" tick={{fontSize:10,fill:th.t2}} />
+                <YAxis tick={{fontSize:10,fill:th.t2}} unit=" To" />
+                <Tooltip contentStyle={tt} formatter={v=>[fmt(v,2)+" To","Capacité utile"]} />
+                <Bar dataKey="usable" radius={[3,3,0,0]} isAnimationActive={false}
+                  label={{position:"top",fontSize:10,fill:th.t2,formatter:v=>fmt(v,2)+" To"}}>
+                  {r.hciComparison.map((d,i)=><Cell key={i} fill={d.color}/>)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+            <hr style={s.divider}/>
+            {r.hciComparison.map(sc=>(
+              <div key={sc.key} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:`1px solid ${th.border}`}}>
+                <span style={{fontSize:12,color:th.t2,display:"flex",alignItems:"center",gap:6}}>
+                  <span style={{width:8,height:8,borderRadius:2,background:sc.color,display:"inline-block"}}/>
+                  {sc.label}
+                </span>
+                <span style={{fontFamily:"monospace",fontWeight:600,fontSize:12,color:sc.color}}>{fmt(sc.usable,2)} To</span>
               </div>
-              <hr style={s.divider} />
-              {r.hciComparison.map(s => (
-                <div key={s.key} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${th.border}` }}>
-                  <span style={{ fontSize: 12, color: th.t2, display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: 2, background: s.color, display: "inline-block" }} />
-                    {s.label}
-                  </span>
-                  <span style={{ fontFamily: "monospace", fontWeight: 600, fontSize: 12, color: s.color }}>{fmt(s.usable, 2)} To</span>
-                </div>
-              ))}
+            ))}
+            <div style={{fontSize:10,color:th.t3,marginTop:10,fontFamily:"monospace",textAlign:"center"}}>
+              Base : {tgtNodes} nœuds · {hciDisksPerNode}× {hciDisk.label} · résilience niveau 1 par défaut
             </div>
           </div>
         </div>
