@@ -246,7 +246,7 @@ function VMwareCalc({th}) {
       </div>
 
       {/* Ligne principale : params + licensing + impact financier */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1.2fr 1.3fr",gap:14,marginBottom:14}}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14,marginBottom:14}}>
 
         {/* Paramètres cluster */}
         <div style={s.card(th.accent)}>
@@ -284,29 +284,6 @@ function VMwareCalc({th}) {
           <RR label="Cœurs N-1 (HA)"     value={fmt(r.haCores)+" cœurs"}/>
           <RR label="RAM N-1 (HA)"        value={fmt(r.haRam,2)+" To"}/>
           <RR label="Capacité perdue HA"  value={fmt(r.haPct,1)+" %"} color={r.haPct>20?"#ffb347":th.accent}/>
-
-          {/* Graphe Physique vs Facturé */}
-          <hr style={s.divider}/>
-          <div style={{fontSize:10,color:th.t3,fontFamily:"monospace",textTransform:"uppercase",marginBottom:12}}>Comparaison licensing (CPU)</div>
-          <div style={{display:"flex",alignItems:"flex-end",gap:16,height:120,padding:"0 8px"}}>
-            {chartData.map((b,i)=>{
-              const h = Math.max(8, Math.round((b.val/maxVal)*100));
-              return (
-                <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
-                  <div style={{width:"100%",height:h,background:b.color,borderRadius:"4px 4px 0 0",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                    {h>24&&<span style={{fontSize:11,color:"#fff",fontFamily:"monospace",fontWeight:700}}>{fmt(b.val)}</span>}
-                  </div>
-                  <span style={{fontSize:10,color:th.t2,fontFamily:"monospace",textAlign:"center",lineHeight:1.3,whiteSpace:"pre-line"}}>{b.name}</span>
-                  <span style={{fontSize:10,color:b.color,fontFamily:"monospace",fontWeight:600}}>{fmt(b.val)} cœurs</span>
-                </div>
-              );
-            })}
-            {r.surcharge && (
-              <div style={{position:"absolute",fontSize:11,fontWeight:700,color:"#ffb347",fontFamily:"monospace"}}>
-                +{r.surPct}%
-              </div>
-            )}
-          </div>
           {r.surPct>0&&<div style={{fontSize:10,color:"#ffb347",fontFamily:"monospace",textAlign:"center",marginTop:4}}>+{r.surPct}% de surcoût lié à la règle min 16/socket</div>}
         </div>
 
@@ -349,27 +326,7 @@ function VMwareCalc({th}) {
         </div>
       </div>
 
-      {/* Graphe comparaison Normal vs HA */}
-      <div style={s.card()}>
-        <div style={s.secTitle}>Normal vs HA (N-1) vs Cible projet</div>
-        <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={[
-            {name:"Normal",   RAM:+r.totalRamTo.toFixed(2),   vCPU:+(r.vcpuTotal/100).toFixed(1)},
-            {name:"HA (N-1)", RAM:+r.haRam.toFixed(2),        vCPU:+(r.haVcpu/100).toFixed(1)},
-          ]} barCategoryGap="30%">
-            <CartesianGrid strokeDasharray="3 3" stroke={th.border}/>
-            <XAxis dataKey="name" tick={{fontSize:11,fill:th.t2}}/>
-            <YAxis tick={{fontSize:10,fill:th.t2}}/>
-            <Tooltip contentStyle={tt}/>
-            <Legend wrapperStyle={{fontSize:11,color:th.t2}}/>
-            <Bar dataKey="RAM"  name="RAM (To)"    fill={th.accent2} radius={[3,3,0,0]}/>
-            <Bar dataKey="vCPU" name="vCPU (×100)" fill={th.accent}  radius={[3,3,0,0]}/>
-          </BarChart>
-        </ResponsiveContainer>
-        <div style={{fontSize:10,color:th.t3,marginTop:8,fontFamily:"monospace",textAlign:"center"}}>
-          Adapter les seuils selon les besoins du projet
-        </div>
-      </div>
+
     </div>
   );
 }
