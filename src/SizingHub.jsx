@@ -246,7 +246,7 @@ function VMwareCalc({th}) {
       </div>
 
       {/* Ligne principale : params + licensing + impact financier */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14,marginBottom:14}}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1.2fr 1.3fr",gap:14,marginBottom:14}}>
 
         {/* Paramètres cluster */}
         <div style={s.card(th.accent)}>
