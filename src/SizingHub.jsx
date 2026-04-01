@@ -524,7 +524,7 @@ function StorageCalc({ th }) {
         ))}
       </div>
 
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 380px",gap:14}}>
         {/* Colonne gauche — config chassis */}
         <div>
           {chassisList.map((chassis, ci) => {
@@ -806,6 +806,7 @@ export default function SizingHub() {
           <button onClick={()=>setDark(d=>!d)} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"8px 0",borderRadius:4,cursor:"pointer",fontSize:11,background:th.bg2,border:`1px solid ${th.border}`,color:th.t2,fontFamily:"monospace",transition:"all 0.2s"}}>
             {dark?<><Sun size={13}/>Light mode</>:<><Moon size={13}/>Dark mode</>}
           </button>
+          <div style={{textAlign:"center",fontSize:10,color:th.t3,fontFamily:"monospace",marginTop:10,letterSpacing:"0.08em"}}>by Francis B.</div>
         </div>
       </div>
       {/* Main */}
