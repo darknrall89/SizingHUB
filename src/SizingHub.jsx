@@ -134,6 +134,7 @@ function VMwareCalc({th}) {
   const [pricePerCore, setPricePerCore] = useState(50);
   const [yearsTotal,   setYearsTotal]   = useState(3);
   const [maintenancePct,setMaintenancePct]=useState(20);
+  const [fxRate,       setFxRate]       = useState(0.92);
   const [vsanOpen,     setVsanOpen]     = useState(false);
   const [vsanFtt,      setVsanFtt]      = useState("ftt1r1");
   const [vsanOverhead, setVsanOverhead] = useState(25);
@@ -156,9 +157,12 @@ function VMwareCalc({th}) {
     const surcharge       = totalBilled>totalPhys;
     const surPct          = totalPhys>0?Math.round(((totalBilled-totalPhys)/totalPhys)*100):0;
     const annualCost      = totalBilled*pricePerCore;
+    const annualCostEur   = Math.round(annualCost*fxRate);
     const maintenanceCost = annualCost*(maintenancePct/100);
     const totalAnnual     = annualCost+maintenanceCost;
     const totalProject    = totalAnnual*yearsTotal;
+    const totalAnnualEur  = Math.round(totalAnnual*fxRate);
+    const totalProjectEur = Math.round(totalProject*fxRate);
     const optBilled       = totalSockets*16;
     const optAnnual       = optBilled*pricePerCore;
     const savingsVsOpt    = annualCost-optAnnual;
@@ -166,10 +170,11 @@ function VMwareCalc({th}) {
     return {
       totalSockets,totalPhys,billedPerSocket,totalBilled,totalRamTo,
       vcpuTotal,haRam,haCores,haVcpu,haPct,packs,surcharge,surPct,
-      annualCost,maintenanceCost,totalAnnual,totalProject,
+      annualCost,annualCostEur,maintenanceCost,totalAnnual,totalProject,totalAnnualEur,totalProjectEur,
+      annualCostEur,totalAnnualEur,totalProjectEur,
       optBilled,optAnnual,savingsVsOpt,showOpt,
     };
-  },[nodes,sockets,cores,ram,overcommit,pricePerCore,maintenancePct,yearsTotal]);
+  },[nodes,sockets,cores,ram,overcommit,pricePerCore,maintenancePct,yearsTotal,fxRate]);
 
   const tt = {background:th.tooltipBg,border:`1px solid ${th.border2}`,borderRadius:4,fontSize:11,color:th.t1};
   const s = {
@@ -274,12 +279,37 @@ function VMwareCalc({th}) {
             <NF label="Prix / cœur / an" value={pricePerCore} onChange={setPricePerCore} min={1} max={200} unit="$" note={licType==="vvf"?"Public : 50 $ (négocié : 38–50 $)":"Public : 72 $ (négocié : 55–72 $)"}/>
             <NF label="Durée contrat" value={yearsTotal} onChange={setYearsTotal} min={1} max={5} unit="ans"/>
             <NF label="Maintenance annuelle" value={maintenancePct} onChange={setMaintenancePct} min={0} max={30} unit="%" note="Incluse abonnement Broadcom"/>
+            <div style={s.field}>
+              <label style={s.label}>Taux de change USD / EUR</label>
+              <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                <input type="number" min={0.5} max={1.5} step={0.01} value={fxRate} onChange={e=>setFxRate(Number(e.target.value))} style={s.input}/>
+                <span style={{fontSize:11,color:th.t3}}>€/$</span>
+              </div>
+              <div style={{fontSize:10,color:th.t3,marginTop:3}}>Taux indicatif — ajuster selon contrat</div>
+            </div>
+            <div style={s.field}>
+              <label style={s.label}>Taux de change USD / EUR</label>
+              <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                <input type="number" min={0.5} max={1.5} step={0.01} value={fxRate} onChange={e=>setFxRate(Number(e.target.value))} style={s.input}/>
+                <span style={{fontSize:11,color:th.t3}}>€/$</span>
+              </div>
+              <div style={{fontSize:10,color:th.t3,marginTop:3}}>Taux indicatif — ajuster selon contrat</div>
+            </div>
+            <div style={s.field}>
+              <label style={s.label}>Taux de change USD/EUR</label>
+              <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                <input type="number" min={0.5} max={1.5} step={0.01} value={fxRate}
+                  onChange={e=>setFxRate(Number(e.target.value))} style={s.input}/>
+                <span style={{fontSize:11,color:th.t3,whiteSpace:"nowrap"}}>€/$</span>
+              </div>
+              <div style={{fontSize:10,color:th.t3,marginTop:3}}>Taux indicatif — ajuster selon contrat</div>
+            </div>
           </div>
           <hr style={s.divider}/>
-          <RR label="Coût licences / an"         value={"~ "+fmt(r.annualCost)+" $"}/>
+          <RR label="Coût licences / an"         value={"~ "+fmt(r.annualCost)+" $ (~"+fmt(r.annualCostEur)+" €)"}/>
           <RR label="Maintenance / an"           value={"~ "+fmt(r.maintenanceCost)+" $"} color={th.t2}/>
-          <RR label="Coût annuel total"          value={"~ "+fmt(r.totalAnnual)+" $"} color={th.accent} highlight/>
-          <RR label={"Coût total "+yearsTotal+" ans"} value={"~ "+fmt(r.totalProject)+" $"} color={th.accent} highlight/>
+          <RR label="Coût annuel total"          value={"~ "+fmt(r.totalAnnual)+" $ (~"+fmt(r.totalAnnualEur)+" €)"} color={th.accent} highlight/>
+          <RR label={"Coût total "+yearsTotal+" ans"} value={"~ "+fmt(r.totalProject)+" $ (~"+fmt(r.totalProjectEur)+" €)"} color={th.accent} highlight/>
           <hr style={s.divider}/>
           <div style={{fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10,fontFamily:"monospace"}}>Optimisation licensing</div>
           {r.showOpt?(
@@ -338,6 +368,7 @@ function VMwareCalc({th}) {
                 </div>
                 <div style={{textAlign:"right"}}>
                   <div style={{fontSize:18,fontWeight:700,fontFamily:"monospace",color:lic.color}}>~ {fmt(annual)} $</div>
+                  <div style={{fontSize:12,color:th.t2,fontFamily:"monospace",marginTop:2}}>~ {fmt(Math.round(annual*fxRate))} €</div>
                   <div style={{fontSize:10,color:th.t3,fontFamily:"monospace"}}>/ an · {fmt(r.totalBilled)} cœurs</div>
                 </div>
               </div>
