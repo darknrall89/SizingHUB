@@ -625,6 +625,11 @@ export default function SizingHub() {
           </div>
         ))}
       </div>
+      <div style={{ marginTop: "auto", padding: "12px 16px", borderTop: `1px solid ${T.border}` }}>
+        <button onClick={() => setDark(d => !d)} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "7px 0", borderRadius: 4, cursor: "pointer", fontSize: 11, background: T.bg2, border: `1px solid ${T.border}`, color: T.t2, fontFamily: "monospace" }}>
+          {dark ? <><Sun size={13} /> Light mode</> : <><Moon size={13} /> Dark mode</>}
+        </button>
+      </div>
 
       {/* Main */}
       <div style={{ flex: 1, overflowY: "auto" }}>
