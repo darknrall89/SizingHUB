@@ -2,7 +2,8 @@ import { useState, useMemo } from "react";
 import {
   Server, HardDrive, Cloud, Users, Cpu,
   Database, BarChart2, Settings, Shield,
-  CheckCircle, AlertTriangle, Info, ChevronRight
+  CheckCircle, AlertTriangle, Info, ChevronRight,
+  Sun, Moon
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -17,6 +18,18 @@ const T = {
   t1: "#e8eaf0", t2: "#8b90a0", t3: "#4a5068",
   border: "rgba(255,255,255,0.07)", border2: "rgba(0,212,170,0.2)",
 };
+
+const theme = (dark) => ({
+  bg0: dark ? "#0a0b0d" : "#f4f5f7",
+  bg1: dark ? "#111318" : "#ffffff",
+  bg2: dark ? "#181b22" : "#f0f2f5",
+  bg3: dark ? "#1e2230" : "#e8eaed",
+  t1:  dark ? "#e8eaf0" : "#1a1d23",
+  t2:  dark ? "#8b90a0" : "#5a6072",
+  t3:  dark ? "#4a5068" : "#9aa0b0",
+  border: dark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.08)",
+  border2: dark ? "rgba(0,212,170,0.2)" : "rgba(0,168,132,0.3)",
+});
 
 const css = {
   root: { fontFamily: "'Inter', system-ui, sans-serif", background: T.bg0, color: T.t1, minHeight: "100vh", display: "flex" },
@@ -588,6 +601,8 @@ const TOOLS = [
 
 export default function SizingHub() {
   const [active, setActive] = useState("vmware");
+  const [dark, setDark] = useState(true);
+  const th = theme(dark);
   const tool = TOOLS.find(t => t.id === active);
   const ActiveComp = tool.comp;
 
