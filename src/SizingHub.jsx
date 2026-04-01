@@ -125,83 +125,255 @@ function SelectField({label, value, onChange, options, th}) {
 
 // ─── 1. VMware ────────────────────────────────────────────────────────────────
 function VMwareCalc({th}) {
-  const [nodes,setNodes]=useState(6);
-  const [sockets,setSockets]=useState(1);
-  const [cores,setCores]=useState(32);
-  const [ram,setRam]=useState(768);
-  const [overcommit,setOvercommit]=useState(3.75);
+  const [nodes,      setNodes]      = useState(6);
+  const [sockets,    setSockets]    = useState(1);
+  const [cores,      setCores]      = useState(32);
+  const [ram,        setRam]        = useState(768);
+  const [overcommit, setOvercommit] = useState(3.75);
+  const [licType,    setLicType]    = useState("vvf");
+  const [pricePerCore, setPricePerCore] = useState(50);
+  const [yearsTotal,   setYearsTotal]   = useState(3);
+  const [maintenancePct, setMaintenancePct] = useState(20);
+
+  const LICENSE_PRICES = { vvf: 50, vcf: 72 };
 
   const r = useMemo(()=>{
-    const totalSockets=nodes*sockets;
-    const totalPhys=totalSockets*cores;
-    const billedPerSocket=Math.max(cores,16);
-    const totalBilled=totalSockets*billedPerSocket;
-    const totalRamTo=(nodes*ram)/1024;
-    const vcpuTotal=totalPhys*overcommit;
-    const haRam=((nodes-1)*ram)/1024;
-    const haCores=(nodes-1)*sockets*cores;
-    const haVcpu=haCores*overcommit;
-    const haPct=nodes>0?(1/nodes)*100:0;
-    return {totalSockets,totalPhys,billedPerSocket,totalBilled,totalRamTo,vcpuTotal,haRam,haCores,haVcpu,haPct,haRamOk:haRam>0,haVcpuOk:haVcpu>0};
-  },[nodes,sockets,cores,ram,overcommit]);
+    const totalSockets    = nodes * sockets;
+    const totalPhys       = totalSockets * cores;
+    const billedPerSocket = Math.max(cores, 16);
+    const totalBilled     = totalSockets * billedPerSocket;
+    const totalRamTo      = (nodes * ram) / 1024;
+    const vcpuTotal       = totalPhys * overcommit;
+    const haRam           = ((nodes-1) * ram) / 1024;
+    const haCores         = (nodes-1) * sockets * cores;
+    const haVcpu          = haCores * overcommit;
+    const haPct           = nodes > 0 ? (1/nodes)*100 : 0;
+    const packs           = Math.ceil(totalBilled / 2);
+    const surcharge       = totalBilled > totalPhys;
+    const surPct          = totalPhys > 0 ? Math.round(((totalBilled-totalPhys)/totalPhys)*100) : 0;
 
-  const chartData=[
-    {name:"Normal",RAM:+r.totalRamTo.toFixed(2),vCPU:+(r.vcpuTotal/100).toFixed(1)},
-    {name:"HA (N-1)",RAM:+r.haRam.toFixed(2),vCPU:+(r.haVcpu/100).toFixed(1)},
-    
+    // Impact financier
+    const annualCost      = totalBilled * pricePerCore;
+    const maintenanceCost = annualCost * (maintenancePct / 100);
+    const totalAnnual     = annualCost + maintenanceCost;
+    const totalProject    = totalAnnual * yearsTotal;
+
+    // Optimisation : si on réduit les cœurs pour éviter le surcoût min 16
+    const optCoresPerSocket = 16;
+    const optBilled         = totalSockets * optCoresPerSocket;
+    const optAnnual         = optBilled * pricePerCore;
+    const savingsVsOpt      = annualCost - optAnnual;
+    const showOpt           = cores > 16;
+
+    return {
+      totalSockets, totalPhys, billedPerSocket, totalBilled, totalRamTo,
+      vcpuTotal, haRam, haCores, haVcpu, haPct, packs, surcharge, surPct,
+      annualCost, maintenanceCost, totalAnnual, totalProject,
+      optBilled, optAnnual, savingsVsOpt, showOpt,
+      haRamOk: haRam >= 0, haVcpuOk: haVcpu >= 0,
+    };
+  },[nodes,sockets,cores,ram,overcommit,pricePerCore,maintenancePct,yearsTotal]);
+
+  const tt = {background:th.tooltipBg, border:`1px solid ${th.border2}`, borderRadius:4, fontSize:11, color:th.t1};
+
+  const s = {
+    card:     (accent) => ({background:th.cardBg, border:`1px solid ${th.border}`, borderLeft:accent?`2px solid ${accent}`:undefined, borderRadius:6, padding:16}),
+    secTitle: {fontSize:10, fontWeight:600, color:th.t2, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:14, paddingBottom:8, borderBottom:`1px solid ${th.border}`, fontFamily:"monospace"},
+    label:    {display:"block", fontSize:10, color:th.t3, fontFamily:"monospace", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:5},
+    input:    {width:"100%", background:th.bg2, border:`1px solid ${th.border}`, borderRadius:4, padding:"7px 10px", color:th.t1, fontFamily:"monospace", fontSize:13, boxSizing:"border-box"},
+    select:   {width:"100%", background:th.bg2, border:`1px solid ${th.border}`, borderRadius:4, padding:"7px 10px", color:th.t1, fontFamily:"monospace", fontSize:12, boxSizing:"border-box"},
+    row:      {display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 0", borderBottom:`1px solid ${th.border}`},
+    divider:  {border:"none", borderTop:`1px solid ${th.border}`, margin:"12px 0"},
+    field:    {marginBottom:12},
+  };
+
+  function NF({label,value,onChange,min,max,step=1,unit,note}) {
+    return (
+      <div style={s.field}>
+        <label style={s.label}>{label}</label>
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          <input type="number" min={min} max={max} step={step} value={value}
+            onChange={e=>onChange(Number(e.target.value))} style={s.input}/>
+          {unit&&<span style={{fontSize:11,color:th.t3,whiteSpace:"nowrap"}}>{unit}</span>}
+        </div>
+        {note&&<div style={{fontSize:10,color:th.t3,marginTop:3}}>{note}</div>}
+      </div>
+    );
+  }
+
+  function RR({label,value,color,highlight}) {
+    return (
+      <div style={{...s.row, background:highlight?`${th.accent}11`:undefined, padding:highlight?"8px 10px":"8px 0", borderRadius:highlight?4:0, marginBottom:highlight?4:0}}>
+        <span style={{fontSize:12,color:th.t2}}>{label}</span>
+        <span style={{fontFamily:"monospace",fontWeight:600,fontSize:13,color:color||th.t1}}>{value}</span>
+      </div>
+    );
+  }
+
+  // KPI coloré
+  function KpiC({label,value,sub,bg}) {
+    return (
+      <div style={{background:bg,borderRadius:8,padding:"14px 16px"}}>
+        <div style={{fontSize:22,fontWeight:700,fontFamily:"monospace",color:"#fff"}}>{value}</div>
+        {sub&&<div style={{fontSize:11,color:"rgba(255,255,255,0.75)",fontFamily:"monospace",marginTop:2}}>{sub}</div>}
+        <div style={{fontSize:10,color:"rgba(255,255,255,0.55)",textTransform:"uppercase",letterSpacing:"0.08em",marginTop:4}}>{label}</div>
+      </div>
+    );
+  }
+
+  const chartData = [
+    {name:"Cœurs\nphysiques", val:r.totalPhys, color:th.accent2},
+    {name:"Cœurs\nfacturés",  val:r.totalBilled, color:r.surcharge?"#ffb347":th.accent},
   ];
-  const tt={background:th.tooltipBg,border:`1px solid ${th.border2}`,borderRadius:4,fontSize:11,color:th.t1};
+  const maxVal = Math.max(r.totalPhys, r.totalBilled)||1;
 
   return (
     <div>
-      <InfoBox th={th}>Broadcom 2024+ : facturation par cœur physique, minimum 16 cœurs par socket.</InfoBox>
+      {/* KPIs colorés */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:20}}>
-        <KpiCard label="Nœuds" value={nodes} th={th} />
-        <KpiCard label="Cœurs facturés" value={fmt(r.totalBilled)} th={th} />
-        <KpiCard label="RAM totale" value={fmt(r.totalRamTo,2)+" To"} color={th.t1} th={th} />
-        <KpiCard label="Statut HA" value={r.haRamOk&&r.haVcpuOk?"OK":"WARN"} color={r.haRamOk&&r.haVcpuOk?th.accent:th.warn} th={th} />
+        <KpiC label="Licences VMware" value={fmt(r.totalBilled)+" cœurs"}
+          sub={licType.toUpperCase()+" · min 16/socket"}
+          bg="linear-gradient(135deg,#e05a20,#b84510)" />
+        <KpiC label="Packs nécessaires" value={fmt(r.packs)+" packs"}
+          sub={"Packs de 2 cœurs"}
+          bg="linear-gradient(135deg,#0077cc,#005599)" />
+        <KpiC label="Cluster" value={r.haRamOk&&r.haVcpuOk?"Conforme":"Attention"}
+          sub={"Résilience N-1"}
+          bg={r.haRamOk?"linear-gradient(135deg,#00a884,#007a60)":"linear-gradient(135deg,#d97706,#b45309)"} />
+        <KpiC label="Capacité perdue HA" value={fmt(r.haPct,1)+" %"}
+          sub={fmt(r.haCores)+" cœurs dispo N-1"}
+          bg={r.haPct<=20?"linear-gradient(135deg,#00a884,#007a60)":"linear-gradient(135deg,#d97706,#b45309)"} />
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14}}>
-        <Card accent="accent" th={th}>
-          <SectionTitle th={th}>Paramètres cluster</SectionTitle>
-          <SliderField label="Nœuds" min={2} max={32} value={nodes} onChange={setNodes} th={th} />
-          <SliderField label="Sockets / nœud" min={1} max={4} value={sockets} onChange={setSockets} th={th} />
-          <SliderField label="Cœurs physiques / socket" min={4} max={64} step={2} value={cores} onChange={setCores} th={th} />
-          <NumField label="RAM / nœud" value={ram} onChange={setRam} min={64} max={6144} step={64} unit="Go" note="Xeon typique : 256, 512, 768 Go" th={th} />
-          <NumField label="Overcommit vCPU" value={overcommit} onChange={setOvercommit} min={1} max={10} step={0.25} unit="vCPU/cœur" note="Ratio standard recommandé" th={th} />
-        </Card>
-        <Card accent="accent2" th={th}>
-          <SectionTitle th={th}>Résultats licensing</SectionTitle>
-          <InfoBox type={r.haRamOk&&r.haVcpuOk?"ok":"alert"} th={th}>{r.haRamOk&&r.haVcpuOk?"Cluster HA validé — N-1 nominal":"Capacité HA insuffisante"}</InfoBox>
-          <ResultRow label="Total sockets" value={fmt(r.totalSockets)+" sockets"} th={th} />
-          <ResultRow label="Cœurs physiques" value={fmt(r.totalPhys)+" cœurs"} th={th} />
-          <ResultRow label="Règle min 16/socket" value={fmt(r.billedPerSocket)+" cœurs"} th={th} />
-          <ResultRow label="Cœurs facturés" value={fmt(r.totalBilled)+" cœurs"} highlight th={th} />
-          <ResultRow label="Packs 2-cœurs" value={fmt(Math.ceil(r.totalBilled/2))+" packs"} highlight th={th} />
-          <hr style={{border:"none",borderTop:`1px solid ${th.border}`,margin:"12px 0"}} />
-          <ResultRow label="Cœurs N-1 (HA)" value={fmt(r.haCores)+" cœurs"} th={th} />
-          <ResultRow label="RAM N-1 (HA)" value={fmt(r.haRam,2)+" To"} th={th} />
-          <ResultRow label="Capacité perdue HA" value={fmt(r.haPct,1)+" %"} warn={r.haPct>20} th={th} />
-        </Card>
-        <Card th={th}>
-          <SectionTitle th={th}>Normal vs HA vs Cible projet</SectionTitle>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={chartData} barCategoryGap="30%">
-              <CartesianGrid strokeDasharray="3 3" stroke={th.border} />
-              <XAxis dataKey="name" tick={{fontSize:11,fill:th.t2}} />
-              <YAxis tick={{fontSize:10,fill:th.t2}} />
-              <Tooltip contentStyle={tt} />
-              <Legend wrapperStyle={{fontSize:11,color:th.t2}} />
-              <Bar dataKey="RAM" name="RAM (To)" fill={th.accent2} radius={[3,3,0,0]} />
-              <Bar dataKey="vCPU" name="vCPU (×100)" fill={th.accent} radius={[3,3,0,0]} />
-            </BarChart>
-          </ResponsiveContainer>
-          <div style={{fontSize:10,color:th.t3,marginTop:8,fontFamily:"monospace"}}>Adapter les seuils selon les besoins du projet</div>
-        </Card>
+
+      {/* Ligne principale : params + licensing + impact financier */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14,marginBottom:14}}>
+
+        {/* Paramètres cluster */}
+        <div style={s.card(th.accent)}>
+          <div style={s.secTitle}>Paramètres cluster</div>
+          <NF label="Nœuds" value={nodes} onChange={setNodes} min={1} max={32} unit="serveurs"/>
+          <NF label="Sockets / nœud" value={sockets} onChange={setSockets} min={1} max={4} unit="sockets" note="1 = mono-proc | 2 = bi-proc"/>
+          <NF label="Cœurs physiques / socket" value={cores} onChange={setCores} min={4} max={128} step={2} unit="cœurs" note="Xeon : 16, 24, 32, 48, 64..."/>
+          <NF label="RAM / nœud" value={ram} onChange={setRam} min={64} max={6144} step={64} unit="Go"/>
+          <NF label="Overcommit vCPU" value={overcommit} onChange={setOvercommit} min={1} max={10} step={0.25} unit="vCPU/cœur" note="Ratio standard : 3,75"/>
+          <div style={s.field}>
+            <label style={s.label}>Licence</label>
+            <select value={licType} onChange={e=>{setLicType(e.target.value);setPricePerCore(LICENSE_PRICES[e.target.value]);}} style={s.select}>
+              <option value="vvf">VMware VVF (vSphere Foundation)</option>
+              <option value="vcf">VMware VCF (Cloud Foundation)</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Résultats licensing */}
+        <div style={s.card(th.accent2)}>
+          <div style={s.secTitle}>Résultats licensing</div>
+          {r.surcharge && (
+            <div style={{background:"rgba(255,181,71,0.1)",border:"1px solid rgba(255,181,71,0.3)",borderRadius:4,padding:"8px 12px",marginBottom:12,fontSize:11,color:"#ffb347",fontFamily:"monospace"}}>
+              ⚠ {fmt(r.totalBilled)} cœurs facturés en raison du minimum 16/socket
+            </div>
+          )}
+          <RR label="Total sockets"       value={fmt(r.totalSockets)+" sockets"}/>
+          <RR label="Cœurs physiques"     value={fmt(r.totalPhys)+" cœurs"}/>
+          <RR label="Min Broadcom/socket" value={fmt(r.billedPerSocket)+" cœurs"}/>
+          <RR label="Cœurs facturés"      value={fmt(r.totalBilled)+" cœurs"} color={r.surcharge?"#ffb347":th.accent} highlight/>
+          <RR label="Packs 2-cœurs"       value={fmt(r.packs)+" packs"} color={th.accent}/>
+          <hr style={s.divider}/>
+          <RR label="RAM totale"          value={fmt(r.totalRamTo,2)+" To"}/>
+          <RR label="vCPU cluster"        value={fmt(r.vcpuTotal)+" vCPU"}/>
+          <RR label="Cœurs N-1 (HA)"     value={fmt(r.haCores)+" cœurs"}/>
+          <RR label="RAM N-1 (HA)"        value={fmt(r.haRam,2)+" To"}/>
+          <RR label="Capacité perdue HA"  value={fmt(r.haPct,1)+" %"} color={r.haPct>20?"#ffb347":th.accent}/>
+
+          {/* Graphe Physique vs Facturé */}
+          <hr style={s.divider}/>
+          <div style={{fontSize:10,color:th.t3,fontFamily:"monospace",textTransform:"uppercase",marginBottom:12}}>Comparaison licensing (CPU)</div>
+          <div style={{display:"flex",alignItems:"flex-end",gap:16,height:120,padding:"0 8px"}}>
+            {chartData.map((b,i)=>{
+              const h = Math.max(8, Math.round((b.val/maxVal)*100));
+              return (
+                <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                  <div style={{width:"100%",height:h,background:b.color,borderRadius:"4px 4px 0 0",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                    {h>24&&<span style={{fontSize:11,color:"#fff",fontFamily:"monospace",fontWeight:700}}>{fmt(b.val)}</span>}
+                  </div>
+                  <span style={{fontSize:10,color:th.t2,fontFamily:"monospace",textAlign:"center",lineHeight:1.3,whiteSpace:"pre-line"}}>{b.name}</span>
+                  <span style={{fontSize:10,color:b.color,fontFamily:"monospace",fontWeight:600}}>{fmt(b.val)} cœurs</span>
+                </div>
+              );
+            })}
+            {r.surcharge && (
+              <div style={{position:"absolute",fontSize:11,fontWeight:700,color:"#ffb347",fontFamily:"monospace"}}>
+                +{r.surPct}%
+              </div>
+            )}
+          </div>
+          {r.surPct>0&&<div style={{fontSize:10,color:"#ffb347",fontFamily:"monospace",textAlign:"center",marginTop:4}}>+{r.surPct}% de surcoût lié à la règle min 16/socket</div>}
+        </div>
+
+        {/* Impact financier */}
+        <div style={s.card(th.accent3||"#ff6b35")}>
+          <div style={s.secTitle}>Impact financier</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+            <NF label="Prix / cœur / an" value={pricePerCore} onChange={setPricePerCore} min={1} max={200} unit="$" note={licType==="vvf"?"Public : 50 $ (négocié : 38–50 $)":"Public : 72 $ (négocié : 55–72 $)"}/>
+            <NF label="Durée contrat" value={yearsTotal} onChange={setYearsTotal} min={1} max={5} unit="ans"/>
+            <NF label="Maintenance annuelle" value={maintenancePct} onChange={setMaintenancePct} min={0} max={30} unit="%" note="Incluse dans l'abonnement Broadcom"/>
+          </div>
+          <hr style={s.divider}/>
+          <RR label="Coût licences / an"   value={"~ "+fmt(r.annualCost).toLocaleString()+" $"} color={th.t1}/>
+          <RR label="Maintenance / an"     value={"~ "+fmt(r.maintenanceCost)+" $"} color={th.t2}/>
+          <RR label="Coût annuel total"    value={"~ "+fmt(r.totalAnnual)+" $"} color={th.accent} highlight/>
+          <RR label={"Coût total "+yearsTotal+" ans"} value={"~ "+fmt(r.totalProject)+" $"} color={th.accent} highlight/>
+          <hr style={s.divider}/>
+          {/* Optimisation */}
+          <div style={{fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10,fontFamily:"monospace"}}>Optimisation licensing</div>
+          {r.showOpt ? (
+            <div style={{background:`rgba(0,212,170,0.07)`,border:`1px solid rgba(0,212,170,0.2)`,borderRadius:4,padding:"10px 12px"}}>
+              <div style={{fontSize:12,color:th.accent,fontFamily:"monospace",fontWeight:600,marginBottom:6}}>
+                Réduire à 16 cœurs/socket → économie de {fmt(r.savingsVsOpt)} $/an
+              </div>
+              <div style={{fontSize:11,color:th.t2,marginBottom:6}}>
+                {fmt(r.optBilled)} cœurs facturés au lieu de {fmt(r.totalBilled)} · {fmt(r.optAnnual)} $/an
+              </div>
+              <div style={{fontSize:10,color:th.t3,fontFamily:"monospace"}}>
+                ~{r.surPct}% de surcoût lié à la règle min 16/socket Broadcom
+              </div>
+            </div>
+          ) : (
+            <div style={{background:`rgba(0,212,170,0.07)`,border:`1px solid rgba(0,212,170,0.2)`,borderRadius:4,padding:"10px 12px",fontSize:11,color:th.accent}}>
+              ✓ Configuration optimale — aucun surcoût lié à la règle min 16/socket
+            </div>
+          )}
+          <div style={{marginTop:12,fontSize:10,color:th.t3,fontFamily:"monospace"}}>
+            Minimum de commande Broadcom : 72 cœurs · Pénalité renouvellement tardif : +20%
+          </div>
+        </div>
+      </div>
+
+      {/* Graphe comparaison Normal vs HA */}
+      <div style={s.card()}>
+        <div style={s.secTitle}>Normal vs HA (N-1) vs Cible projet</div>
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={[
+            {name:"Normal",   RAM:+r.totalRamTo.toFixed(2),   vCPU:+(r.vcpuTotal/100).toFixed(1)},
+            {name:"HA (N-1)", RAM:+r.haRam.toFixed(2),        vCPU:+(r.haVcpu/100).toFixed(1)},
+          ]} barCategoryGap="30%">
+            <CartesianGrid strokeDasharray="3 3" stroke={th.border}/>
+            <XAxis dataKey="name" tick={{fontSize:11,fill:th.t2}}/>
+            <YAxis tick={{fontSize:10,fill:th.t2}}/>
+            <Tooltip contentStyle={tt}/>
+            <Legend wrapperStyle={{fontSize:11,color:th.t2}}/>
+            <Bar dataKey="RAM"  name="RAM (To)"    fill={th.accent2} radius={[3,3,0,0]}/>
+            <Bar dataKey="vCPU" name="vCPU (×100)" fill={th.accent}  radius={[3,3,0,0]}/>
+          </BarChart>
+        </ResponsiveContainer>
+        <div style={{fontSize:10,color:th.t3,marginTop:8,fontFamily:"monospace",textAlign:"center"}}>
+          Adapter les seuils selon les besoins du projet
+        </div>
       </div>
     </div>
   );
 }
+
 
 // ─── 2. Windows & SQL ─────────────────────────────────────────────────────────
 function WindowsCalc({th}) {
@@ -974,7 +1146,7 @@ function ComputeCalc({ th }) {
             </div>
           )}
           {data.map((b,i)=>{
-            const h=Math.max(8,Math.round((b.val/maxVal)*(height-50)));
+            const h=Math.max(8,Math.round((b.val/maxVal)*(height-30)));
             return (
               <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
                 <div style={{width:"100%",height:h,background:b.color,borderRadius:"4px 4px 0 0",
@@ -1020,7 +1192,7 @@ function ComputeCalc({ th }) {
       </div>
 
       {/* Saisie + Comparaison */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14,marginBottom:14}}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 340px",gap:14,marginBottom:14}}>
 
         {/* Existant */}
         <div style={s.card(th.accent)}>
