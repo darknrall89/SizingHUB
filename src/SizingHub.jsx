@@ -1037,67 +1037,190 @@ function ComputeCalc({ th }) {
 
       {/* Section HCI */}
       {hciEnabled && (
-        <div style={{display:"grid",gridTemplateColumns:"1fr",gap:14}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 380px",gap:14,alignItems:"start"}}>
+
+          {/* Config + résultats */}
           <div style={s.card(th.accent)}>
             <div style={s.secTitle}>Configuration HCI</div>
-            <SF label="Solution HCI" value={hciSolution} onChange={v=>{setHciSolution(v);setHciResil(HCI_PROFILES[v].resiliency[0].id);setDedupRatio(HCI_PROFILES[v].defaultDedup);}}
-              options={Object.entries(HCI_PROFILES).map(([k,p])=>({value:k,label:p.label}))} />
-            <SF label="Politique de résilience" value={hciResil} onChange={setHciResil}
-              options={hciProfile.resiliency.map(r=>({value:r.id,label:r.label}))} />
-            <SF label="Type de disque" value={hciDiskId} onChange={setHciDiskId}
-              options={HCI_DISKS.map(d=>({value:d.id,label:d.label}))} />
-            <NF label="Disques / nœud" value={hciDisksPerNode} onChange={setHciDisksPerNode} min={1} max={24} unit="disques" />
-            <NF label="Capacité utile cible" value={hciStorageTarget} onChange={setHciStorageTarget} min={1} step={10} unit="To" />
-            <hr style={s.divider}/>
-            <div style={{marginBottom:12}}>
-              <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:12,color:dedupEnabled?th.accent:th.t2,fontFamily:"monospace"}}>
-                <input type="checkbox" checked={dedupEnabled} onChange={e=>{setDedupEnabled(e.target.checked);if(e.target.checked)setDedupRatio(hciProfile.defaultDedup);}} style={{accentColor:th.accent}} />
-                Déduplication / Compression
-                {dedupEnabled && <span style={{fontSize:10,color:th.t3,marginLeft:4}}>ratio par défaut : {hciProfile.defaultDedup}:1</span>}
-              </label>
-              {dedupEnabled && (
-                <div style={{marginTop:8}}>
-                  <label style={s.label}>Ratio dédup / compression</label>
-                  <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                    <input type="range" min={1} max={10} step={0.5} value={dedupRatio}
-                      onChange={e=>setDedupRatio(Number(e.target.value))}
-                      style={{flex:1,accentColor:th.accent}} />
-                    <span style={{fontFamily:"monospace",fontSize:12,color:th.accent,minWidth:40,textAlign:"right"}}>{dedupRatio}:1</span>
-                  </div>
+
+            {/* Ligne 1 : solution + résilience + disque + nb disques */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10,marginBottom:12}}>
+              <div>
+                <label style={s.label}>Solution HCI</label>
+                <select value={hciSolution} onChange={e=>{setHciSolution(e.target.value);setHciResil(HCI_PROFILES[e.target.value].resiliency[0].id);setDedupRatio(HCI_PROFILES[e.target.value].defaultDedup);}} style={s.select}>
+                  {Object.entries(HCI_PROFILES).map(([k,p])=><option key={k} value={k}>{p.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={s.label}>Résilience</label>
+                <select value={hciResil} onChange={e=>setHciResil(e.target.value)} style={s.select}>
+                  {hciProfile.resiliency.map(r=><option key={r.id} value={r.id}>{r.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={s.label}>Type de disque</label>
+                <select value={hciDiskId} onChange={e=>setHciDiskId(e.target.value)} style={s.select}>
+                  {HCI_DISKS.map(d=><option key={d.id} value={d.id}>{d.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={s.label}>Disques / nœud</label>
+                <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                  <input type="number" min={1} max={24} value={hciDisksPerNode} onChange={e=>setHciDisksPerNode(Number(e.target.value))} style={s.input} />
+                  <span style={{fontSize:11,color:th.t3,whiteSpace:"nowrap"}}>disques</span>
                 </div>
-              )}
+              </div>
             </div>
+
+            {/* Cible + dédup */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+              <div>
+                <label style={s.label}>Capacité utile cible</label>
+                <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                  <input type="number" min={1} step={10} value={hciStorageTarget} onChange={e=>setHciStorageTarget(Number(e.target.value))} style={s.input} />
+                  <span style={{fontSize:11,color:th.t3}}>To</span>
+                </div>
+              </div>
+              <div>
+                <label style={s.label}>Déduplication / Compression</label>
+                <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:12,color:dedupEnabled?th.accent:th.t2,fontFamily:"monospace",marginBottom:6}}>
+                  <input type="checkbox" checked={dedupEnabled} onChange={e=>{setDedupEnabled(e.target.checked);if(e.target.checked)setDedupRatio(hciProfile.defaultDedup);}} style={{accentColor:th.accent}} />
+                  {dedupEnabled ? `Activée — ratio ${dedupRatio}:1` : "Désactivée"}
+                </label>
+                {dedupEnabled && (
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <input type="range" min={1} max={10} step={0.5} value={dedupRatio} onChange={e=>setDedupRatio(Number(e.target.value))} style={{flex:1,accentColor:th.accent}} />
+                    <span style={{fontFamily:"monospace",fontSize:12,color:th.accent,minWidth:36,textAlign:"right"}}>{dedupRatio}:1</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
             <hr style={s.divider}/>
+
+            {/* Analyse capacité */}
+            <div style={{fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10,fontFamily:"monospace"}}>Analyse de capacité</div>
             <RR label="Brut / nœud" value={fmt(hciDisksPerNode*hciDisk.cap,2)+" To"} />
             <RR label="Brut cluster" value={fmt(r.rawCluster,2)+" To"} />
             <RR label="Overhead" value={fmt(hciProfile.overhead*100,0)+" %"} color={th.warn} />
-            <RR label={"Résilience ("+hciResilOpt.label+")"} value={"÷ "+hciResilOpt.factor} color={th.warn} />
-            <RR label="Réserve metadata" value={fmt(hciProfile.metadataReserve*100,0)+" %"} color={th.warn} />
-            <RR label="Capacité utile" value={fmt(r.usable,2)+" To"} color={r.storageOk?th.accent:th.danger} />
-            <RR label="Objectif atteint" value={r.storageOk?"✓ OUI":"✗ NON — ajouter des disques"} color={r.storageOk?th.accent:th.danger} />
-            {dedupEnabled && (<>
-              <hr style={s.divider}/>
+            <RR label={"Résilience ("+hciResilOpt.label+")"} value={"× "+hciResilOpt.factor} color={th.warn} />
+            <RR label="Réserve metadata" value={"× "+(1-hciProfile.metadataReserve).toFixed(2)} color={th.warn} />
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${th.border}`}}>
+              <span style={{fontSize:12,color:th.t2}}>Capacité utile</span>
+              <span style={{fontFamily:"monospace",fontWeight:600,fontSize:13}}>
+                <span style={{color:th.t3,marginRight:8}}>{fmt(hciStorageTarget,0)} To cible</span>
+                <span style={{color:r.storageOk?th.accent:th.danger}}>{fmt(r.usable,2)} To</span>
+              </span>
+            </div>
+            {dedupEnabled && (
               <RR label={"Capacité effective (×"+dedupRatio+")"} value={fmt(r.effective,2)+" To"} color={th.accent} />
-              <RR label="Économie dédup/compression" value={"+"+fmt(r.savedByDedup,2)+" To"} color={th.accent} />
-              <div style={{marginTop:12}}>
-                <div style={{fontSize:10,color:th.t3,fontFamily:"monospace",marginBottom:6,textTransform:"uppercase",letterSpacing:"0.08em"}}>Utile vs Effective</div>
-                <div style={{display:"flex",gap:6,alignItems:"flex-end",height:60}}>
-                  {[{label:"Utile",val:r.usable,color:th.accent2},{label:"Effective",val:r.effective,color:th.accent}].map((b,i)=>{
-                    const maxVal = Math.max(r.usable, r.effective);
-                    const h = maxVal > 0 ? Math.round((b.val/maxVal)*50)+8 : 8;
-                    return (
-                      <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
-                        <span style={{fontSize:10,fontFamily:"monospace",color:b.color,fontWeight:600}}>{fmt(b.val,1)} To</span>
-                        <div style={{width:"100%",height:h,background:b.color,borderRadius:"3px 3px 0 0",opacity:0.85}}/>
-                        <span style={{fontSize:9,color:th.t3,fontFamily:"monospace"}}>{b.label}</span>
-                      </div>
-                    );
-                  })}
+            )}
+
+            {/* Graphe Utile vs Effective */}
+            {dedupEnabled && r.usable > 0 && (
+              <div style={{marginTop:16}}>
+                <div style={{fontSize:10,color:th.t3,fontFamily:"monospace",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10}}>
+                  Capacité : Utile vs Effective (+{fmt(r.savedByDedup,2)} To gagnés avec dédup/compression)
                 </div>
+                {[
+                  {label:"Utile", val:r.usable, color:th.accent2},
+                  {label:"Effective", val:r.effective, color:th.accent},
+                ].map((b,i)=>{
+                  const maxVal = Math.max(r.usable, r.effective);
+                  const pct = maxVal > 0 ? (b.val/maxVal)*100 : 0;
+                  return (
+                    <div key={i} style={{marginBottom:10}}>
+                      <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                        <span style={{fontSize:11,color:th.t2,fontFamily:"monospace"}}>{b.label}</span>
+                        <span style={{fontSize:12,fontWeight:600,fontFamily:"monospace",color:b.color}}>
+                          {fmt(b.val,2)} To
+                          {i===1 && <span style={{fontSize:10,color:th.accent,marginLeft:8}}>+{fmt(r.savedByDedup,2)} To</span>}
+                        </span>
+                      </div>
+                      <div style={{background:th.bg2,borderRadius:3,height:28,overflow:"hidden"}}>
+                        <div style={{width:pct+"%",height:"100%",background:b.color,borderRadius:3,display:"flex",alignItems:"center",justifyContent:"center",transition:"width 0.3s"}}>
+                          <span style={{fontSize:11,fontWeight:600,fontFamily:"monospace",color:"#fff",whiteSpace:"nowrap",padding:"0 8px"}}>{fmt(b.val,2)} To</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            </>)}
+            )}
           </div>
 
+          {/* Recommandations */}
+          <div style={{...s.card(r.storageOk?th.accent:th.danger),background:r.storageOk?"rgba(0,212,170,0.05)":"rgba(255,85,85,0.05)"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
+              <div style={{fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",fontFamily:"monospace"}}>Recommandations</div>
+              <div style={{fontSize:10,padding:"3px 10px",borderRadius:3,fontFamily:"monospace",fontWeight:600,
+                background:r.storageOk?"rgba(0,212,170,0.12)":"rgba(255,85,85,0.12)",
+                color:r.storageOk?th.accent:th.danger,
+                border:`1px solid ${r.storageOk?"rgba(0,212,170,0.3)":"rgba(255,85,85,0.3)"}`}}>
+                {r.storageOk?"✓ OBJECTIF ATTEINT":"⚠ CAPACITÉ INSUFFISANTE"}
+              </div>
+            </div>
+
+            {!r.storageOk && (() => {
+              const deficit = hciStorageTarget - r.usable;
+              const rawNeededPerNode = (deficit * hciResilOpt.factor) / (tgtNodes * (1-hciProfile.overhead) * (1-hciProfile.metadataReserve));
+              const disksToAdd = Math.ceil(rawNeededPerNode / hciDisk.cap);
+              const totalDisksNeeded = hciDisksPerNode + disksToAdd;
+              const totalDisksCluster = totalDisksNeeded * tgtNodes;
+              const pctMissing = Math.round((deficit/hciStorageTarget)*100);
+              return (
+                <div>
+                  <div style={{background:"rgba(255,85,85,0.08)",border:"1px solid rgba(255,85,85,0.2)",borderRadius:4,padding:"10px 12px",marginBottom:12}}>
+                    <div style={{fontSize:12,fontWeight:600,color:th.danger,fontFamily:"monospace",marginBottom:4}}>
+                      Ajoutez {disksToAdd} disque{disksToAdd>1?"s":""} par nœud
+                    </div>
+                    <div style={{fontSize:11,color:th.t2}}>
+                      Capacité utile non atteinte — {pctMissing}% de déficit
+                    </div>
+                  </div>
+                  <div style={{fontSize:11,color:th.t2,marginBottom:12}}>
+                    <div style={{marginBottom:8,padding:"8px 10px",background:th.bg2,borderRadius:4,borderLeft:`2px solid ${th.accent2}`}}>
+                      1. Ajouter {disksToAdd} × {hciDisk.label} par nœud pour atteindre {fmt(hciStorageTarget,0)} To utile
+                    </div>
+                    {!dedupEnabled && (
+                      <div style={{padding:"8px 10px",background:th.bg2,borderRadius:4,borderLeft:`2px solid ${th.accent}`}}>
+                        2. Activer la déduplication/compression ({hciProfile.defaultDedup}:1 par défaut pour {hciProfile.label})
+                      </div>
+                    )}
+                    {dedupEnabled && dedupRatio < hciProfile.defaultDedup * 1.3 && (
+                      <div style={{padding:"8px 10px",background:th.bg2,borderRadius:4,borderLeft:`2px solid ${th.accent}`}}>
+                        2. Envisager un ratio dédup/compression plus élevé ({fmt(dedupRatio+1,1)}:1 ou {fmt(dedupRatio+2,1)}:1)
+                      </div>
+                    )}
+                  </div>
+                  <div style={{background:th.bg2,borderRadius:4,padding:"10px 12px",fontSize:11,fontFamily:"monospace",color:th.t2}}>
+                    Besoin total : <span style={{color:th.t1,fontWeight:600}}>{totalDisksCluster} disques</span> {hciDisk.label}
+                    <span style={{display:"block",fontSize:10,color:th.t3,marginTop:2}}>({totalDisksNeeded} disques × {tgtNodes} nœuds)</span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {r.storageOk && (
+              <div>
+                <div style={{background:"rgba(0,212,170,0.07)",border:"1px solid rgba(0,212,170,0.2)",borderRadius:4,padding:"10px 12px",marginBottom:12}}>
+                  <div style={{fontSize:12,color:th.accent,fontFamily:"monospace",fontWeight:600,marginBottom:4}}>
+                    Configuration validée
+                  </div>
+                  <div style={{fontSize:11,color:th.t2}}>
+                    {fmt(r.usable,2)} To disponibles pour {fmt(hciStorageTarget,0)} To demandés
+                  </div>
+                </div>
+                <RR label="Marge disponible" value={"+"+fmt(r.usable-hciStorageTarget,2)+" To"} color={th.accent} />
+                <RR label="Taux d'utilisation" value={fmt((hciStorageTarget/r.usable)*100,1)+" %"} color={th.t1} />
+                {dedupEnabled && <RR label="Gain dédup/compression" value={"+"+fmt(r.savedByDedup,2)+" To"} color={th.accent} />}
+                <div style={{marginTop:12,padding:"8px 10px",background:th.bg2,borderRadius:4,fontSize:11,color:th.t2}}>
+                  Total disques : <span style={{color:th.t1,fontWeight:600,fontFamily:"monospace"}}>{hciDisksPerNode*tgtNodes} disques</span> {hciDisk.label}
+                  <span style={{display:"block",fontSize:10,color:th.t3,marginTop:2}}>({hciDisksPerNode} disques × {tgtNodes} nœuds)</span>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
