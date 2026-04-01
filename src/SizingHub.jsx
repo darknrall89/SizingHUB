@@ -134,6 +134,10 @@ function VMwareCalc({th}) {
   const [pricePerCore, setPricePerCore] = useState(50);
   const [yearsTotal,   setYearsTotal]   = useState(3);
   const [maintenancePct, setMaintenancePct] = useState(20);
+  const [vsanOpen,   setVsanOpen]   = useState(false);
+  const [vsanFtt,    setVsanFtt]    = useState('ftt1r1');
+  const [vsanOverhead,setVsanOverhead]=useState(25);
+  const [vsanTarget, setVsanTarget] = useState(50);
 
   const LICENSE_PRICES = { vvf: 50, vcf: 72 };
 
@@ -284,6 +288,29 @@ function VMwareCalc({th}) {
           <RR label="Cœurs N-1 (HA)"     value={fmt(r.haCores)+" cœurs"}/>
           <RR label="RAM N-1 (HA)"        value={fmt(r.haRam,2)+" To"}/>
           <RR label="Capacité perdue HA"  value={fmt(r.haPct,1)+" %"} color={r.haPct>20?"#ffb347":th.accent}/>
+
+          {/* Graphe Physique vs Facturé */}
+          <hr style={s.divider}/>
+          <div style={{fontSize:10,color:th.t3,fontFamily:"monospace",textTransform:"uppercase",marginBottom:12}}>Comparaison licensing (CPU)</div>
+          <div style={{display:"flex",alignItems:"flex-end",gap:16,height:120,padding:"0 8px"}}>
+            {chartData.map((b,i)=>{
+              const h = Math.max(8, Math.round((b.val/maxVal)*100));
+              return (
+                <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                  <div style={{width:"100%",height:h,background:b.color,borderRadius:"4px 4px 0 0",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                    {h>24&&<span style={{fontSize:11,color:"#fff",fontFamily:"monospace",fontWeight:700}}>{fmt(b.val)}</span>}
+                  </div>
+                  <span style={{fontSize:10,color:th.t2,fontFamily:"monospace",textAlign:"center",lineHeight:1.3,whiteSpace:"pre-line"}}>{b.name}</span>
+                  <span style={{fontSize:10,color:b.color,fontFamily:"monospace",fontWeight:600}}>{fmt(b.val)} cœurs</span>
+                </div>
+              );
+            })}
+            {r.surcharge && (
+              <div style={{position:"absolute",fontSize:11,fontWeight:700,color:"#ffb347",fontFamily:"monospace"}}>
+                +{r.surPct}%
+              </div>
+            )}
+          </div>
           {r.surPct>0&&<div style={{fontSize:10,color:"#ffb347",fontFamily:"monospace",textAlign:"center",marginTop:4}}>+{r.surPct}% de surcoût lié à la règle min 16/socket</div>}
         </div>
 
@@ -326,6 +353,192 @@ function VMwareCalc({th}) {
         </div>
       </div>
 
+
+
+      {/* ── Tableau comparaison VVF vs VCF ─────────────────────────────── */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+        {[
+          {
+            id:"vvf", name:"VMware VVF", sub:"vSphere Foundation",
+            price: pricePerCore, color:"#0099ff",
+            features:[
+              {label:"vSphere (ESXi + vCenter)",   ok:true},
+              {label:"vSAN (stockage HCI)",         ok:false, note:"Add-on payant"},
+              {label:"NSX (réseau SDN)",            ok:false, note:"Non inclus"},
+              {label:"Aria Suite (management)",     ok:false, note:"Non inclus"},
+              {label:"Tanzu (containers)",          ok:false, note:"Non inclus"},
+              {label:"vSAN inclus (TiB/cœur)",      ok:false, note:"0 TiB"},
+              {label:"Prix public / cœur / an",     ok:true,  note:"~50 $"},
+              {label:"Idéal pour",                  ok:true,  note:"SAN/NAS existant"},
+            ]
+          },
+          {
+            id:"vcf", name:"VMware VCF", sub:"Cloud Foundation",
+            price: Math.round(pricePerCore * 1.44), color:"#ff6b35",
+            features:[
+              {label:"vSphere (ESXi + vCenter)",   ok:true},
+              {label:"vSAN (stockage HCI)",         ok:true,  note:"0,25 TiB/cœur inclus"},
+              {label:"NSX (réseau SDN)",            ok:true,  note:"Full stack"},
+              {label:"Aria Suite (management)",     ok:true,  note:"Opérations + Logs"},
+              {label:"Tanzu (containers)",          ok:true,  note:"Kubernetes intégré"},
+              {label:"vSAN inclus (TiB/cœur)",      ok:true,  note:"0,25 TiB/cœur"},
+              {label:"Prix public / cœur / an",     ok:true,  note:"~72 $"},
+              {label:"Idéal pour",                  ok:true,  note:"Stack full SDDCx"},
+            ]
+          }
+        ].map(lic=>{
+          const annual = r.totalBilled * lic.price;
+          const isActive = licType === lic.id;
+          return (
+            <div key={lic.id} style={{
+              background:th.cardBg, borderRadius:6, padding:16,
+              border:`2px solid ${isActive ? lic.color : th.border}`,
+              opacity: isActive ? 1 : 0.75,
+            }}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+                <div>
+                  <div style={{fontSize:14,fontWeight:700,color:lic.color,fontFamily:"monospace"}}>{lic.name}</div>
+                  <div style={{fontSize:11,color:th.t3,fontFamily:"monospace"}}>{lic.sub}</div>
+                </div>
+                <div style={{textAlign:"right"}}>
+                  <div style={{fontSize:18,fontWeight:700,fontFamily:"monospace",color:lic.color}}>~ {fmt(annual)} $</div>
+                  <div style={{fontSize:10,color:th.t3,fontFamily:"monospace"}}>/ an · {r.totalBilled} cœurs</div>
+                </div>
+              </div>
+              <hr style={{border:"none",borderTop:`1px solid ${th.border}`,margin:"10px 0"}}/>
+              {lic.features.map((f,i)=>(
+                <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"5px 0",borderBottom:`1px solid ${th.border}`}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <span style={{fontSize:12,color:f.ok?th.accent:th.danger,fontWeight:700}}>{f.ok?"✓":"✗"}</span>
+                    <span style={{fontSize:12,color:th.t2}}>{f.label}</span>
+                  </div>
+                  {f.note && <span style={{fontSize:11,color:f.ok?th.t1:th.t3,fontFamily:"monospace"}}>{f.note}</span>}
+                </div>
+              ))}
+              {isActive && (
+                <div style={{marginTop:10,padding:"6px 10px",background:`${lic.color}15`,borderRadius:4,fontSize:11,color:lic.color,fontFamily:"monospace",textAlign:"center",border:`1px solid ${lic.color}33`}}>
+                  ← Licence sélectionnée
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ── Calculateur vSAN (dépliable) ─────────────────────────────────── */}
+      <div style={{marginBottom:14}}>
+        <div onClick={()=>setVsanOpen(v=>!v)} style={{
+          display:"flex",alignItems:"center",justifyContent:"space-between",
+          padding:"10px 16px",cursor:"pointer",borderRadius:6,
+          background:vsanOpen?"rgba(0,153,255,0.08)":th.bg2,
+          border:`1px solid ${vsanOpen?"rgba(0,153,255,0.3)":th.border}`,
+        }}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <span style={{fontSize:12,fontWeight:600,color:vsanOpen?th.accent2:th.t2,fontFamily:"monospace"}}>
+              Calculateur vSAN — Capacité stockage HCI
+            </span>
+            <span style={{fontSize:10,padding:"2px 8px",borderRadius:3,background:"rgba(0,153,255,0.1)",color:th.accent2,border:"1px solid rgba(0,153,255,0.2)",fontFamily:"monospace"}}>
+              VCF uniquement
+            </span>
+          </div>
+          <span style={{color:th.t3,fontSize:14}}>{vsanOpen?"▲":"▼"}</span>
+        </div>
+
+        {vsanOpen && (
+          <div style={{background:th.cardBg,border:`1px solid ${th.border}`,borderTop:"none",borderRadius:"0 0 6px 6px",padding:16}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14}}>
+
+              {/* Config vSAN */}
+              <div style={{background:th.bg2,borderLeft:`2px solid ${th.accent2}`,borderRadius:4,padding:14}}>
+                <div style={{fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:12,fontFamily:"monospace"}}>Configuration vSAN</div>
+                <div style={{marginBottom:12}}>
+                  <label style={{display:"block",fontSize:10,color:th.t3,fontFamily:"monospace",textTransform:"uppercase",marginBottom:5}}>Politique de résilience</label>
+                  <select value={vsanFtt} onChange={e=>setVsanFtt(e.target.value)} style={{width:"100%",background:th.bg1,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"monospace",fontSize:12,boxSizing:"border-box"}}>
+                    <option value="ftt1r1">FTT=1 RAID-1 (×2)</option>
+                    <option value="ftt1r5">FTT=1 RAID-5 (×1,33) — ≥4 nœuds</option>
+                    <option value="ftt2r1">FTT=2 RAID-1 (×3) — ≥6 nœuds</option>
+                    <option value="ftt2r6">FTT=2 RAID-6 (×1,5) — ≥6 nœuds</option>
+                  </select>
+                </div>
+                <div style={{marginBottom:12}}>
+                  <label style={{display:"block",fontSize:10,color:th.t3,fontFamily:"monospace",textTransform:"uppercase",marginBottom:5}}>Overhead vSAN (%)</label>
+                  <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                    <input type="number" min={10} max={40} value={vsanOverhead} onChange={e=>setVsanOverhead(Number(e.target.value))}
+                      style={{width:"100%",background:th.bg1,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"monospace",fontSize:13,boxSizing:"border-box"}}/>
+                    <span style={{fontSize:11,color:th.t3}}>%</span>
+                  </div>
+                </div>
+                <div style={{marginBottom:12}}>
+                  <label style={{display:"block",fontSize:10,color:th.t3,fontFamily:"monospace",textTransform:"uppercase",marginBottom:5}}>Capacité cible nette</label>
+                  <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                    <input type="number" min={1} step={10} value={vsanTarget} onChange={e=>setVsanTarget(Number(e.target.value))}
+                      style={{width:"100%",background:th.bg1,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"monospace",fontSize:13,boxSizing:"border-box"}}/>
+                    <span style={{fontSize:11,color:th.t3}}>TiB</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Résultats vSAN */}
+              <div style={{background:th.bg2,borderLeft:`2px solid ${th.accent}`,borderRadius:4,padding:14}}>
+                <div style={{fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:12,fontFamily:"monospace"}}>Résultats vSAN</div>
+                {(()=>{
+                  const fttFactors = {ftt1r1:2, ftt1r5:1.33, ftt2r1:3, ftt2r6:1.5};
+                  const fttFactor  = fttFactors[vsanFtt]||2;
+                  const includedTib = r.totalBilled * 0.25;
+                  const includedUsable = includedTib * (1-vsanOverhead/100) / fttFactor;
+                  const needsAddon  = includedUsable < vsanTarget;
+                  const deficitTib  = needsAddon ? (vsanTarget - includedUsable) * fttFactor / (1-vsanOverhead/100) : 0;
+                  const addonTib    = Math.ceil(deficitTib);
+                  const addonCostEst = addonTib * 35;
+                  return (
+                    <div>
+                      {[
+                        {label:"Cœurs VCF facturés",         val:fmt(r.totalBilled)+" cœurs"},
+                        {label:"vSAN inclus (0,25 TiB/cœur)",val:fmt(includedTib,1)+" TiB bruts"},
+                        {label:`Utile après FTT+overhead`,    val:fmt(includedUsable,1)+" TiB", color:th.accent},
+                        {label:"Cible nette",                 val:fmt(vsanTarget,0)+" TiB"},
+                        {label:"Addon nécessaire",            val:needsAddon?fmt(addonTib)+" TiB":"Aucun", color:needsAddon?th.danger:th.accent},
+                      ].map((row,i)=>(
+                        <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:`1px solid ${th.border}`}}>
+                          <span style={{fontSize:12,color:th.t2}}>{row.label}</span>
+                          <span style={{fontFamily:"monospace",fontWeight:600,fontSize:13,color:row.color||th.t1}}>{row.val}</span>
+                        </div>
+                      ))}
+                      {needsAddon && (
+                        <div style={{marginTop:10,padding:"8px 10px",background:"rgba(255,85,85,0.08)",border:"1px solid rgba(255,85,85,0.2)",borderRadius:4,fontSize:11,color:th.danger}}>
+                          ⚠ vSAN Add-on requis : ~{fmt(addonTib)} TiB supplémentaires<br/>
+                          <span style={{color:th.t3}}>Estimation : ~{fmt(addonCostEst)} $/an (@35$/TiB)</span>
+                        </div>
+                      )}
+                      {!needsAddon && (
+                        <div style={{marginTop:10,padding:"8px 10px",background:"rgba(0,212,170,0.07)",border:"1px solid rgba(0,212,170,0.2)",borderRadius:4,fontSize:11,color:th.accent}}>
+                          ✓ Capacité incluse dans VCF — pas d'addon nécessaire
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Conseil */}
+              <div style={{background:th.bg2,borderLeft:`2px solid ${th.warn}`,borderRadius:4,padding:14}}>
+                <div style={{fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:12,fontFamily:"monospace"}}>Points clés vSAN</div>
+                {[
+                  {icon:"⚡",text:"0,25 TiB brut inclus par cœur VCF — s'épuise vite sur des serveurs haute densité"},
+                  {icon:"📦",text:"L'Add-on vSAN repart de 0 TiB — impossible de n'acheter que le delta"},
+                  {icon:"🔒",text:"Abonnement vSAN lié au cluster — expiration = perte d'accès au stockage"},
+                  {icon:"💡",text:"Si besoin >1 TiB/cœur : envisager SAN/NAS externe + VVF (moins cher)"},
+                ].map((tip,i)=>(
+                  <div key={i} style={{display:"flex",gap:10,marginBottom:10,padding:"8px 10px",background:th.bg1,borderRadius:4}}>
+                    <span style={{fontSize:14,flexShrink:0}}>{tip.icon}</span>
+                    <span style={{fontSize:11,color:th.t2,lineHeight:1.5}}>{tip.text}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
     </div>
   );
