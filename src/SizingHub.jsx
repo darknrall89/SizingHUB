@@ -1,9 +1,19 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import {
   Server, HardDrive, Cloud, Cpu, Database,
   BarChart2, Shield, CheckCircle, AlertTriangle,
   Info, Sun, Moon, Menu, X
 } from "lucide-react";
+
+function useIsMobile() {
+  const [w, setW] = useState(window.innerWidth);
+  useState(()=>{
+    const h = () => setW(window.innerWidth);
+    window.addEventListener('resize', h);
+    return () => window.removeEventListener('resize', h);
+  });
+  return w < 768;
+}
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer
@@ -51,8 +61,7 @@ function Card({children, accent, th}) {
   const accentColors = {accent:th.accent, accent2:th.accent2, accent3:th.accent3, warn:th.warn};
   return (
     <div style={{
-      background:th.cardBg, border:`1px solid ${th.border}`, borderRadius:6, padding:18,
-      borderLeft: accent ? `2px solid ${accentColors[accent]||th.accent}` : undefined,
+      background:th.cardBg, borderTop:`1px solid ${th.border}`,borderRight:`1px solid ${th.border}`,borderBottom:`1px solid ${th.border}`,borderLeft:accent ? `2px solid ${accentColors[accent]||th.accent}` : `1px solid ${th.border}`, borderRadius:6, padding:18,
     }}>{children}</div>
   );
 }
@@ -275,7 +284,7 @@ function VMwareCalc({th, isMobile=false}) {
         {/* Impact financier */}
         <div style={s.card("#ff6b35")}>
           <div style={s.secTitle}>Impact financier</div>
-          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginBottom:14}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
             <NF label="Prix / cœur / an" value={pricePerCore} onChange={setPricePerCore} min={1} max={200} unit="€" note={licType==="vvf"?"Indicatif : ~46 €/cœur/an":"Indicatif : ~66 €/cœur/an"}/>
             <NF label="Durée contrat" value={yearsTotal} onChange={setYearsTotal} min={1} max={5} unit="ans"/>
             <NF label="Maintenance annuelle" value={maintenancePct} onChange={setMaintenancePct} min={0} max={30} unit="%" note="Incluse abonnement Broadcom"/>
@@ -288,15 +297,7 @@ function VMwareCalc({th, isMobile=false}) {
               </div>
               <div style={{fontSize:10,color:th.t3,marginTop:3}}>Taux indicatif — ajuster selon contrat</div>
             </div>
-            <div style={s.field}>
-              <label style={s.label}>Taux de change USD/EUR</label>
-              <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                <input type="number" min={0.5} max={1.5} step={0.01} value={fxRate}
-                  onChange={e=>setFxRate(Number(e.target.value))} style={s.input}/>
-                <span style={{fontSize:11,color:th.t3,whiteSpace:"nowrap"}}>€/$</span>
-              </div>
-              <div style={{fontSize:10,color:th.t3,marginTop:3}}>Taux indicatif — ajuster selon contrat</div>
-            </div>
+
           </div>
           <hr style={s.divider}/>
           <RR label="Coût licences / an"         value={"~ "+fmt(r.annualCostEur)+" €"}/>
@@ -608,6 +609,7 @@ function M365Calc({th, isMobile=false}) {
 }
 
 // ─── 4. Stockage (avancé) ────────────────────────────────────────────────────
+// ─── 4. Stockage (avancé) ────────────────────────────────────────────────────
 
 const DISK_CATALOG = {
   "3.5": [
@@ -694,18 +696,18 @@ function calcGroup(g, catalog) {
 function StorageCalc({ th, isMobile=false }) {
   const [chassisList, setChassisList] = useState([newChassis("3.5-12")]);
   const [dedup, setDedup] = useState(1);
-  const [iopsTarget, setIopsTarget] = useState(50000);
-  // États calculateur constructeur
-  const [vendorOpen,    setVendorOpen]    = useState(false);
-  const [vVendor,       setVVendor]       = useState("dell");
-  const [vModel,        setVModel]        = useState("powerstore");
-  const [vRaid,         setVRaid]         = useState("r5");
-  const [vOverhead,     setVOverhead]     = useState(24);
-  const [vDisks,        setVDisks]        = useState(24);
-  const [vDiskCap,      setVDiskCap]      = useState(3.84);
-  const [vTarget,       setVTarget]       = useState(50);
-  const [vVendorDedup,  setVVendorDedup]  = useState(true);
-  const [vDedupRatio,   setVDedupRatio]   = useState(2.5);
+  const [iopsTarget,     setIopsTarget]     = useState(50000);
+  const [capacityTarget, setCapacityTarget] = useState(100);
+  const [vendorOpen,     setVendorOpen]     = useState(false);
+  const [vVendor,        setVVendor]        = useState("dell");
+  const [vModel,         setVModel]         = useState("powerstore");
+  const [vRaid,          setVRaid]          = useState("dre_sp_8_1");
+  const [vOverhead,      setVOverhead]      = useState(12);
+  const [vDisks,         setVDisks]         = useState(24);
+  const [vDiskCap,       setVDiskCap]       = useState(3.84);
+  const [vTarget,        setVTarget]        = useState(50);
+  const [vVendorDedup,   setVVendorDedup]   = useState(true);
+  const [vDedupRatio,    setVDedupRatio]    = useState(2.5);
 
   const addChassis = () => setChassisList(p=>[...p, newChassis("3.5-12")]);
   const removeChassis = (cid) => setChassisList(p=>p.filter(c=>c.id!==cid));
@@ -732,8 +734,15 @@ function StorageCalc({ th, isMobile=false }) {
       });
     });
     const effective = usable * dedup;
-    return { physical, usable, effective, iops, bw, iopsOk:iops>=iopsTarget };
-  },[chassisList,dedup,iopsTarget]);
+    let totalSlots=0, usedSlots=0;
+    chassisList.forEach(c=>{totalSlots+=c.slots;usedSlots+=c.groups.reduce((s,g)=>s+g.count,0);});
+    const freeSlots=totalSlots-usedSlots;
+    const capOk=effective>=capacityTarget;
+    const capDelta=effective-capacityTarget;
+    const iopsDelta=iops-iopsTarget;
+    return { physical, usable, effective, iops, bw, iopsOk:iops>=iopsTarget,
+             freeSlots, totalSlots, usedSlots, capOk, capDelta, iopsDelta };
+  },[chassisList,dedup,iopsTarget,capacityTarget]);
 
   // Recommandations automatiques
   const recommendations = useMemo(()=>{
@@ -769,7 +778,7 @@ function StorageCalc({ th, isMobile=false }) {
   const tt = { background:th.tooltipBg, border:`1px solid ${th.border2}`, borderRadius:4, fontSize:11, color:th.t1 };
 
   const s = {
-    card: (accent) => ({ background:th.cardBg, border:`1px solid ${th.border}`, borderLeft:accent?`2px solid ${accent}`:undefined, borderRadius:6, padding:16, marginBottom:14 }),
+    card: (accent) => ({ background:th.cardBg, borderTop:`1px solid ${th.border}`,borderRight:`1px solid ${th.border}`,borderBottom:`1px solid ${th.border}`,borderLeft:accent?`2px solid ${accent}`:`1px solid ${th.border}`, borderRadius:6, padding:16, marginBottom:14 }),
     groupRow: { background:th.bg2, border:`1px solid ${th.border}`, borderRadius:4, padding:"10px 14px", marginBottom:8 },
     label: { display:"block", fontSize:10, color:th.t3, fontFamily:"monospace", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:4 },
     input: { width:"100%", background:th.bg1, border:`1px solid ${th.border}`, borderRadius:4, padding:"6px 8px", color:th.t1, fontFamily:"monospace", fontSize:12, boxSizing:"border-box" },
@@ -785,25 +794,50 @@ function StorageCalc({ th, isMobile=false }) {
   return (
     <div>
       {/* KPIs */}
-      <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(5,1fr)",gap:10,marginBottom:20}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:10,marginBottom:14}}>
         {[
-          {label:"Capacité physique", val:fmt(totals.physical,2)+" To", color:th.t1},
-          {label:"Utile (RAID)",      val:fmt(totals.usable,2)+" To",   color:th.accent},
-          {label:"Effective (dédup)", val:fmt(totals.effective,2)+" To",color:totals.effective>totals.usable?th.accent:th.t1},
-          {label:"IOPS totaux",       val:fmt(totals.iops),              color:totals.iopsOk?th.t1:th.warn},
-          {label:"Bande passante",    val:fmt(totals.bw,2)+" GB/s",     color:th.accent2},
+          {label:"Évolutivité",sub:"Slots disponibles",val:fmt(totals.freeSlots)+" slots",sub2:totals.usedSlots+" / "+totals.totalSlots+" utilisés",bg:"linear-gradient(135deg,#5a4fcf,#3d35a0)"},
+          {label:"Capacité utile",sub:"Après RAID",val:fmt(totals.usable,1)+" To",sub2:fmt(totals.physical,1)+" To brut",bg:"linear-gradient(135deg,#0077cc,#005599)"},
+          {label:"Capacité effective",sub:"Après dédup",val:fmt(totals.effective,1)+" To",sub2:(totals.capOk?"+":"")+fmt(totals.capDelta,1)+" To vs "+fmt(capacityTarget,0)+" To cible",bg:totals.capOk?"linear-gradient(135deg,#00a884,#007a60)":"linear-gradient(135deg,#cc3333,#991111)"},
+          {label:"Conformité IOPS",sub:totals.iopsOk?"✓ Objectif atteint":"⚠ Insuffisant",val:fmt(totals.iops),sub2:(totals.iopsOk?"+":"")+fmt(totals.iopsDelta)+" vs "+fmt(iopsTarget)+" requis",bg:totals.iopsOk?"linear-gradient(135deg,#00a884,#007a60)":"linear-gradient(135deg,#d97706,#b45309)"},
         ].map(k=>(
-          <div key={k.label} style={{background:th.cardBg,border:`1px solid ${th.border}`,borderRadius:6,padding:14}}>
-            <div style={{fontSize:10,color:th.t3,fontFamily:"monospace",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>{k.label}</div>
-            <div style={{fontSize:20,fontWeight:600,fontFamily:"monospace",color:k.color}}>{k.val}</div>
+          <div key={k.label} style={{background:k.bg,borderRadius:8,padding:"14px 16px"}}>
+            <div style={{fontSize:10,color:"rgba(255,255,255,0.6)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>{k.label}</div>
+            <div style={{fontSize:10,color:"rgba(255,255,255,0.5)",marginBottom:4}}>{k.sub}</div>
+            <div style={{fontSize:20,fontWeight:700,fontFamily:"monospace",color:"#fff"}}>{k.val}</div>
+            <div style={{fontSize:11,color:"rgba(255,255,255,0.7)",fontFamily:"monospace",marginTop:3}}>{k.sub2}</div>
           </div>
         ))}
       </div>
 
       <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"3fr 2fr",gap:14,alignItems:"start"}}>
-
-        {/* Colonne gauche */}
         <div>
+          <div style={{background:th.cardBg,borderTop:`1px solid ${th.border}`,borderRight:`1px solid ${th.border}`,borderBottom:`1px solid ${th.border}`,borderLeft:`2px solid ${th.accent2}`,borderRadius:6,padding:16,marginBottom:14}}>
+            <div style={s.secTitle}>Paramètres du pool</div>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:10,marginBottom:12}}>
+              <div>
+                <label style={s.label}>Capacité cible (To)</label>
+                <input type="number" min={1} step={10} value={capacityTarget} onChange={e=>setCapacityTarget(Number(e.target.value))} style={s.input}/>
+              </div>
+              <div>
+                <label style={s.label}>IOPS cibles</label>
+                <input type="number" min={1000} step={5000} value={iopsTarget} onChange={e=>setIopsTarget(Number(e.target.value))} style={s.input}/>
+              </div>
+              <div>
+                <label style={s.label}>Déduplication / Compression</label>
+                <select value={String(dedup)} onChange={e=>setDedup(Number(e.target.value))} style={s.select}>
+                  {[["1","1:1 — aucune"],["1.5","1.5:1 — légère"],["2","2:1 — standard"],["3","3:1 — agressive"],["4","4:1 — maximale"],["5","5:1 — extrême"]].map(([v,l])=>
+                    <option key={v} value={v}>{l}</option>)}
+                </select>
+              </div>
+            </div>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+              <span style={{fontSize:10,color:th.t3,fontFamily:"monospace",textTransform:"uppercase",alignSelf:"center"}}>Simulation :</span>
+              <button onClick={()=>setChassisList(prev=>prev.map(c=>({...c,groups:c.groups.map(g=>({...g,count:g.count+2}))})))} style={s.btnSm(th.warn)}>+2 disques/groupe</button>
+              <button onClick={()=>setChassisList(prev=>[...prev,{...prev[prev.length-1],id:Date.now()}])} style={s.btnSm(th.accent2)}>+1 chassis</button>
+              <button onClick={()=>setChassisList(prev=>prev.map(c=>({...c,groups:c.groups.map(g=>({...g,diskId:"ssd-384"}))})))} style={s.btnSm(th.accent)}>→ SSD 3,84 To</button>
+            </div>
+          </div>
           {chassisList.map((chassis,ci)=>{
             const catalog=DISK_CATALOG[chassis.form];
             const usedSlots=chassis.groups.reduce((s,g)=>s+g.count,0);
@@ -849,7 +883,7 @@ function StorageCalc({ th, isMobile=false }) {
                       </div>
 
                       {/* Saisie groupe */}
-                      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"2fr 1fr 1fr 1fr",gap:8,marginBottom:10}}>
+                      <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr",gap:8,marginBottom:10}}>
                         <div>
                           <label style={s.label}>Type de disque</label>
                           <select value={group.diskId} onChange={e=>updateGroup(chassis.id,group.id,{diskId:e.target.value})} style={s.select}>
@@ -875,7 +909,7 @@ function StorageCalc({ th, isMobile=false }) {
                       </div>
 
                       {/* Résumé inline groupe */}
-                      <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:6}}>
+                      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6}}>
                         {[
                           {label:"Disques",  val:fmt(group.count)+" disques",       color:th.t2},
                           {label:"Utile",    val:fmt(gr.usable,2)+" To",            color:th.accent},
@@ -916,6 +950,7 @@ function StorageCalc({ th, isMobile=false }) {
             </div>
           </div>
 
+
           {/* Recommandations */}
           {recommendations.length>0 && (
             <div style={s.card()}>
@@ -935,19 +970,18 @@ function StorageCalc({ th, isMobile=false }) {
           )}
         </div>
 
-        {/* Colonne droite — résultats + graphe */}
-        <div style={{display:"flex",flexDirection:"column",gap:14}}>
 
-          {/* Récap pool */}
-          <div style={s.card(th.accent2)}>
+        {/* Colonne droite */}
+        <div>
+          <div style={{background:th.cardBg,borderTop:`1px solid ${th.border}`,borderRight:`1px solid ${th.border}`,borderBottom:`1px solid ${th.border}`,borderLeft:`2px solid ${th.accent2}`,borderRadius:6,padding:16}}>
             <div style={s.secTitle}>Résultats par pool</div>
             {[
-              {label:"Capacité physique brute", val:fmt(totals.physical,2)+" To",  color:th.t2},
-              {label:"Capacité utile après RAID",val:fmt(totals.usable,2)+" To",   color:th.accent},
-              {label:`Effective après dédup ×${dedup}`, val:fmt(totals.effective,2)+" To", color:dedup>1?th.accent:th.t2, highlight:dedup>1},
-              {label:"IOPS agrégés",            val:fmt(totals.iops),              color:totals.iopsOk?th.t1:th.warn},
-              {label:"Validation IOPS cible",   val:totals.iopsOk?"✓ Atteints":"✗ Insuffisants", color:totals.iopsOk?th.accent:th.danger},
-              {label:"Bande passante totale",   val:fmt(totals.bw,2)+" GB/s",     color:th.accent2},
+              {label:"Capacité physique brute",   val:fmt(totals.physical,2)+" To",  color:th.t2},
+              {label:"Capacité utile après RAID",  val:fmt(totals.usable,2)+" To",   color:th.accent},
+              {label:`Effective après dédup ×${dedup}`, val:fmt(totals.effective,2)+" To", color:dedup>1?th.accent:th.t2},
+              {label:"IOPS agrégés",              val:fmt(totals.iops),              color:totals.iopsOk?th.t1:th.warn},
+              {label:"Validation IOPS cible",     val:totals.iopsOk?"✓ Atteints":"✗ Insuffisants", color:totals.iopsOk?th.accent:th.danger},
+              {label:"Bande passante totale",     val:fmt(totals.bw,2)+" GB/s",     color:th.accent2},
             ].map(r=>(
               <div key={r.label} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${th.border}`}}>
                 <span style={{fontSize:12,color:th.t2}}>{r.label}</span>
@@ -955,36 +989,9 @@ function StorageCalc({ th, isMobile=false }) {
               </div>
             ))}
           </div>
-
-          {/* Graphe vertical barres */}
-          <div style={s.card()}>
-            <div style={s.secTitle}>Visualisation capacité (To)</div>
-            <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-around",height:200,padding:"0 8px",gap:16}}>
-              {[
-                {label:"Capacité\nphysique", val:totals.physical, color:"#ef4444"},
-                {label:"Utile\n(RAID)",      val:totals.usable,   color:th.accent2},
-                {label:"Effective\n(dédup)", val:totals.effective,color:th.accent},
-              ].map((b,i)=>{
-                const maxVal = Math.max(totals.physical,totals.usable,totals.effective)||1;
-                const h = Math.max(8, Math.round((b.val/maxVal)*170));
-                const pct = totals.physical>0 ? Math.round((b.val/totals.physical)*100) : 0;
-                return (
-                  <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:6}}>
-                    <span style={{fontSize:11,fontWeight:600,fontFamily:"monospace",color:b.color}}>{fmt(b.val,1)} To</span>
-                    <div style={{width:"100%",height:h,background:b.color,borderRadius:"4px 4px 0 0",opacity:0.85,display:"flex",alignItems:"center",justifyContent:"center"}}>
-                      {h>30 && <span style={{fontSize:10,color:"#fff",fontFamily:"monospace",fontWeight:600}}>{pct}%</span>}
-                    </div>
-                    <span style={{fontSize:10,color:th.t3,fontFamily:"monospace",textAlign:"center",whiteSpace:"pre-line",lineHeight:1.3}}>{b.label}</span>
-                  </div>
-                );
-              })}
-            </div>
-            <div style={{fontSize:10,color:th.t3,marginTop:12,fontFamily:"monospace",textAlign:"center"}}>
-              Ratios · effective = utile × {dedup} | utile = brut × eff. RAID
-            </div>
-          </div>
         </div>
       </div>
+
       {/* ── Calculateur constructeur dépliable ─────────────────────────────── */}
       <div style={{marginBottom:14}}>
         <div onClick={()=>setVendorOpen(v=>!v)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 16px",cursor:"pointer",borderRadius:6,background:vendorOpen?"rgba(0,153,255,0.08)":th.bg2,border:`1px solid ${vendorOpen?"rgba(0,153,255,0.3)":th.border}`}}>
@@ -1003,18 +1010,14 @@ function StorageCalc({ th, isMobile=false }) {
                 powerstore: {
                   label:"PowerStore", protection:"DRE (Dynamic Resilience Engine)",
                   overheadMin:10, overheadMax:15, overheadDefault:12,
-                  hasDedup:true, dedupDefault:2.5,
-                  useDreCalc:true,
+                  hasDedup:true, dedupDefault:2.5, useDreCalc:true,
                   raids:[
-                    {id:"dre_sp_4_1", label:"DRE SP — 4+1 (spare incl.)",  dataDisks:4, parityDisks:1, spareDisks:1},
-                    {id:"dre_sp_8_1", label:"DRE SP — 8+1 (spare incl.)",  dataDisks:8, parityDisks:1, spareDisks:1},
-                    {id:"dre_dp_4_2", label:"DRE DP — 4+2 (spare incl.)",  dataDisks:4, parityDisks:2, spareDisks:1},
-                    {id:"dre_dp_8_2", label:"DRE DP — 8+2 (spare incl.)",  dataDisks:8, parityDisks:2, spareDisks:1},
-                    {id:"dre_dp_16_2",label:"DRE DP — 16+2 (spare incl.)", dataDisks:16,parityDisks:2, spareDisks:1},
+                    {id:"dre_sp_8_1",label:"DRE SP — 8+1",dataDisks:8,parityDisks:1,spareDisks:1},
+                    {id:"dre_dp_8_2",label:"DRE DP — 8+2",dataDisks:8,parityDisks:2,spareDisks:1},
+                    {id:"dre_dp_16_2",label:"DRE DP — 16+2",dataDisks:16,parityDisks:2,spareDisks:1},
                   ],
-                  note:"Formule Dell officielle : Cap. physique = Cap. DRE - Réserve interne. DRE SP/DP selon modèle d'appliance."
+                  note:"Formule Dell officielle KB000188491."
                 },
-
                 powervault: {
                   label:"PowerVault", protection:"RAID Adapt",
                   overheadMin:15, overheadMax:20, overheadDefault:17,
@@ -1081,23 +1084,9 @@ function StorageCalc({ th, isMobile=false }) {
 
           const rawTiB    = vDisks * vDiskCap;
           const overheadF = vOverhead/100;
-
-          // Calcul DRE PowerStore (formule Dell officielle)
-          let usable;
-          let dreInfo = null;
-          if (model?.useDreCalc && raid?.dataDisks) {
-            const totalPerRRS = raid.dataDisks + raid.parityDisks + raid.spareDisks;
-            const nbRRS       = Math.floor(vDisks / totalPerRRS);
-            const usedDisks   = nbRRS * totalPerRRS;
-            const dreRaw      = nbRRS * raid.dataDisks * vDiskCap;       // Capacité DRE brute
-            const dreCapacity = dreRaw * (1 - overheadF);               // Après réserve interne
-            usable = dreCapacity;
-            dreInfo = { nbRRS, usedDisks, unusedDisks: vDisks - usedDisks, dreRaw, dreCapacity };
-          } else {
-            const raidF = raid ? (raid.factor !== undefined ? raid.factor : 0) : 0;
-            usable = rawTiB * (1 - overheadF) * (1 - raidF);
-          }
-
+          let usable; let dreInfo=null;
+          if(model?.useDreCalc&&raid?.dataDisks){const tot=raid.dataDisks+raid.parityDisks+raid.spareDisks;const nb=Math.floor(vDisks/tot);const dreRaw=nb*raid.dataDisks*vDiskCap;usable=dreRaw*(1-overheadF);dreInfo={nb,used:nb*tot,unused:vDisks-nb*tot,dreRaw};}
+          else{usable=rawTiB*(1-overheadF)*(1-(raid?.factor||0));}
           const effective = (model?.hasDedup && vVendorDedup) ? usable * vDedupRatio : usable;
           const savedDedup= (model?.hasDedup && vVendorDedup) ? effective - usable : 0;
           const pctUsed   = vTarget > 0 ? Math.round((vTarget/effective)*100) : 0;
@@ -1180,18 +1169,9 @@ function StorageCalc({ th, isMobile=false }) {
                     {model?.protection} · Overhead {vOverhead}%
                   </div>
                   {[
-                    ...(dreInfo ? [
-                      {label:"Brut total ("+vDisks+" disques)", val:fmt(rawTiB,2)+" TiB"},
-                      {label:"Nb de RRS",                       val:dreInfo.nbRRS+" RRS de "+(raid.dataDisks+raid.parityDisks+raid.spareDisks)+" disques"},
-                      {label:"Disques non utilisés",            val:dreInfo.unusedDisks > 0 ? dreInfo.unusedDisks+" disques" : "0 (optimal)", color:dreInfo.unusedDisks>0?"#ffb347":th.accent},
-                      {label:"Capacité DRE brute",              val:fmt(dreInfo.dreRaw,2)+" TiB"},
-                      {label:"Réserve interne ("+vOverhead+"%)", val:"-"+fmt(dreInfo.dreRaw*vOverhead/100,2)+" TiB", color:th.warn},
-                      {label:"Capacité physique totale",         val:fmt(usable,2)+" TiB", color:th.accent2},
-                    ] : [
-                      {label:"Brut total",           val:fmt(rawTiB,2)+" TiB"},
-                      {label:"Après overhead système",val:fmt(rawTiB*(1-vOverhead/100),2)+" TiB", color:th.t2},
-                      {label:"Après "+raid?.label,   val:fmt(usable,2)+" TiB", color:th.accent2},
-                    ]),
+                    {label:"Brut total",          val:fmt(rawTiB,2)+" TiB"},
+                    {label:"Après overhead système", val:fmt(rawTiB*(1-vOverhead/100),2)+" TiB", color:th.t2},
+                    {label:"Après "+raid?.label,   val:fmt(usable,2)+" TiB", color:th.accent2},
                     ...(model?.hasDedup&&vVendorDedup?[{label:`Effective (×${vDedupRatio} dédup)`, val:fmt(effective,2)+" TiB", color:th.accent}]:[]),
                     {label:"Cible nette",           val:fmt(vTarget,0)+" TiB"},
                     {label:"Taux d'utilisation",    val:pctUsed+" %", color:ok?th.accent:th.danger},
@@ -1238,7 +1218,6 @@ function StorageCalc({ th, isMobile=false }) {
     </div>
   );
 }
-
 
 // ─── 5. Veeam ─────────────────────────────────────────────────────────────────
 function VeeamCalc({th, isMobile=false}) {
@@ -1412,7 +1391,7 @@ function ComputeCalc({ th, isMobile=false }) {
     select: { width:"100%",background:th.bg2,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"monospace",fontSize:12,boxSizing:"border-box" },
     row:    { display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${th.border}` },
     divider:{ border:"none",borderTop:`1px solid ${th.border}`,margin:"12px 0" },
-    card:   (accent) => ({background:th.cardBg,borderTop:`1px solid ${th.border}`,borderRight:`1px solid ${th.border}`,borderBottom:`1px solid ${th.border}`,borderLeft:accent?`2px solid ${accent}`:`1px solid ${th.border}`,borderRadius:6,padding:16}),
+    card:   (accent) => ({background:th.cardBg,borderTop:`1px solid ${th.border}`,borderRight:`1px solid ${th.border}`,borderBottom:`1px solid ${th.border}`,borderLeft:accent?`2px solid ${accent}`:undefined,borderRadius:6,padding:16}),
     secTitle:{ fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:14,paddingBottom:8,borderBottom:`1px solid ${th.border}`,fontFamily:"monospace" },
   };
 
@@ -1492,7 +1471,7 @@ function ComputeCalc({ th, isMobile=false }) {
     const gainPct = data[0].val>0?Math.round(((data[1].val-data[0].val)/data[0].val)*100):0;
     return (
       <div>
-        <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-around",height,padding:"20px 8px 0",gap:12,position:"relative"}}>
+        <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-around",height,padding:"0 8px",gap:12,position:"relative"}}>
           {/* Annotation gain */}
           {gainPct!==0 && (
             <div style={{position:"absolute",top:0,left:"50%",transform:"translateX(-50%)",
@@ -1504,12 +1483,12 @@ function ComputeCalc({ th, isMobile=false }) {
             </div>
           )}
           {data.map((b,i)=>{
-            const h=Math.max(8,Math.round((b.val/maxVal)*(height-90)));
+            const h=Math.max(8,Math.round((b.val/maxVal)*(height-70)));
             return (
               <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
                 <div style={{width:"100%",height:h,background:b.color,borderRadius:"4px 4px 0 0",
                   display:"flex",alignItems:"center",justifyContent:"center",position:"relative"}}>
-                  {h>28&&<span style={{fontSize:10,color:"#fff",fontFamily:"monospace",fontWeight:600,
+                  {h>20&&<span style={{fontSize:10,color:"#fff",fontFamily:"monospace",fontWeight:600,
                     padding:"2px 4px",textShadow:"0 1px 2px rgba(0,0,0,0.4)"}}>{fmt(b.val)}</span>}
                 </div>
                 <span style={{fontSize:10,color:th.t2,fontFamily:"monospace",textAlign:"center",lineHeight:1.3}}>{b.name}</span>
@@ -1550,12 +1529,12 @@ function ComputeCalc({ th, isMobile=false }) {
       </div>
 
       {/* Saisie + Comparaison */}
-      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:14,marginBottom:14}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:14,marginBottom:14,alignItems:"start"}}>
 
         {/* Existant */}
-        <div style={s.card(th.accent)}>
+        <div style={{...s.card(th.accent),alignSelf:"start"}}>
           <div style={s.secTitle}>Infrastructure existante</div>
-          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
             <NF label="Nœuds" value={srcNodes} onChange={setSrcNodes} min={0} max={200} unit="nœuds"/>
             <NF label="Sockets / nœud" value={srcSockets} onChange={setSrcSockets} min={1} max={8}/>
             <NF label="Cœurs / socket" value={srcCores} onChange={setSrcCores} min={1} max={128} step={2}/>
@@ -1569,9 +1548,9 @@ function ComputeCalc({ th, isMobile=false }) {
         </div>
 
         {/* Cible */}
-        <div style={s.card(th.accent2)}>
+        <div style={{...s.card(th.accent2),alignSelf:"start"}}>
           <div style={s.secTitle}>Infrastructure cible</div>
-          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
             <NF label="Nœuds" value={tgtNodes} onChange={setTgtNodes} min={1} max={200} unit="nœuds"/>
             <NF label="Sockets / nœud" value={tgtSockets} onChange={setTgtSockets} min={1} max={8}/>
             <NF label="Cœurs / socket" value={tgtCores} onChange={setTgtCores} min={1} max={128} step={2}/>
@@ -1589,7 +1568,7 @@ function ComputeCalc({ th, isMobile=false }) {
         </div>
 
         {/* Comparaison & Gains */}
-        <div style={s.card()}>
+        <div style={{...s.card(),alignSelf:"start"}}>
           <div style={s.secTitle}>Comparaison & Gains</div>
           <CompRow label="Cœurs totaux" srcVal={r.srcTotalCores} tgtVal={r.tgtTotalCores} unit="cœurs" gainPct={r.gainCoresPct}/>
           <CompRow label="GHz agrégés"  srcVal={r.srcTotalFreq}  tgtVal={r.tgtTotalFreq}  unit="GHz"   gainPct={r.gainFreqPct}/>
@@ -1626,7 +1605,7 @@ function ComputeCalc({ th, isMobile=false }) {
         ].map(chart=>(
           <div key={chart.title} style={s.card()}>
             <div style={{...s.secTitle,marginBottom:16}}>{chart.title}</div>
-            <BarChart3 data={chart.data} unit={chart.unit} height={180}/>
+            <BarChart3 data={chart.data} unit={chart.unit} height={200}/>
           </div>
         ))}
       </div>
@@ -1653,7 +1632,7 @@ function ComputeCalc({ th, isMobile=false }) {
         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"3fr 2fr",gap:14,alignItems:"start"}}>
           <div style={s.card(th.accent)}>
             <div style={s.secTitle}>Configuration HCI</div>
-            <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"1fr 1fr 1fr 1fr",gap:10,marginBottom:12}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10,marginBottom:12}}>
               <div>
                 <label style={s.label}>Solution HCI</label>
                 <select value={hciSolution} onChange={e=>{setHciSolution(e.target.value);setHciResil(HCI_PROFILES[e.target.value].resiliency[0].id);setDedupRatio(HCI_PROFILES[e.target.value].defaultDedup);}} style={s.select}>
@@ -1680,7 +1659,7 @@ function ComputeCalc({ th, isMobile=false }) {
                 </div>
               </div>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginBottom:14}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
               <div>
                 <label style={s.label}>Capacité utile cible</label>
                 <div style={{display:"flex",gap:6,alignItems:"center"}}>
@@ -1821,33 +1800,32 @@ const TOOLS=[
   {id:"compute", label:"Compute & HCI",    icon:BarChart2,section:"COMPUTE",        comp:ComputeCalc, badge:"Compute",   sub:"Serveurs · HA · HCI"},
 ];
 
-function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  useEffect(()=>{
-    const h = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener('resize', h);
-    return () => window.removeEventListener('resize', h);
-  }, []);
-  return isMobile;
-}
-
 export default function SizingHub() {
   const [active,setActive]=useState("vmware");
   const [dark,setDark]=useState(true);
   const [menuOpen,setMenuOpen]=useState(false);
-  const isMobile=useIsMobile();
+  const isMobile = useIsMobile();
   const th=dark?DARK:LIGHT;
   const tool=TOOLS.find(t=>t.id===active);
   const ActiveComp=tool.comp;
   const sections=[...new Set(TOOLS.map(t=>t.section))];
 
   return (
-    <div style={{fontFamily:"'Inter',system-ui,sans-serif",background:th.bg0,color:th.t1,height:"100vh",display:"flex",overflow:"hidden",transition:"background 0.2s,color 0.2s"}}>
+    <div style={{fontFamily:"'Inter',system-ui,sans-serif",background:th.bg0,color:th.t1,minHeight:"100vh",display:"flex",transition:"background 0.2s,color 0.2s",position:"relative"}}>
+      {/* Burger button mobile */}
+      {isMobile&&(
+        <button onClick={()=>setMenuOpen(m=>!m)} style={{position:"fixed",top:12,left:12,zIndex:1000,background:th.bg1,border:`1px solid ${th.border}`,borderRadius:6,padding:"8px",cursor:"pointer",color:th.t1,display:"flex",alignItems:"center",justifyContent:"center"}}>
+          {menuOpen?<X size={18}/>:<Menu size={18}/>}
+        </button>
+      )}
+
+      {/* Overlay mobile */}
+      {isMobile&&menuOpen&&(
+        <div onClick={()=>setMenuOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:998}}/>
+      )}
+
       {/* Sidebar */}
-      <>
-      {isMobile&&<button onClick={()=>setMenuOpen(m=>!m)} style={{position:"fixed",top:12,left:12,zIndex:1000,background:th.bg1,border:`1px solid ${th.border}`,borderRadius:6,padding:"8px",cursor:"pointer",color:th.t1,display:"flex",alignItems:"center",justifyContent:"center"}}>{menuOpen?<X size={18}/>:<Menu size={18}/>}</button>}
-      {isMobile&&menuOpen&&<div onClick={()=>setMenuOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:998}}/>}
-      <div style={{width:210,minWidth:210,background:th.bg1,borderRight:`1px solid ${th.border}`,display:"flex",flexDirection:"column",padding:"16px 0",transition:"all 0.3s",position:isMobile?"fixed":"relative",top:0,left:0,height:"100vh",zIndex:999,transform:isMobile&&!menuOpen?"translateX(-100%)":"translateX(0)"}}>
+      <div style={{width:isMobile?210:210,minWidth:isMobile?210:210,background:th.bg1,borderRight:`1px solid ${th.border}`,display:"flex",flexDirection:"column",padding:"16px 0",transition:"all 0.3s",position:isMobile?"fixed":"relative",top:0,left:0,height:"100vh",zIndex:999,transform:isMobile&&!menuOpen?"translateX(-100%)":"translateX(0)"}}>
         <div style={{padding:"0 16px 16px",borderBottom:`1px solid ${th.border}`,marginBottom:12}}>
           <div style={{fontSize:15,fontWeight:700,color:th.accent,letterSpacing:"0.08em",textTransform:"uppercase"}}>SizingHub</div>
           <div style={{fontSize:10,color:th.t3,fontFamily:"monospace",marginTop:2}}>v2.0 · Infrastructure Sizing</div>
@@ -1870,9 +1848,8 @@ export default function SizingHub() {
           <div style={{textAlign:"center",fontSize:10,color:th.t3,fontFamily:"monospace",marginTop:10,letterSpacing:"0.08em"}}>by Francis B.</div>
         </div>
       </div>
-      </>
       {/* Main */}
-      <div style={{flex:1,overflowY:"auto",background:th.bg0,transition:"background 0.2s",height:"100vh"}}>
+      <div style={{flex:1,overflowY:"auto",background:th.bg0,transition:"background 0.2s",marginLeft:isMobile?0:undefined}}>
         <div style={{padding:isMobile?"60px 12px 12px":28}}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:24}}>
             <div>
@@ -1884,7 +1861,6 @@ export default function SizingHub() {
           <ActiveComp th={th} isMobile={isMobile} />
         </div>
       </div>
-
     </div>
   );
 }
