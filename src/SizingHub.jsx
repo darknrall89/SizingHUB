@@ -931,25 +931,6 @@ function StorageCalc({ th, isMobile=false }) {
 
           <button onClick={addChassis} style={{...s.btn(th.accent),width:"100%",marginBottom:14}}>+ Ajouter un châssis</button>
 
-          {/* Paramètres globaux */}
-          <div style={s.card(th.accent2)}>
-            <div style={s.secTitle}>Paramètres globaux du pool</div>
-            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
-              <div>
-                <label style={s.label}>Ratio déduplication / compression</label>
-                <select value={String(dedup)} onChange={e=>setDedup(Number(e.target.value))} style={s.select}>
-                  {[["1","1:1 — aucune"],["1.5","1.5:1 — légère"],["2","2:1 — standard"],["3","3:1 — agressive"],["4","4:1 — maximale"],["5","5:1 — extrême"]].map(([v,l])=>
-                    <option key={v} value={v}>{l}</option>)}
-                </select>
-              </div>
-              <div>
-                <label style={s.label}>IOPS cibles (validation)</label>
-                <input type="number" min={1000} step={5000} value={iopsTarget}
-                  onChange={e=>setIopsTarget(Number(e.target.value))} style={s.input} />
-              </div>
-            </div>
-          </div>
-
 
           {/* Recommandations */}
           {recommendations.length>0 && (
