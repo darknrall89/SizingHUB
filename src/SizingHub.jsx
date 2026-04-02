@@ -178,7 +178,7 @@ function VMwareCalc({th, isMobile=false}) {
 
   const tt = {background:th.tooltipBg,border:`1px solid ${th.border2}`,borderRadius:4,fontSize:11,color:th.t1};
   const s = {
-    card:     (accent)=>({background:th.cardBg,border:`1px solid ${th.border}`,borderLeft:accent?`2px solid ${accent}`:undefined,borderRadius:6,padding:16}),
+    card:     (accent)=>({background:th.cardBg,borderTop:`1px solid ${th.border}`,borderRight:`1px solid ${th.border}`,borderBottom:`1px solid ${th.border}`,borderLeft:accent?`2px solid ${accent}`:`1px solid ${th.border}`,borderRadius:6,padding:16}),
     secTitle: {fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:14,paddingBottom:8,borderBottom:`1px solid ${th.border}`,fontFamily:"monospace"},
     label:    {display:"block",fontSize:10,color:th.t3,fontFamily:"monospace",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:5},
     input:    {width:"100%",background:th.bg2,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"monospace",fontSize:13,boxSizing:"border-box"},
@@ -1151,7 +1151,7 @@ function ComputeCalc({ th, isMobile=false }) {
     select: { width:"100%",background:th.bg2,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"monospace",fontSize:12,boxSizing:"border-box" },
     row:    { display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${th.border}` },
     divider:{ border:"none",borderTop:`1px solid ${th.border}`,margin:"12px 0" },
-    card:   (accent) => ({background:th.cardBg,border:`1px solid ${th.border}`,borderLeft:accent?`2px solid ${accent}`:undefined,borderRadius:6,padding:16}),
+    card:   (accent) => ({background:th.cardBg,borderTop:`1px solid ${th.border}`,borderRight:`1px solid ${th.border}`,borderBottom:`1px solid ${th.border}`,borderLeft:accent?`2px solid ${accent}`:`1px solid ${th.border}`,borderRadius:6,padding:16}),
     secTitle:{ fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:14,paddingBottom:8,borderBottom:`1px solid ${th.border}`,fontFamily:"monospace" },
   };
 
@@ -1231,7 +1231,7 @@ function ComputeCalc({ th, isMobile=false }) {
     const gainPct = data[0].val>0?Math.round(((data[1].val-data[0].val)/data[0].val)*100):0;
     return (
       <div>
-        <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-around",height,padding:"0 8px",gap:12,position:"relative"}}>
+        <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-around",height,padding:"20px 8px 0",gap:12,position:"relative"}}>
           {/* Annotation gain */}
           {gainPct!==0 && (
             <div style={{position:"absolute",top:0,left:"50%",transform:"translateX(-50%)",
@@ -1243,7 +1243,7 @@ function ComputeCalc({ th, isMobile=false }) {
             </div>
           )}
           {data.map((b,i)=>{
-            const h=Math.max(8,Math.round((b.val/maxVal)*(height-30)));
+            const h=Math.max(8,Math.round((b.val/maxVal)*(height-90)));
             return (
               <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
                 <div style={{width:"100%",height:h,background:b.color,borderRadius:"4px 4px 0 0",
@@ -1289,7 +1289,7 @@ function ComputeCalc({ th, isMobile=false }) {
       </div>
 
       {/* Saisie + Comparaison */}
-      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 340px",gap:14,marginBottom:14}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:14,marginBottom:14}}>
 
         {/* Existant */}
         <div style={s.card(th.accent)}>
