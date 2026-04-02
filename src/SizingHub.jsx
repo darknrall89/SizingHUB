@@ -1581,12 +1581,12 @@ export default function SizingHub() {
   const sections=[...new Set(TOOLS.map(t=>t.section))];
 
   return (
-    <div style={{fontFamily:"'Inter',system-ui,sans-serif",background:th.bg0,color:th.t1,minHeight:"100vh",display:"flex",transition:"background 0.2s,color 0.2s"}}>
+    <div style={{fontFamily:"'Inter',system-ui,sans-serif",background:th.bg0,color:th.t1,height:"100vh",display:"flex",overflow:"hidden",transition:"background 0.2s,color 0.2s"}}>
       {/* Sidebar */}
       <>
       {isMobile&&<button onClick={()=>setMenuOpen(m=>!m)} style={{position:"fixed",top:12,left:12,zIndex:1000,background:th.bg1,border:`1px solid ${th.border}`,borderRadius:6,padding:"8px",cursor:"pointer",color:th.t1,display:"flex",alignItems:"center",justifyContent:"center"}}>{menuOpen?<X size={18}/>:<Menu size={18}/>}</button>}
       {isMobile&&menuOpen&&<div onClick={()=>setMenuOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:998}}/>}
-      <div style={{width:210,minWidth:210,background:th.bg1,borderRight:`1px solid ${th.border}`,display:"flex",flexDirection:"column",padding:"16px 0",transition:"all 0.3s",position:isMobile?"fixed":"relative",top:0,left:0,height:isMobile?"100vh":undefined,zIndex:999,transform:isMobile&&!menuOpen?"translateX(-100%)":"translateX(0)"}}>
+      <div style={{width:210,minWidth:210,background:th.bg1,borderRight:`1px solid ${th.border}`,display:"flex",flexDirection:"column",padding:"16px 0",transition:"all 0.3s",position:isMobile?"fixed":"relative",top:0,left:0,height:"100vh",zIndex:999,transform:isMobile&&!menuOpen?"translateX(-100%)":"translateX(0)"}}>
         <div style={{padding:"0 16px 16px",borderBottom:`1px solid ${th.border}`,marginBottom:12}}>
           <div style={{fontSize:15,fontWeight:700,color:th.accent,letterSpacing:"0.08em",textTransform:"uppercase"}}>SizingHub</div>
           <div style={{fontSize:10,color:th.t3,fontFamily:"monospace",marginTop:2}}>v2.0 · Infrastructure Sizing</div>
@@ -1611,7 +1611,7 @@ export default function SizingHub() {
       </div>
       </>
       {/* Main */}
-      <div style={{flex:1,overflowY:"auto",background:th.bg0,transition:"background 0.2s"}}>
+      <div style={{flex:1,overflowY:"auto",background:th.bg0,transition:"background 0.2s",height:"100vh"}}>
         <div style={{padding:isMobile?"60px 12px 12px":28}}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:24}}>
             <div>
