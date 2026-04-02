@@ -2,8 +2,18 @@ import { useState, useMemo } from "react";
 import {
   Server, HardDrive, Cloud, Cpu, Database,
   BarChart2, Shield, CheckCircle, AlertTriangle,
-  Info, Sun, Moon
+  Info, Sun, Moon, Menu, X
 } from "lucide-react";
+
+function useIsMobile() {
+  const [w, setW] = useState(window.innerWidth);
+  useState(()=>{
+    const h = () => setW(window.innerWidth);
+    window.addEventListener('resize', h);
+    return () => window.removeEventListener('resize', h);
+  });
+  return w < 768;
+}
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer
@@ -124,7 +134,7 @@ function SelectField({label, value, onChange, options, th}) {
 }
 
 // ─── 1. VMware ────────────────────────────────────────────────────────────────
-function VMwareCalc({th}) {
+function VMwareCalc({th, isMobile=false}) {
   const [nodes,        setNodes]        = useState(6);
   const [sockets,      setSockets]      = useState(1);
   const [cores,        setCores]        = useState(32);
@@ -178,7 +188,7 @@ function VMwareCalc({th}) {
 
   const tt = {background:th.tooltipBg,border:`1px solid ${th.border2}`,borderRadius:4,fontSize:11,color:th.t1};
   const s = {
-    card:     (accent)=>({background:th.cardBg,border:`1px solid ${th.border}`,borderLeft:accent?`2px solid ${accent}`:undefined,borderRadius:6,padding:16}),
+    card:     (accent)=>({background:th.cardBg,borderTop:`1px solid ${th.border}`,borderRight:`1px solid ${th.border}`,borderBottom:`1px solid ${th.border}`,borderLeft:accent?`2px solid ${accent}`:`1px solid ${th.border}`,borderRadius:6,padding:16}),
     secTitle: {fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:14,paddingBottom:8,borderBottom:`1px solid ${th.border}`,fontFamily:"monospace"},
     label:    {display:"block",fontSize:10,color:th.t3,fontFamily:"monospace",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:5},
     input:    {width:"100%",background:th.bg2,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"monospace",fontSize:13,boxSizing:"border-box"},
@@ -224,7 +234,7 @@ function VMwareCalc({th}) {
   return (
     <div>
       {/* KPIs */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:20}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:10,marginBottom:20}}>
         <KpiC label="Licences VMware" value={fmt(r.totalBilled)+" cœurs"} sub={licType.toUpperCase()+" · min 16/socket"} bg="linear-gradient(135deg,#e05a20,#b84510)"/>
         <KpiC label="Packs nécessaires" value={fmt(r.packs)+" packs"} sub="Packs de 2 cœurs" bg="linear-gradient(135deg,#0077cc,#005599)"/>
         <KpiC label="Cluster" value="Conforme" sub="Résilience N-1" bg="linear-gradient(135deg,#00a884,#007a60)"/>
@@ -288,15 +298,7 @@ function VMwareCalc({th}) {
               </div>
               <div style={{fontSize:10,color:th.t3,marginTop:3}}>Taux indicatif — ajuster selon contrat</div>
             </div>
-            <div style={s.field}>
-              <label style={s.label}>Taux de change USD/EUR</label>
-              <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                <input type="number" min={0.5} max={1.5} step={0.01} value={fxRate}
-                  onChange={e=>setFxRate(Number(e.target.value))} style={s.input}/>
-                <span style={{fontSize:11,color:th.t3,whiteSpace:"nowrap"}}>€/$</span>
-              </div>
-              <div style={{fontSize:10,color:th.t3,marginTop:3}}>Taux indicatif — ajuster selon contrat</div>
-            </div>
+
           </div>
           <hr style={s.divider}/>
           <RR label="Coût licences / an"         value={"~ "+fmt(r.annualCostEur)+" €"}/>
@@ -327,7 +329,7 @@ function VMwareCalc({th}) {
       </div>
 
       {/* Tableau VVF vs VCF */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14,marginBottom:14}}>
         {[
           {id:"vvf",name:"VMware VVF",sub:"vSphere Foundation",priceRef:50,color:"#0099ff",features:[
             {label:"vSphere (ESXi + vCenter)",ok:true},
@@ -391,7 +393,7 @@ function VMwareCalc({th}) {
         </div>
         {vsanOpen&&(
           <div style={{background:th.cardBg,border:`1px solid ${th.border}`,borderTop:"none",borderRadius:"0 0 6px 6px",padding:16}}>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14}}>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:14}}>
               <div style={{background:th.bg2,borderLeft:`2px solid ${th.accent2}`,borderRadius:4,padding:14}}>
                 <div style={{fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:12,fontFamily:"monospace"}}>Configuration vSAN</div>
                 <div style={s.field}>
@@ -473,7 +475,7 @@ function VMwareCalc({th}) {
 
 
 // ─── 2. Windows & SQL ─────────────────────────────────────────────────────────
-function WindowsCalc({th}) {
+function WindowsCalc({th, isMobile=false}) {
   const [servers,setServers]=useState(6);
   const [coresPerServer,setCoresPerServer]=useState(32);
   const [vms,setVms]=useState(136);
@@ -496,13 +498,13 @@ function WindowsCalc({th}) {
   return (
     <div>
       <InfoBox th={th}>Windows Server vendu par packs de 2 cœurs, minimum 16 cœurs/serveur. Datacenter = VMs illimitées. Standard = 2 VMs/licence.</InfoBox>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:20}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:10,marginBottom:20}}>
         <KpiCard label="Packs WS" value={fmt(r.wsLicenses)} th={th} />
         <KpiCard label="Packs SQL" value={fmt(r.sqlLicenses)} color={th.accent2} th={th} />
         <KpiCard label="VMs couvertes" value={wsEdition==="datacenter"?"Illimitées":fmt(vms)} color={th.t1} th={th} />
         <KpiCard label="Statut SQL" value={sqlWarn?"WARN":"OK"} color={sqlWarn?th.warn:th.accent} th={th} />
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
         <Card accent="accent" th={th}>
           <SectionTitle th={th}>Windows Server</SectionTitle>
           <NumField label="Serveurs physiques" value={servers} onChange={setServers} min={1} max={100} unit="serveurs" th={th} />
@@ -541,7 +543,7 @@ const M365_PLANS=[
   {id:"e5",name:"E5",price:55.00,desc:"Sécurité maximale + analytics"},
 ];
 
-function M365Calc({th}) {
+function M365Calc({th, isMobile=false}) {
   const [frontline,setFrontline]=useState(50);
   const [business,setBusiness]=useState(100);
   const [power,setPower]=useState(30);
@@ -565,13 +567,13 @@ function M365Calc({th}) {
 
   return (
     <div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:20}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:10,marginBottom:20}}>
         <KpiCard label="Total users" value={fmt(r.total)} th={th} />
         <KpiCard label="Budget mensuel" value={fmt(r.monthly,0)+" €"} th={th} />
         <KpiCard label="Budget annuel" value={fmt(r.annual,0)+" €"} color={th.t1} th={th} />
         <KpiCard label="Coût / user / mois" value={fmt(r.ppu,2)+" €"} color={th.accent2} th={th} />
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
         <Card accent="accent" th={th}>
           <SectionTitle th={th}>Profils utilisateurs</SectionTitle>
           <SliderField label="Terrain / Firstline" min={0} max={500} step={5} value={frontline} onChange={setFrontline} display={frontline+" users → "+r.fp.name+" ("+r.fp.price+" €/u/m)"} th={th} />
@@ -691,7 +693,7 @@ function calcGroup(g, catalog) {
   };
 }
 
-function StorageCalc({ th }) {
+function StorageCalc({ th, isMobile=false }) {
   const [chassisList, setChassisList] = useState([newChassis("3.5-12")]);
   const [dedup, setDedup] = useState(1);
   const [iopsTarget, setIopsTarget] = useState(50000);
@@ -774,7 +776,7 @@ function StorageCalc({ th }) {
   return (
     <div>
       {/* KPIs */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10,marginBottom:20}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(5,1fr)",gap:10,marginBottom:20}}>
         {[
           {label:"Capacité physique", val:fmt(totals.physical,2)+" To", color:th.t1},
           {label:"Utile (RAID)",      val:fmt(totals.usable,2)+" To",   color:th.accent},
@@ -789,7 +791,7 @@ function StorageCalc({ th }) {
         ))}
       </div>
 
-      <div style={{display:"grid",gridTemplateColumns:"3fr 2fr",gap:14,alignItems:"start"}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"3fr 2fr",gap:14,alignItems:"start"}}>
 
         {/* Colonne gauche */}
         <div>
@@ -889,7 +891,7 @@ function StorageCalc({ th }) {
           {/* Paramètres globaux */}
           <div style={s.card(th.accent2)}>
             <div style={s.secTitle}>Paramètres globaux du pool</div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
               <div>
                 <label style={s.label}>Ratio déduplication / compression</label>
                 <select value={String(dedup)} onChange={e=>setDedup(Number(e.target.value))} style={s.select}>
@@ -980,7 +982,7 @@ function StorageCalc({ th }) {
 
 
 // ─── 5. Veeam ─────────────────────────────────────────────────────────────────
-function VeeamCalc({th}) {
+function VeeamCalc({th, isMobile=false}) {
   const [vms,setVms]=useState(50);
   const [vmSizeGb,setVmSizeGb]=useState(200);
   const [changeRate,setChangeRate]=useState(5);
@@ -1013,13 +1015,13 @@ function VeeamCalc({th}) {
   return (
     <div>
       <InfoBox th={th}>Veeam VBR v12 : sizing repo = Full compressé + (incrémentaux × rétention) × copies. Ajouter 20% de marge opérationnelle.</InfoBox>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:20}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:10,marginBottom:20}}>
         <KpiCard label="Données source" value={fmt(r.srcTB,2)+" To"} th={th} />
         <KpiCard label="Stockage repo" value={fmt(r.repoMargin,2)+" To"} th={th} />
         <KpiCard label="Fenêtre backup" value={r.windowOk?"OK":"SERRÉ"} color={r.windowOk?th.accent:th.warn} th={th} />
         <KpiCard label="Licences VMs" value={fmt(vms)} color={th.accent2} th={th} />
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:14}}>
         <Card accent="accent" th={th}>
           <SectionTitle th={th}>Environnement source</SectionTitle>
           <SliderField label="Nombre de VMs" min={1} max={1000} step={5} value={vms} onChange={setVms} th={th} />
@@ -1084,7 +1086,7 @@ const HCI_DISKS = [
   {id:"nvme-1536",label:"NVMe 15,36 To",cap:15.36},{id:"nvme-3072",label:"NVMe 30,72 To",cap:30.72},
 ];
 
-function ComputeCalc({ th }) {
+function ComputeCalc({ th, isMobile=false }) {
   const [hciEnabled, setHciEnabled] = useState(false);
   const [srcNodes,   setSrcNodes]   = useState(3);
   const [srcSockets, setSrcSockets] = useState(2);
@@ -1272,7 +1274,7 @@ function ComputeCalc({ th }) {
   return (
     <div>
       {/* KPIs colorés */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10,marginBottom:20}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(5,1fr)",gap:10,marginBottom:20}}>
         <KpiColored label="Nœuds cible" value={tgtNodes} sub={`${tgtSockets}S/${tgtCores}c/${tgtFreq}GHz`}
           bg="linear-gradient(135deg,#00a884,#007a60)" />
         <KpiColored label="Cœurs cible" value={fmt(r.tgtTotalCores)}
@@ -1289,7 +1291,7 @@ function ComputeCalc({ th }) {
       </div>
 
       {/* Saisie + Comparaison */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14,marginBottom:14,alignItems:"start"}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:14,marginBottom:14,alignItems:"start"}}>
 
         {/* Existant */}
         <div style={{...s.card(th.accent),alignSelf:"start"}}>
@@ -1345,7 +1347,7 @@ function ComputeCalc({ th }) {
       </div>
 
       {/* Graphes comparaison */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14,marginBottom:14}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:14,marginBottom:14}}>
         {[
           {title:"Cœurs CPU · Existant vs Cible vs HA", unit:"cœurs", data:[
             {name:"Existant",   val:r.srcTotalCores, color:"#8b90a0"},
@@ -1389,7 +1391,7 @@ function ComputeCalc({ th }) {
 
       {/* Section HCI */}
       {hciEnabled&&(
-        <div style={{display:"grid",gridTemplateColumns:"3fr 2fr",gap:14,alignItems:"start"}}>
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"3fr 2fr",gap:14,alignItems:"start"}}>
           <div style={s.card(th.accent)}>
             <div style={s.secTitle}>Configuration HCI</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10,marginBottom:12}}>
@@ -1563,15 +1565,29 @@ const TOOLS=[
 export default function SizingHub() {
   const [active,setActive]=useState("vmware");
   const [dark,setDark]=useState(true);
+  const [menuOpen,setMenuOpen]=useState(false);
+  const isMobile = useIsMobile();
   const th=dark?DARK:LIGHT;
   const tool=TOOLS.find(t=>t.id===active);
   const ActiveComp=tool.comp;
   const sections=[...new Set(TOOLS.map(t=>t.section))];
 
   return (
-    <div style={{fontFamily:"'Inter',system-ui,sans-serif",background:th.bg0,color:th.t1,minHeight:"100vh",display:"flex",transition:"background 0.2s,color 0.2s"}}>
+    <div style={{fontFamily:"'Inter',system-ui,sans-serif",background:th.bg0,color:th.t1,minHeight:"100vh",display:"flex",transition:"background 0.2s,color 0.2s",position:"relative"}}>
+      {/* Burger button mobile */}
+      {isMobile&&(
+        <button onClick={()=>setMenuOpen(m=>!m)} style={{position:"fixed",top:12,left:12,zIndex:1000,background:th.bg1,border:`1px solid ${th.border}`,borderRadius:6,padding:"8px",cursor:"pointer",color:th.t1,display:"flex",alignItems:"center",justifyContent:"center"}}>
+          {menuOpen?<X size={18}/>:<Menu size={18}/>}
+        </button>
+      )}
+
+      {/* Overlay mobile */}
+      {isMobile&&menuOpen&&(
+        <div onClick={()=>setMenuOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:998}}/>
+      )}
+
       {/* Sidebar */}
-      <div style={{width:210,minWidth:210,background:th.bg1,borderRight:`1px solid ${th.border}`,display:"flex",flexDirection:"column",padding:"16px 0",transition:"background 0.2s"}}>
+      <div style={{width:isMobile?210:210,minWidth:isMobile?210:210,background:th.bg1,borderRight:`1px solid ${th.border}`,display:"flex",flexDirection:"column",padding:"16px 0",transition:"all 0.3s",position:isMobile?"fixed":"relative",top:0,left:0,height:"100vh",zIndex:999,transform:isMobile&&!menuOpen?"translateX(-100%)":"translateX(0)"}}>
         <div style={{padding:"0 16px 16px",borderBottom:`1px solid ${th.border}`,marginBottom:12}}>
           <div style={{fontSize:15,fontWeight:700,color:th.accent,letterSpacing:"0.08em",textTransform:"uppercase"}}>SizingHub</div>
           <div style={{fontSize:10,color:th.t3,fontFamily:"monospace",marginTop:2}}>v2.0 · Infrastructure Sizing</div>
@@ -1580,7 +1596,7 @@ export default function SizingHub() {
           <div key={section}>
             <div style={{padding:"8px 16px 4px",fontSize:9,color:th.t3,textTransform:"uppercase",letterSpacing:"0.12em",fontFamily:"monospace"}}>{section}</div>
             {TOOLS.filter(t=>t.section===section).map(t=>(
-              <div key={t.id} onClick={()=>setActive(t.id)} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 16px",cursor:"pointer",fontSize:12,color:active===t.id?th.accent:th.t2,borderLeft:`2px solid ${active===t.id?th.accent:"transparent"}`,background:active===t.id?`rgba(0,212,170,0.06)`:"transparent",transition:"all 0.15s"}}>
+              <div key={t.id} onClick={()=>{setActive(t.id);if(isMobile)setMenuOpen(false);}} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 16px",cursor:"pointer",fontSize:12,color:active===t.id?th.accent:th.t2,borderLeft:`2px solid ${active===t.id?th.accent:"transparent"}`,background:active===t.id?`rgba(0,212,170,0.06)`:"transparent",transition:"all 0.15s"}}>
                 <t.icon size={13} />{t.label}
               </div>
             ))}
@@ -1595,8 +1611,8 @@ export default function SizingHub() {
         </div>
       </div>
       {/* Main */}
-      <div style={{flex:1,overflowY:"auto",background:th.bg0,transition:"background 0.2s"}}>
-        <div style={{padding:28}}>
+      <div style={{flex:1,overflowY:"auto",background:th.bg0,transition:"background 0.2s",marginLeft:isMobile?0:undefined}}>
+        <div style={{padding:isMobile?"60px 12px 12px":28}}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:24}}>
             <div>
               <div style={{fontSize:20,fontWeight:700,color:th.t1}}>{tool.label}</div>
@@ -1604,7 +1620,7 @@ export default function SizingHub() {
             </div>
             <div style={{fontSize:9,background:dark?"rgba(0,212,170,0.1)":"rgba(0,168,132,0.1)",color:th.accent,padding:"4px 10px",borderRadius:3,fontFamily:"monospace",border:`1px solid ${th.border2}`,textTransform:"uppercase",letterSpacing:"0.08em"}}>{tool.badge}</div>
           </div>
-          <ActiveComp th={th} />
+          <ActiveComp th={th} isMobile={isMobile} />
         </div>
       </div>
     </div>
