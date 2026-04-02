@@ -1014,13 +1014,7 @@ function StorageCalc({ th, isMobile=false }) {
                   ],
                   note:"Formule Dell officielle : Cap. physique = Cap. DRE - Réserve interne. DRE SP/DP selon modèle d'appliance."
                 },
-                unityxt: {
-                  label:"Unity XT", protection:"RAID 5/6",
-                  overheadMin:20, overheadMax:28, overheadDefault:22,
-                  hasDedup:true, dedupDefault:2.0,
-                  raids:[{id:"r5",label:"RAID 5 (4+1)",factor:1/5},{id:"r6",label:"RAID 6 (6+2)",factor:2/8}],
-                  note:"Dédup/compression optionnel. Thin provisioning natif."
-                },
+
                 powervault: {
                   label:"PowerVault", protection:"RAID Adapt",
                   overheadMin:15, overheadMax:20, overheadDefault:17,
