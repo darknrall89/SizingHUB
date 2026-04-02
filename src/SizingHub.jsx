@@ -1243,12 +1243,12 @@ function ComputeCalc({ th }) {
             </div>
           )}
           {data.map((b,i)=>{
-            const h=Math.max(8,Math.round((b.val/maxVal)*(height-30)));
+            const h=Math.max(8,Math.round((b.val/maxVal)*(height-70)));
             return (
               <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
                 <div style={{width:"100%",height:h,background:b.color,borderRadius:"4px 4px 0 0",
                   display:"flex",alignItems:"center",justifyContent:"center",position:"relative"}}>
-                  {h>28&&<span style={{fontSize:10,color:"#fff",fontFamily:"monospace",fontWeight:600,
+                  {h>20&&<span style={{fontSize:10,color:"#fff",fontFamily:"monospace",fontWeight:600,
                     padding:"2px 4px",textShadow:"0 1px 2px rgba(0,0,0,0.4)"}}>{fmt(b.val)}</span>}
                 </div>
                 <span style={{fontSize:10,color:th.t2,fontFamily:"monospace",textAlign:"center",lineHeight:1.3}}>{b.name}</span>
@@ -1289,10 +1289,10 @@ function ComputeCalc({ th }) {
       </div>
 
       {/* Saisie + Comparaison */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 340px",gap:14,marginBottom:14}}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14,marginBottom:14,alignItems:"start"}}>
 
         {/* Existant */}
-        <div style={s.card(th.accent)}>
+        <div style={{...s.card(th.accent),alignSelf:"start"}}>
           <div style={s.secTitle}>Infrastructure existante</div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
             <NF label="Nœuds" value={srcNodes} onChange={setSrcNodes} min={0} max={200} unit="nœuds"/>
@@ -1308,7 +1308,7 @@ function ComputeCalc({ th }) {
         </div>
 
         {/* Cible */}
-        <div style={s.card(th.accent2)}>
+        <div style={{...s.card(th.accent2),alignSelf:"start"}}>
           <div style={s.secTitle}>Infrastructure cible</div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
             <NF label="Nœuds" value={tgtNodes} onChange={setTgtNodes} min={1} max={200} unit="nœuds"/>
@@ -1328,7 +1328,7 @@ function ComputeCalc({ th }) {
         </div>
 
         {/* Comparaison & Gains */}
-        <div style={s.card()}>
+        <div style={{...s.card(),alignSelf:"start"}}>
           <div style={s.secTitle}>Comparaison & Gains</div>
           <CompRow label="Cœurs totaux" srcVal={r.srcTotalCores} tgtVal={r.tgtTotalCores} unit="cœurs" gainPct={r.gainCoresPct}/>
           <CompRow label="GHz agrégés"  srcVal={r.srcTotalFreq}  tgtVal={r.tgtTotalFreq}  unit="GHz"   gainPct={r.gainFreqPct}/>
@@ -1365,7 +1365,7 @@ function ComputeCalc({ th }) {
         ].map(chart=>(
           <div key={chart.title} style={s.card()}>
             <div style={{...s.secTitle,marginBottom:16}}>{chart.title}</div>
-            <BarChart3 data={chart.data} unit={chart.unit} height={180}/>
+            <BarChart3 data={chart.data} unit={chart.unit} height={200}/>
           </div>
         ))}
       </div>
