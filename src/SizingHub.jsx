@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Server, HardDrive, Cloud, Cpu, Database,
   BarChart2, Shield, CheckCircle, AlertTriangle,
@@ -695,6 +695,17 @@ function StorageCalc({ th, isMobile=false }) {
   const [chassisList, setChassisList] = useState([newChassis("3.5-12")]);
   const [dedup, setDedup] = useState(1);
   const [iopsTarget, setIopsTarget] = useState(50000);
+  // États calculateur constructeur
+  const [vendorOpen,    setVendorOpen]    = useState(false);
+  const [vVendor,       setVVendor]       = useState("dell");
+  const [vModel,        setVModel]        = useState("powerstore");
+  const [vRaid,         setVRaid]         = useState("r5");
+  const [vOverhead,     setVOverhead]     = useState(24);
+  const [vDisks,        setVDisks]        = useState(24);
+  const [vDiskCap,      setVDiskCap]      = useState(3.84);
+  const [vTarget,       setVTarget]       = useState(50);
+  const [vVendorDedup,  setVVendorDedup]  = useState(true);
+  const [vDedupRatio,   setVDedupRatio]   = useState(2.5);
 
   const addChassis = () => setChassisList(p=>[...p, newChassis("3.5-12")]);
   const removeChassis = (cid) => setChassisList(p=>p.filter(c=>c.id!==cid));
@@ -974,6 +985,231 @@ function StorageCalc({ th, isMobile=false }) {
           </div>
         </div>
       </div>
+      {/* ── Calculateur constructeur dépliable ─────────────────────────────── */}
+      <div style={{marginBottom:14}}>
+        <div onClick={()=>setVendorOpen(v=>!v)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 16px",cursor:"pointer",borderRadius:6,background:vendorOpen?"rgba(0,153,255,0.08)":th.bg2,border:`1px solid ${vendorOpen?"rgba(0,153,255,0.3)":th.border}`}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <span style={{fontSize:12,fontWeight:600,color:vendorOpen?th.accent2:th.t2,fontFamily:"monospace"}}>Modèle constructeur — Sizing baie spécifique</span>
+            <span style={{fontSize:10,padding:"2px 8px",borderRadius:3,background:"rgba(0,153,255,0.1)",color:th.accent2,border:"1px solid rgba(0,153,255,0.2)",fontFamily:"monospace"}}>Dell · HPE · Huawei</span>
+          </div>
+          <span style={{color:th.t3,fontSize:14}}>{vendorOpen?"▲":"▼"}</span>
+        </div>
+
+        {vendorOpen&&(()=>{
+          const VENDORS = {
+            dell: {
+              label:"Dell", color:"#0076CE",
+              models: {
+                powerstore: {
+                  label:"PowerStore", protection:"RAID 5/6 distribué",
+                  overheadMin:20, overheadMax:28, overheadDefault:24,
+                  hasDedup:true, dedupDefault:2.5,
+                  raids:[{id:"r5",label:"RAID 5 (4+1)",factor:1/5},{id:"r6",label:"RAID 6 (6+2)",factor:2/8}],
+                  note:"Dédup/compression inline toujours actif. RAID distribué sur NVMe."
+                },
+                unityxt: {
+                  label:"Unity XT", protection:"RAID 5/6",
+                  overheadMin:20, overheadMax:28, overheadDefault:22,
+                  hasDedup:true, dedupDefault:2.0,
+                  raids:[{id:"r5",label:"RAID 5 (4+1)",factor:1/5},{id:"r6",label:"RAID 6 (6+2)",factor:2/8}],
+                  note:"Dédup/compression optionnel. Thin provisioning natif."
+                },
+                powervault: {
+                  label:"PowerVault", protection:"RAID Adapt",
+                  overheadMin:15, overheadMax:20, overheadDefault:17,
+                  hasDedup:false, dedupDefault:1.0,
+                  raids:[{id:"adapt",label:"RAID Adapt (dynamique)",factor:0.17}],
+                  note:"RAID Adapt : overhead diminue avec le nombre de disques. Pas de dédup natif."
+                },
+              }
+            },
+            hpe: {
+              label:"HPE", color:"#01A982",
+              models: {
+                alletra: {
+                  label:"Alletra / Primera", protection:"RAID 6 double parité",
+                  overheadMin:25, overheadMax:30, overheadDefault:27,
+                  hasDedup:true, dedupDefault:3.0,
+                  raids:[{id:"r6",label:"RAID 6 (6+2)",factor:2/8},{id:"r6_4",label:"RAID 6 (4+2)",factor:2/6}],
+                  note:"Dédup/compression inline. RAID 6 optimisé NVMe."
+                },
+                nimble: {
+                  label:"Nimble", protection:"RAID triple parité",
+                  overheadMin:25, overheadMax:30, overheadDefault:27,
+                  hasDedup:true, dedupDefault:3.5,
+                  raids:[{id:"r6tp",label:"RAID 6 triple parité",factor:3/9}],
+                  note:"Dédup/compression inline très efficace. CASL architecture."
+                },
+                msa: {
+                  label:"MSA", protection:"RAID DP+",
+                  overheadMin:25, overheadMax:25, overheadDefault:25,
+                  hasDedup:false, dedupDefault:1.0,
+                  raids:[{id:"rdp",label:"RAID DP+ (double parité)",factor:2/8}],
+                  note:"Pas de dédup natif. Overhead fixe 25%. Solution entrée de gamme."
+                },
+              }
+            },
+            huawei: {
+              label:"Huawei", color:"#CF0A2C",
+              models: {
+                dorado: {
+                  label:"OceanStor Dorado", protection:"RAID-TP triple parité",
+                  overheadMin:25, overheadMax:30, overheadDefault:28,
+                  hasDedup:true, dedupDefault:3.0,
+                  raids:[{id:"raidtp",label:"RAID-TP (triple parité)",factor:3/9}],
+                  note:"RAID-TP : résistance à 3 pannes simultanées. Dédup inline toujours actif."
+                },
+                pacific: {
+                  label:"OceanStor Pacific", protection:"Erasure Coding",
+                  overheadMin:20, overheadMax:33, overheadDefault:25,
+                  hasDedup:true, dedupDefault:2.0,
+                  raids:[
+                    {id:"ec42",label:"EC 4+2 (overhead 33%)",factor:2/6},
+                    {id:"ec82",label:"EC 8+2 (overhead 20%)",factor:2/10},
+                    {id:"ec122",label:"EC 12+2 (overhead 14%)",factor:2/14},
+                  ],
+                  note:"Erasure Coding configurable. Idéal pour gros volumes objets/fichiers."
+                },
+              }
+            },
+          };
+
+          const vendor = VENDORS[vVendor];
+          const model  = vendor?.models[vModel];
+          const raid   = model?.raids.find(r=>r.id===vRaid)||model?.raids[0];
+
+          const rawTiB    = vDisks * vDiskCap;
+          const overheadF = vOverhead/100;
+          const raidF     = raid ? (typeof raid.factor==="number"&&raid.factor<1 ? raid.factor : 0) : 0;
+          const usable    = rawTiB * (1 - overheadF) * (1 - raidF);
+          const effective = (model?.hasDedup && vVendorDedup) ? usable * vDedupRatio : usable;
+          const savedDedup= (model?.hasDedup && vVendorDedup) ? effective - usable : 0;
+          const pctUsed   = vTarget > 0 ? Math.round((vTarget/effective)*100) : 0;
+          const ok        = effective >= vTarget;
+
+          return (
+            <div style={{background:th.cardBg,border:`1px solid ${th.border}`,borderTop:"none",borderRadius:"0 0 6px 6px",padding:16}}>
+              {/* Sélecteur constructeur */}
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr 1fr",gap:10,marginBottom:16}}>
+                <div>
+                  <label style={{display:"block",fontSize:10,color:th.t3,fontFamily:"monospace",textTransform:"uppercase",marginBottom:5}}>Constructeur</label>
+                  <select value={vVendor} onChange={e=>{setVVendor(e.target.value);const first=Object.keys(VENDORS[e.target.value].models)[0];setVModel(first);const m=VENDORS[e.target.value].models[first];setVRaid(m.raids[0].id);setVOverhead(m.overheadDefault);setVDedupRatio(m.dedupDefault);setVVendorDedup(m.hasDedup);}} style={{width:"100%",background:th.bg2,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"monospace",fontSize:12,boxSizing:"border-box"}}>
+                    {Object.entries(VENDORS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{display:"block",fontSize:10,color:th.t3,fontFamily:"monospace",textTransform:"uppercase",marginBottom:5}}>Modèle de baie</label>
+                  <select value={vModel} onChange={e=>{setVModel(e.target.value);const m=vendor.models[e.target.value];setVRaid(m.raids[0].id);setVOverhead(m.overheadDefault);setVDedupRatio(m.dedupDefault);setVVendorDedup(m.hasDedup);}} style={{width:"100%",background:th.bg2,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"monospace",fontSize:12,boxSizing:"border-box"}}>
+                    {Object.entries(vendor.models).map(([k,m])=><option key={k} value={k}>{m.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{display:"block",fontSize:10,color:th.t3,fontFamily:"monospace",textTransform:"uppercase",marginBottom:5}}>Protection RAID</label>
+                  <select value={vRaid} onChange={e=>setVRaid(e.target.value)} style={{width:"100%",background:th.bg2,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"monospace",fontSize:12,boxSizing:"border-box"}}>
+                    {model?.raids.map(r=><option key={r.id} value={r.id}>{r.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{display:"block",fontSize:10,color:th.t3,fontFamily:"monospace",textTransform:"uppercase",marginBottom:5}}>Overhead système (%)</label>
+                  <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                    <input type="number" min={model?.overheadMin||10} max={model?.overheadMax||35} value={vOverhead} onChange={e=>setVOverhead(Number(e.target.value))} style={{width:"100%",background:th.bg2,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"monospace",fontSize:13,boxSizing:"border-box"}}/>
+                    <span style={{fontSize:11,color:th.t3}}>%</span>
+                  </div>
+                  <div style={{fontSize:10,color:th.t3,marginTop:2}}>Min {model?.overheadMin}% — Max {model?.overheadMax}%</div>
+                </div>
+              </div>
+
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:14}}>
+
+                {/* Config disques */}
+                <div style={{background:th.bg2,borderLeft:`2px solid ${VENDORS[vVendor].color}`,borderRadius:4,padding:14}}>
+                  <div style={{fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:12,fontFamily:"monospace"}}>Configuration disques</div>
+                  <div style={{marginBottom:12}}>
+                    <label style={{display:"block",fontSize:10,color:th.t3,fontFamily:"monospace",textTransform:"uppercase",marginBottom:5}}>Nombre de disques</label>
+                    <input type="number" min={1} max={500} value={vDisks} onChange={e=>setVDisks(Number(e.target.value))} style={{width:"100%",background:th.bg1,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"monospace",fontSize:13,boxSizing:"border-box"}}/>
+                  </div>
+                  <div style={{marginBottom:12}}>
+                    <label style={{display:"block",fontSize:10,color:th.t3,fontFamily:"monospace",textTransform:"uppercase",marginBottom:5}}>Capacité / disque (TiB)</label>
+                    <input type="number" min={0.5} max={32} step={0.5} value={vDiskCap} onChange={e=>setVDiskCap(Number(e.target.value))} style={{width:"100%",background:th.bg1,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"monospace",fontSize:13,boxSizing:"border-box"}}/>
+                  </div>
+                  <div style={{marginBottom:12}}>
+                    <label style={{display:"block",fontSize:10,color:th.t3,fontFamily:"monospace",textTransform:"uppercase",marginBottom:5}}>Cible capacité nette (TiB)</label>
+                    <input type="number" min={1} step={5} value={vTarget} onChange={e=>setVTarget(Number(e.target.value))} style={{width:"100%",background:th.bg1,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"monospace",fontSize:13,boxSizing:"border-box"}}/>
+                  </div>
+                  {model?.hasDedup&&(
+                    <div>
+                      <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:12,color:vVendorDedup?th.accent:th.t2,fontFamily:"monospace",marginBottom:6}}>
+                        <input type="checkbox" checked={vVendorDedup} onChange={e=>setVVendorDedup(e.target.checked)} style={{accentColor:th.accent}}/>
+                        {vVendorDedup?`Dédup/compression actif (×${vDedupRatio})`:"Dédup/compression désactivé"}
+                      </label>
+                      {vVendorDedup&&(
+                        <div style={{display:"flex",alignItems:"center",gap:8}}>
+                          <input type="range" min={1} max={8} step={0.5} value={vDedupRatio} onChange={e=>setVDedupRatio(Number(e.target.value))} style={{flex:1,accentColor:th.accent}}/>
+                          <span style={{fontFamily:"monospace",fontSize:12,color:th.accent,minWidth:36}}>{vDedupRatio}:1</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {!model?.hasDedup&&(
+                    <div style={{padding:"6px 10px",background:"rgba(255,181,71,0.08)",border:"1px solid rgba(255,181,71,0.2)",borderRadius:4,fontSize:11,color:"#ffb347"}}>
+                      ⚠ {model?.label} : pas de dédup/compression natif
+                    </div>
+                  )}
+                </div>
+
+                {/* Résultats */}
+                <div style={{background:th.bg2,borderLeft:`2px solid ${th.accent}`,borderRadius:4,padding:14}}>
+                  <div style={{fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:12,fontFamily:"monospace"}}>Résultats {model?.label}</div>
+                  <div style={{marginBottom:10,padding:"6px 10px",borderRadius:4,fontSize:11,fontFamily:"monospace",background:`${VENDORS[vVendor].color}15`,color:VENDORS[vVendor].color,border:`1px solid ${VENDORS[vVendor].color}33`}}>
+                    {model?.protection} · Overhead {vOverhead}%
+                  </div>
+                  {[
+                    {label:"Brut total",          val:fmt(rawTiB,2)+" TiB"},
+                    {label:"Après overhead système", val:fmt(rawTiB*(1-vOverhead/100),2)+" TiB", color:th.t2},
+                    {label:"Après "+raid?.label,   val:fmt(usable,2)+" TiB", color:th.accent2},
+                    ...(model?.hasDedup&&vVendorDedup?[{label:`Effective (×${vDedupRatio} dédup)`, val:fmt(effective,2)+" TiB", color:th.accent}]:[]),
+                    {label:"Cible nette",           val:fmt(vTarget,0)+" TiB"},
+                    {label:"Taux d'utilisation",    val:pctUsed+" %", color:ok?th.accent:th.danger},
+                  ].map((row,i)=>(
+                    <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:`1px solid ${th.border}`}}>
+                      <span style={{fontSize:12,color:th.t2}}>{row.label}</span>
+                      <span style={{fontFamily:"monospace",fontWeight:600,fontSize:13,color:row.color||th.t1}}>{row.val}</span>
+                    </div>
+                  ))}
+                  <div style={{marginTop:10,padding:"8px 10px",borderRadius:4,fontSize:11,
+                    background:ok?"rgba(0,212,170,0.07)":"rgba(255,85,85,0.08)",
+                    border:`1px solid ${ok?"rgba(0,212,170,0.2)":"rgba(255,85,85,0.2)"}`,
+                    color:ok?th.accent:th.danger}}>
+                    {ok?`✓ Objectif atteint — marge ${fmt(effective-vTarget,2)} TiB`:`⚠ Capacité insuffisante — déficit ${fmt(vTarget-effective,2)} TiB`}
+                  </div>
+                </div>
+
+                {/* Fiche modèle */}
+                <div style={{background:th.bg2,borderLeft:`2px solid ${th.warn}`,borderRadius:4,padding:14}}>
+                  <div style={{fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:12,fontFamily:"monospace"}}>Caractéristiques {model?.label}</div>
+                  {[
+                    {label:"Constructeur",    val:VENDORS[vVendor].label},
+                    {label:"Protection",      val:model?.protection},
+                    {label:"Overhead min",    val:model?.overheadMin+"%"},
+                    {label:"Overhead max",    val:model?.overheadMax+"%"},
+                    {label:"Dédup natif",     val:model?.hasDedup?"✓ Oui":"✗ Non", color:model?.hasDedup?th.accent:th.danger},
+                    {label:"Ratio dédup typ.",val:model?.hasDedup?model?.dedupDefault+":1":"N/A"},
+                  ].map((row,i)=>(
+                    <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:`1px solid ${th.border}`}}>
+                      <span style={{fontSize:12,color:th.t2}}>{row.label}</span>
+                      <span style={{fontFamily:"monospace",fontWeight:600,fontSize:12,color:row.color||th.t1}}>{row.val}</span>
+                    </div>
+                  ))}
+                  <div style={{marginTop:12,padding:"8px 10px",background:th.bg1,borderRadius:4,fontSize:11,color:th.t2,lineHeight:1.6}}>
+                    💡 {model?.note}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+      </div>
+
     </div>
   );
 }
@@ -1561,13 +1797,13 @@ const TOOLS=[
 ];
 
 function useIsMobile() {
-  const [w, setW] = useState(window.innerWidth);
-  useState(()=>{
-    const h = () => setW(window.innerWidth);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  useEffect(()=>{
+    const h = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', h);
     return () => window.removeEventListener('resize', h);
-  });
-  return w < 768;
+  }, []);
+  return isMobile;
 }
 
 export default function SizingHub() {
@@ -1623,6 +1859,7 @@ export default function SizingHub() {
           <ActiveComp th={th} isMobile={isMobile} />
         </div>
       </div>
+
     </div>
   );
 }
