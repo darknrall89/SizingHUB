@@ -1001,11 +1001,18 @@ function StorageCalc({ th, isMobile=false }) {
               label:"Dell", color:"#0076CE",
               models: {
                 powerstore: {
-                  label:"PowerStore", protection:"RAID 5/6 distribué",
-                  overheadMin:20, overheadMax:28, overheadDefault:24,
+                  label:"PowerStore", protection:"DRE (Dynamic Resilience Engine)",
+                  overheadMin:10, overheadMax:15, overheadDefault:12,
                   hasDedup:true, dedupDefault:2.5,
-                  raids:[{id:"r5",label:"RAID 5 (4+1)",factor:1/5},{id:"r6",label:"RAID 6 (6+2)",factor:2/8}],
-                  note:"Dédup/compression inline toujours actif. RAID distribué sur NVMe."
+                  useDreCalc:true,
+                  raids:[
+                    {id:"dre_sp_4_1", label:"DRE SP — 4+1 (spare incl.)",  dataDisks:4, parityDisks:1, spareDisks:1},
+                    {id:"dre_sp_8_1", label:"DRE SP — 8+1 (spare incl.)",  dataDisks:8, parityDisks:1, spareDisks:1},
+                    {id:"dre_dp_4_2", label:"DRE DP — 4+2 (spare incl.)",  dataDisks:4, parityDisks:2, spareDisks:1},
+                    {id:"dre_dp_8_2", label:"DRE DP — 8+2 (spare incl.)",  dataDisks:8, parityDisks:2, spareDisks:1},
+                    {id:"dre_dp_16_2",label:"DRE DP — 16+2 (spare incl.)", dataDisks:16,parityDisks:2, spareDisks:1},
+                  ],
+                  note:"Formule Dell officielle : Cap. physique = Cap. DRE - Réserve interne. DRE SP/DP selon modèle d'appliance."
                 },
                 unityxt: {
                   label:"Unity XT", protection:"RAID 5/6",
@@ -1080,8 +1087,23 @@ function StorageCalc({ th, isMobile=false }) {
 
           const rawTiB    = vDisks * vDiskCap;
           const overheadF = vOverhead/100;
-          const raidF     = raid ? (typeof raid.factor==="number"&&raid.factor<1 ? raid.factor : 0) : 0;
-          const usable    = rawTiB * (1 - overheadF) * (1 - raidF);
+
+          // Calcul DRE PowerStore (formule Dell officielle)
+          let usable;
+          let dreInfo = null;
+          if (model?.useDreCalc && raid?.dataDisks) {
+            const totalPerRRS = raid.dataDisks + raid.parityDisks + raid.spareDisks;
+            const nbRRS       = Math.floor(vDisks / totalPerRRS);
+            const usedDisks   = nbRRS * totalPerRRS;
+            const dreRaw      = nbRRS * raid.dataDisks * vDiskCap;       // Capacité DRE brute
+            const dreCapacity = dreRaw * (1 - overheadF);               // Après réserve interne
+            usable = dreCapacity;
+            dreInfo = { nbRRS, usedDisks, unusedDisks: vDisks - usedDisks, dreRaw, dreCapacity };
+          } else {
+            const raidF = raid ? (raid.factor !== undefined ? raid.factor : 0) : 0;
+            usable = rawTiB * (1 - overheadF) * (1 - raidF);
+          }
+
           const effective = (model?.hasDedup && vVendorDedup) ? usable * vDedupRatio : usable;
           const savedDedup= (model?.hasDedup && vVendorDedup) ? effective - usable : 0;
           const pctUsed   = vTarget > 0 ? Math.round((vTarget/effective)*100) : 0;
@@ -1164,9 +1186,18 @@ function StorageCalc({ th, isMobile=false }) {
                     {model?.protection} · Overhead {vOverhead}%
                   </div>
                   {[
-                    {label:"Brut total",          val:fmt(rawTiB,2)+" TiB"},
-                    {label:"Après overhead système", val:fmt(rawTiB*(1-vOverhead/100),2)+" TiB", color:th.t2},
-                    {label:"Après "+raid?.label,   val:fmt(usable,2)+" TiB", color:th.accent2},
+                    ...(dreInfo ? [
+                      {label:"Brut total ("+vDisks+" disques)", val:fmt(rawTiB,2)+" TiB"},
+                      {label:"Nb de RRS",                       val:dreInfo.nbRRS+" RRS de "+(raid.dataDisks+raid.parityDisks+raid.spareDisks)+" disques"},
+                      {label:"Disques non utilisés",            val:dreInfo.unusedDisks > 0 ? dreInfo.unusedDisks+" disques" : "0 (optimal)", color:dreInfo.unusedDisks>0?"#ffb347":th.accent},
+                      {label:"Capacité DRE brute",              val:fmt(dreInfo.dreRaw,2)+" TiB"},
+                      {label:"Réserve interne ("+vOverhead+"%)", val:"-"+fmt(dreInfo.dreRaw*vOverhead/100,2)+" TiB", color:th.warn},
+                      {label:"Capacité physique totale",         val:fmt(usable,2)+" TiB", color:th.accent2},
+                    ] : [
+                      {label:"Brut total",           val:fmt(rawTiB,2)+" TiB"},
+                      {label:"Après overhead système",val:fmt(rawTiB*(1-vOverhead/100),2)+" TiB", color:th.t2},
+                      {label:"Après "+raid?.label,   val:fmt(usable,2)+" TiB", color:th.accent2},
+                    ]),
                     ...(model?.hasDedup&&vVendorDedup?[{label:`Effective (×${vDedupRatio} dédup)`, val:fmt(effective,2)+" TiB", color:th.accent}]:[]),
                     {label:"Cible nette",           val:fmt(vTarget,0)+" TiB"},
                     {label:"Taux d'utilisation",    val:pctUsed+" %", color:ok?th.accent:th.danger},
