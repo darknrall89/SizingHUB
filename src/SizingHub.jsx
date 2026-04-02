@@ -4,16 +4,6 @@ import {
   BarChart2, Shield, CheckCircle, AlertTriangle,
   Info, Sun, Moon, Menu, X
 } from "lucide-react";
-
-function useIsMobile() {
-  const [w, setW] = useState(window.innerWidth);
-  useState(()=>{
-    const h = () => setW(window.innerWidth);
-    window.addEventListener('resize', h);
-    return () => window.removeEventListener('resize', h);
-  });
-  return w < 768;
-}
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer
@@ -188,7 +178,7 @@ function VMwareCalc({th, isMobile=false}) {
 
   const tt = {background:th.tooltipBg,border:`1px solid ${th.border2}`,borderRadius:4,fontSize:11,color:th.t1};
   const s = {
-    card:     (accent)=>({background:th.cardBg,borderTop:`1px solid ${th.border}`,borderRight:`1px solid ${th.border}`,borderBottom:`1px solid ${th.border}`,borderLeft:accent?`2px solid ${accent}`:`1px solid ${th.border}`,borderRadius:6,padding:16}),
+    card:     (accent)=>({background:th.cardBg,border:`1px solid ${th.border}`,borderLeft:accent?`2px solid ${accent}`:undefined,borderRadius:6,padding:16}),
     secTitle: {fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:14,paddingBottom:8,borderBottom:`1px solid ${th.border}`,fontFamily:"monospace"},
     label:    {display:"block",fontSize:10,color:th.t3,fontFamily:"monospace",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:5},
     input:    {width:"100%",background:th.bg2,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"monospace",fontSize:13,boxSizing:"border-box"},
@@ -242,7 +232,7 @@ function VMwareCalc({th, isMobile=false}) {
       </div>
 
       {/* 3 cards */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1.2fr 1.3fr",gap:14,marginBottom:14}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1.2fr 1.3fr",gap:14,marginBottom:14}}>
 
         {/* Paramètres */}
         <div style={s.card(th.accent)}>
@@ -285,7 +275,7 @@ function VMwareCalc({th, isMobile=false}) {
         {/* Impact financier */}
         <div style={s.card("#ff6b35")}>
           <div style={s.secTitle}>Impact financier</div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginBottom:14}}>
             <NF label="Prix / cœur / an" value={pricePerCore} onChange={setPricePerCore} min={1} max={200} unit="€" note={licType==="vvf"?"Indicatif : ~46 €/cœur/an":"Indicatif : ~66 €/cœur/an"}/>
             <NF label="Durée contrat" value={yearsTotal} onChange={setYearsTotal} min={1} max={5} unit="ans"/>
             <NF label="Maintenance annuelle" value={maintenancePct} onChange={setMaintenancePct} min={0} max={30} unit="%" note="Incluse abonnement Broadcom"/>
@@ -298,7 +288,15 @@ function VMwareCalc({th, isMobile=false}) {
               </div>
               <div style={{fontSize:10,color:th.t3,marginTop:3}}>Taux indicatif — ajuster selon contrat</div>
             </div>
-
+            <div style={s.field}>
+              <label style={s.label}>Taux de change USD/EUR</label>
+              <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                <input type="number" min={0.5} max={1.5} step={0.01} value={fxRate}
+                  onChange={e=>setFxRate(Number(e.target.value))} style={s.input}/>
+                <span style={{fontSize:11,color:th.t3,whiteSpace:"nowrap"}}>€/$</span>
+              </div>
+              <div style={{fontSize:10,color:th.t3,marginTop:3}}>Taux indicatif — ajuster selon contrat</div>
+            </div>
           </div>
           <hr style={s.divider}/>
           <RR label="Coût licences / an"         value={"~ "+fmt(r.annualCostEur)+" €"}/>
@@ -840,7 +838,7 @@ function StorageCalc({ th, isMobile=false }) {
                       </div>
 
                       {/* Saisie groupe */}
-                      <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr",gap:8,marginBottom:10}}>
+                      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"2fr 1fr 1fr 1fr",gap:8,marginBottom:10}}>
                         <div>
                           <label style={s.label}>Type de disque</label>
                           <select value={group.diskId} onChange={e=>updateGroup(chassis.id,group.id,{diskId:e.target.value})} style={s.select}>
@@ -866,7 +864,7 @@ function StorageCalc({ th, isMobile=false }) {
                       </div>
 
                       {/* Résumé inline groupe */}
-                      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6}}>
+                      <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:6}}>
                         {[
                           {label:"Disques",  val:fmt(group.count)+" disques",       color:th.t2},
                           {label:"Utile",    val:fmt(gr.usable,2)+" To",            color:th.accent},
@@ -1245,12 +1243,12 @@ function ComputeCalc({ th, isMobile=false }) {
             </div>
           )}
           {data.map((b,i)=>{
-            const h=Math.max(8,Math.round((b.val/maxVal)*(height-70)));
+            const h=Math.max(8,Math.round((b.val/maxVal)*(height-30)));
             return (
               <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
                 <div style={{width:"100%",height:h,background:b.color,borderRadius:"4px 4px 0 0",
                   display:"flex",alignItems:"center",justifyContent:"center",position:"relative"}}>
-                  {h>20&&<span style={{fontSize:10,color:"#fff",fontFamily:"monospace",fontWeight:600,
+                  {h>28&&<span style={{fontSize:10,color:"#fff",fontFamily:"monospace",fontWeight:600,
                     padding:"2px 4px",textShadow:"0 1px 2px rgba(0,0,0,0.4)"}}>{fmt(b.val)}</span>}
                 </div>
                 <span style={{fontSize:10,color:th.t2,fontFamily:"monospace",textAlign:"center",lineHeight:1.3}}>{b.name}</span>
@@ -1291,12 +1289,12 @@ function ComputeCalc({ th, isMobile=false }) {
       </div>
 
       {/* Saisie + Comparaison */}
-      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:14,marginBottom:14,alignItems:"start"}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 340px",gap:14,marginBottom:14}}>
 
         {/* Existant */}
-        <div style={{...s.card(th.accent),alignSelf:"start"}}>
+        <div style={s.card(th.accent)}>
           <div style={s.secTitle}>Infrastructure existante</div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10}}>
             <NF label="Nœuds" value={srcNodes} onChange={setSrcNodes} min={0} max={200} unit="nœuds"/>
             <NF label="Sockets / nœud" value={srcSockets} onChange={setSrcSockets} min={1} max={8}/>
             <NF label="Cœurs / socket" value={srcCores} onChange={setSrcCores} min={1} max={128} step={2}/>
@@ -1310,9 +1308,9 @@ function ComputeCalc({ th, isMobile=false }) {
         </div>
 
         {/* Cible */}
-        <div style={{...s.card(th.accent2),alignSelf:"start"}}>
+        <div style={s.card(th.accent2)}>
           <div style={s.secTitle}>Infrastructure cible</div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10}}>
             <NF label="Nœuds" value={tgtNodes} onChange={setTgtNodes} min={1} max={200} unit="nœuds"/>
             <NF label="Sockets / nœud" value={tgtSockets} onChange={setTgtSockets} min={1} max={8}/>
             <NF label="Cœurs / socket" value={tgtCores} onChange={setTgtCores} min={1} max={128} step={2}/>
@@ -1330,7 +1328,7 @@ function ComputeCalc({ th, isMobile=false }) {
         </div>
 
         {/* Comparaison & Gains */}
-        <div style={{...s.card(),alignSelf:"start"}}>
+        <div style={s.card()}>
           <div style={s.secTitle}>Comparaison & Gains</div>
           <CompRow label="Cœurs totaux" srcVal={r.srcTotalCores} tgtVal={r.tgtTotalCores} unit="cœurs" gainPct={r.gainCoresPct}/>
           <CompRow label="GHz agrégés"  srcVal={r.srcTotalFreq}  tgtVal={r.tgtTotalFreq}  unit="GHz"   gainPct={r.gainFreqPct}/>
@@ -1367,7 +1365,7 @@ function ComputeCalc({ th, isMobile=false }) {
         ].map(chart=>(
           <div key={chart.title} style={s.card()}>
             <div style={{...s.secTitle,marginBottom:16}}>{chart.title}</div>
-            <BarChart3 data={chart.data} unit={chart.unit} height={200}/>
+            <BarChart3 data={chart.data} unit={chart.unit} height={180}/>
           </div>
         ))}
       </div>
@@ -1394,7 +1392,7 @@ function ComputeCalc({ th, isMobile=false }) {
         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"3fr 2fr",gap:14,alignItems:"start"}}>
           <div style={s.card(th.accent)}>
             <div style={s.secTitle}>Configuration HCI</div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10,marginBottom:12}}>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"1fr 1fr 1fr 1fr",gap:10,marginBottom:12}}>
               <div>
                 <label style={s.label}>Solution HCI</label>
                 <select value={hciSolution} onChange={e=>{setHciSolution(e.target.value);setHciResil(HCI_PROFILES[e.target.value].resiliency[0].id);setDedupRatio(HCI_PROFILES[e.target.value].defaultDedup);}} style={s.select}>
@@ -1421,7 +1419,7 @@ function ComputeCalc({ th, isMobile=false }) {
                 </div>
               </div>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginBottom:14}}>
               <div>
                 <label style={s.label}>Capacité utile cible</label>
                 <div style={{display:"flex",gap:6,alignItems:"center"}}>
@@ -1562,32 +1560,33 @@ const TOOLS=[
   {id:"compute", label:"Compute & HCI",    icon:BarChart2,section:"COMPUTE",        comp:ComputeCalc, badge:"Compute",   sub:"Serveurs · HA · HCI"},
 ];
 
+function useIsMobile() {
+  const [w, setW] = useState(window.innerWidth);
+  useState(()=>{
+    const h = () => setW(window.innerWidth);
+    window.addEventListener('resize', h);
+    return () => window.removeEventListener('resize', h);
+  });
+  return w < 768;
+}
+
 export default function SizingHub() {
   const [active,setActive]=useState("vmware");
   const [dark,setDark]=useState(true);
   const [menuOpen,setMenuOpen]=useState(false);
-  const isMobile = useIsMobile();
+  const isMobile=useIsMobile();
   const th=dark?DARK:LIGHT;
   const tool=TOOLS.find(t=>t.id===active);
   const ActiveComp=tool.comp;
   const sections=[...new Set(TOOLS.map(t=>t.section))];
 
   return (
-    <div style={{fontFamily:"'Inter',system-ui,sans-serif",background:th.bg0,color:th.t1,minHeight:"100vh",display:"flex",transition:"background 0.2s,color 0.2s",position:"relative"}}>
-      {/* Burger button mobile */}
-      {isMobile&&(
-        <button onClick={()=>setMenuOpen(m=>!m)} style={{position:"fixed",top:12,left:12,zIndex:1000,background:th.bg1,border:`1px solid ${th.border}`,borderRadius:6,padding:"8px",cursor:"pointer",color:th.t1,display:"flex",alignItems:"center",justifyContent:"center"}}>
-          {menuOpen?<X size={18}/>:<Menu size={18}/>}
-        </button>
-      )}
-
-      {/* Overlay mobile */}
-      {isMobile&&menuOpen&&(
-        <div onClick={()=>setMenuOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:998}}/>
-      )}
-
+    <div style={{fontFamily:"'Inter',system-ui,sans-serif",background:th.bg0,color:th.t1,minHeight:"100vh",display:"flex",transition:"background 0.2s,color 0.2s"}}>
       {/* Sidebar */}
-      <div style={{width:isMobile?210:210,minWidth:isMobile?210:210,background:th.bg1,borderRight:`1px solid ${th.border}`,display:"flex",flexDirection:"column",padding:"16px 0",transition:"all 0.3s",position:isMobile?"fixed":"relative",top:0,left:0,height:"100vh",zIndex:999,transform:isMobile&&!menuOpen?"translateX(-100%)":"translateX(0)"}}>
+      <>
+      {isMobile&&<button onClick={()=>setMenuOpen(m=>!m)} style={{position:"fixed",top:12,left:12,zIndex:1000,background:th.bg1,border:`1px solid ${th.border}`,borderRadius:6,padding:"8px",cursor:"pointer",color:th.t1,display:"flex",alignItems:"center",justifyContent:"center"}}>{menuOpen?<X size={18}/>:<Menu size={18}/>}</button>}
+      {isMobile&&menuOpen&&<div onClick={()=>setMenuOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:998}}/>}
+      <div style={{width:210,minWidth:210,background:th.bg1,borderRight:`1px solid ${th.border}`,display:"flex",flexDirection:"column",padding:"16px 0",transition:"all 0.3s",position:isMobile?"fixed":"relative",top:0,left:0,height:isMobile?"100vh":undefined,zIndex:999,transform:isMobile&&!menuOpen?"translateX(-100%)":"translateX(0)"}}>
         <div style={{padding:"0 16px 16px",borderBottom:`1px solid ${th.border}`,marginBottom:12}}>
           <div style={{fontSize:15,fontWeight:700,color:th.accent,letterSpacing:"0.08em",textTransform:"uppercase"}}>SizingHub</div>
           <div style={{fontSize:10,color:th.t3,fontFamily:"monospace",marginTop:2}}>v2.0 · Infrastructure Sizing</div>
@@ -1610,8 +1609,9 @@ export default function SizingHub() {
           <div style={{textAlign:"center",fontSize:10,color:th.t3,fontFamily:"monospace",marginTop:10,letterSpacing:"0.08em"}}>by Francis B.</div>
         </div>
       </div>
+      </>
       {/* Main */}
-      <div style={{flex:1,overflowY:"auto",background:th.bg0,transition:"background 0.2s",marginLeft:isMobile?0:undefined}}>
+      <div style={{flex:1,overflowY:"auto",background:th.bg0,transition:"background 0.2s"}}>
         <div style={{padding:isMobile?"60px 12px 12px":28}}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:24}}>
             <div>
