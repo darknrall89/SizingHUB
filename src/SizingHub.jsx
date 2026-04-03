@@ -702,6 +702,20 @@ function StorageCalc({ th, isMobile=false }) {
   const [iopsTarget,     setIopsTarget]     = useState(50000);
   const [capacityTarget, setCapacityTarget] = useState(100);
   const [storageTab,     setStorageTab]     = useState('classic'); // 'classic' | 'vendor' | 'hci'
+  // HCI états
+  const [hciVms,         setHciVms]         = useState(100);
+  const [hciVcpu,        setHciVcpu]        = useState(4);
+  const [hciRam,         setHciRam]         = useState(16);
+  const [hciStorage,     setHciStorage]     = useState(200);
+  const [hciGrowth,      setHciGrowth]      = useState(20);
+  const [hciRf,          setHciRf]          = useState(2);
+  const [hciPlatform,    setHciPlatform]    = useState('vsan');
+  const [hciNodeCpu,     setHciNodeCpu]     = useState(32);
+  const [hciNodeRam,     setHciNodeRam]     = useState(512);
+  const [hciNodeDisk,    setHciNodeDisk]    = useState(12);
+  const [hciDiskCap,     setHciDiskCap]     = useState(3.84);
+  const [hciDedup,       setHciDedup]       = useState(1.5);
+  const [hciOverhead,    setHciOverhead]    = useState(25);
   const [vendorOpen,     setVendorOpen]     = useState(false);
   const [vVendor,        setVVendor]        = useState("dell");
   const [vModel,         setVModel]         = useState("powerstore");
@@ -1108,8 +1122,26 @@ function StorageCalc({ th, isMobile=false }) {
           const pctUsed   = vTarget > 0 ? Math.round((vTarget/effective)*100) : 0;
           const ok        = effective >= vTarget;
 
+          // KPIs constructeur
+          const vendorKpis = [
+            {label:"Capacité physique",sub:`${vDisks} disques × ${vDiskCap} TiB`,val:rawTiB.toFixed(1)+" TiB",bg:"linear-gradient(135deg,#0077cc,#005599)"},
+            {label:"Capacité utile",sub:`Après overhead ${vOverhead}%`,val:usable.toFixed(1)+" TiB",bg:"linear-gradient(135deg,#5a4fcf,#3d35a0)"},
+            {label:"Capacité effective",sub:(model?.hasDedup&&vVendorDedup)?`Dédup ×${vDedupRatio}`:"Sans dédup",val:effective.toFixed(1)+" TiB",bg:effective>=vTarget?"linear-gradient(135deg,#00a884,#007a60)":"linear-gradient(135deg,#cc3333,#991111)"},
+            {label:"Objectif atteint",sub:`Cible : ${vTarget} TiB`,val:effective>=vTarget?"✓ Oui":"✗ Non",bg:effective>=vTarget?"linear-gradient(135deg,#00a884,#007a60)":"linear-gradient(135deg,#d97706,#b45309)"},
+          ];
           return (
-            <div style={{background:th.cardBg,border:`1px solid ${th.border}`,borderTop:"none",borderRadius:"0 0 6px 6px",padding:16}}>
+            <div>
+              {/* KPIs */}
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:10,marginBottom:14}}>
+                {vendorKpis.map(k=>(
+                  <div key={k.label} style={{background:k.bg,borderRadius:8,padding:"14px 16px"}}>
+                    <div style={{fontSize:10,color:"rgba(255,255,255,0.6)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>{k.label}</div>
+                    <div style={{fontSize:10,color:"rgba(255,255,255,0.5)",marginBottom:4}}>{k.sub}</div>
+                    <div style={{fontSize:20,fontWeight:700,fontFamily:"monospace",color:"#fff"}}>{k.val}</div>
+                  </div>
+                ))}
+              </div>
+            <div style={{background:th.cardBg,border:`1px solid ${th.border}`,borderRadius:6,padding:16}}>
               {/* Sélecteur constructeur */}
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr 1fr",gap:10,marginBottom:16}}>
                 <div>
@@ -1227,20 +1259,189 @@ function StorageCalc({ th, isMobile=false }) {
                 </div>
               </div>
             </div>
+          </div>
           );
 
       })()}
 
-      {storageTab==="hci"&&(
-        <div style={{padding:40,textAlign:"center",color:th.t3}}>
-          <div style={{fontSize:32,marginBottom:12}}>🔲</div>
-          <div style={{fontSize:16,fontWeight:600,color:th.t2,marginBottom:8}}>Capacity Planning HCI</div>
-          <div style={{fontSize:13,maxWidth:400,margin:"0 auto",lineHeight:1.6}}>
-            Sizing vSAN, Nutanix et Azure Stack HCI — en cours de développement.
-            <br/>Calcul par nœuds, RF2/RF3, overhead CVM et slack space.
+      {storageTab==="hci"&&(()=>{
+        // Calculs HCI
+        const hciSrcRam     = hciVms * hciRam;
+        const hciSrcVcpu    = hciVms * hciVcpu;
+        const hciSrcStorage = hciVms * hciStorage / 1024; // To
+        const hciGrowthF    = 1 + hciGrowth/100;
+        const hciTgtRam     = hciSrcRam * hciGrowthF;
+        const hciTgtVcpu    = hciSrcVcpu * hciGrowthF;
+        const hciTgtStorage = hciSrcStorage * hciGrowthF;
+
+        // Overhead plateforme
+        const cvmOverhead   = hciPlatform==="nutanix" ? 0.1 : 0; // 10% CVM Nutanix
+        const slackSpace    = hciOverhead/100; // slack vSAN/Nutanix
+        const rfFactor      = hciRf; // RF2=2x, RF3=3x
+
+        // Capacité utile par nœud
+        const nodeRawStorage = hciNodeDisk * hciDiskCap; // TiB brut
+        const nodeUsable     = nodeRawStorage * (1 - slackSpace) / rfFactor / hciDedup;
+        const nodeEffRam     = hciNodeRam * (1 - cvmOverhead);
+        const nodeEffCpu     = hciNodeCpu * (1 - cvmOverhead);
+
+        // Nœuds nécessaires (max des 3 contraintes)
+        const nodesByStorage = Math.ceil(hciTgtStorage / nodeUsable);
+        const nodesByRam     = Math.ceil(hciTgtRam / nodeEffRam);
+        const nodesByCpu     = Math.ceil(hciTgtVcpu / (nodeEffCpu * 4)); // overcommit x4
+        const nodesMin       = Math.max(nodesByStorage, nodesByRam, nodesByCpu, hciRf===2?3:4);
+        const nodesReco      = nodesMin + 1; // N+1 HA
+
+        // Headroom après HA (N-1)
+        const haNodes        = nodesReco - 1;
+        const cpuHeadroom    = Math.round((1 - hciTgtVcpu/(haNodes*nodeEffCpu*4))*100);
+        const ramHeadroom    = Math.round((1 - hciTgtRam/(haNodes*nodeEffRam))*100);
+        const stoHeadroom    = Math.round((1 - hciTgtStorage/(haNodes*nodeUsable))*100);
+        const stoTotal       = nodesReco * nodeUsable;
+
+        const bottleneck     = nodesByStorage>=nodesByRam&&nodesByStorage>=nodesByCpu?"Stockage":
+                               nodesByRam>=nodesByCpu?"RAM":"CPU";
+
+        const kpis = [
+          {label:"Nœuds recommandés",sub:`N+1 HA · contrainte : ${bottleneck}`,val:nodesReco+" nœuds",bg:"linear-gradient(135deg,#0077cc,#005599)"},
+          {label:"CPU headroom",sub:`Après panne 1 nœud (N-1)`,val:cpuHeadroom+"%",bg:cpuHeadroom>=20?"linear-gradient(135deg,#00a884,#007a60)":"linear-gradient(135deg,#d97706,#b45309)"},
+          {label:"RAM headroom",sub:`Après panne 1 nœud (N-1)`,val:ramHeadroom+"%",bg:ramHeadroom>=20?"linear-gradient(135deg,#00a884,#007a60)":"linear-gradient(135deg,#d97706,#b45309)"},
+          {label:"Stockage effectif",sub:`RF${hciRf} · dédup ×${hciDedup} · slack ${hciOverhead}%`,val:stoTotal.toFixed(1)+" To",bg:stoHeadroom>=10?"linear-gradient(135deg,#5a4fcf,#3d35a0)":"linear-gradient(135deg,#cc3333,#991111)"},
+        ];
+
+        return (
+          <div>
+            {/* KPIs */}
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:10,marginBottom:14}}>
+              {kpis.map(k=>(
+                <div key={k.label} style={{background:k.bg,borderRadius:8,padding:"14px 16px"}}>
+                  <div style={{fontSize:10,color:"rgba(255,255,255,0.6)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>{k.label}</div>
+                  <div style={{fontSize:10,color:"rgba(255,255,255,0.5)",marginBottom:4}}>{k.sub}</div>
+                  <div style={{fontSize:20,fontWeight:700,fontFamily:"monospace",color:"#fff"}}>{k.val}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Layout */}
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
+
+              {/* Colonne gauche — Workload */}
+              <div>
+                <div style={{background:th.cardBg,borderTop:`1px solid ${th.border}`,borderRight:`1px solid ${th.border}`,borderBottom:`1px solid ${th.border}`,borderLeft:`2px solid ${th.accent}`,borderRadius:6,padding:16,marginBottom:14}}>
+                  <div style={s.secTitle}>Workload source</div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+                    <div>
+                      <label style={s.label}>Nombre de VMs</label>
+                      <input type="number" min={1} step={10} value={hciVms} onChange={e=>setHciVms(Number(e.target.value))} style={s.input}/>
+                    </div>
+                    <div>
+                      <label style={s.label}>vCPU / VM</label>
+                      <input type="number" min={1} step={1} value={hciVcpu} onChange={e=>setHciVcpu(Number(e.target.value))} style={s.input}/>
+                    </div>
+                    <div>
+                      <label style={s.label}>RAM / VM (Go)</label>
+                      <input type="number" min={1} step={4} value={hciRam} onChange={e=>setHciRam(Number(e.target.value))} style={s.input}/>
+                    </div>
+                    <div>
+                      <label style={s.label}>Stockage / VM (Go)</label>
+                      <input type="number" min={10} step={50} value={hciStorage} onChange={e=>setHciStorage(Number(e.target.value))} style={s.input}/>
+                    </div>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                    <div>
+                      <label style={s.label}>Croissance (%)</label>
+                      <input type="number" min={0} step={5} value={hciGrowth} onChange={e=>setHciGrowth(Number(e.target.value))} style={s.input}/>
+                    </div>
+                    <div>
+                      <label style={s.label}>Plateforme</label>
+                      <select value={hciPlatform} onChange={e=>setHciPlatform(e.target.value)} style={s.select}>
+                        <option value="vsan">VMware vSAN</option>
+                        <option value="nutanix">Nutanix AOS</option>
+                        <option value="ashci">Azure Stack HCI</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{background:th.cardBg,borderTop:`1px solid ${th.border}`,borderRight:`1px solid ${th.border}`,borderBottom:`1px solid ${th.border}`,borderLeft:`2px solid ${th.accent2}`,borderRadius:6,padding:16}}>
+                  <div style={s.secTitle}>Paramètres HCI</div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                    <div>
+                      <label style={s.label}>Facteur résilience</label>
+                      <select value={hciRf} onChange={e=>setHciRf(Number(e.target.value))} style={s.select}>
+                        <option value={2}>RF2 — 2 copies</option>
+                        <option value={3}>RF3 — 3 copies</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style={s.label}>Dédup / Compression</label>
+                      <select value={hciDedup} onChange={e=>setHciDedup(Number(e.target.value))} style={s.select}>
+                        {[["1","1:1 — aucune"],["1.5","1.5:1 — légère"],["2","2:1 — standard"],["3","3:1 — agressive"]].map(([v,l])=>
+                          <option key={v} value={v}>{l}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={s.label}>Slack space (%)</label>
+                      <input type="number" min={10} max={40} step={5} value={hciOverhead} onChange={e=>setHciOverhead(Number(e.target.value))} style={s.input}/>
+                    </div>
+                    <div>
+                      <label style={s.label}>{hciPlatform==="nutanix"?"Overhead CVM (%)":"Overhead (%)"}</label>
+                      <div style={{padding:"7px 10px",background:th.bg2,borderRadius:4,fontSize:13,fontFamily:"monospace",color:th.t2}}>
+                        {hciPlatform==="nutanix"?"10% (CVM)":"~0% (inclus)"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Colonne droite — Nœud cible + Résultats */}
+              <div>
+                <div style={{background:th.cardBg,borderTop:`1px solid ${th.border}`,borderRight:`1px solid ${th.border}`,borderBottom:`1px solid ${th.border}`,borderLeft:`2px solid #e05a20`,borderRadius:6,padding:16,marginBottom:14}}>
+                  <div style={s.secTitle}>Modèle de nœud</div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                    <div>
+                      <label style={s.label}>CPU cœurs / nœud</label>
+                      <input type="number" min={8} step={8} value={hciNodeCpu} onChange={e=>setHciNodeCpu(Number(e.target.value))} style={s.input}/>
+                    </div>
+                    <div>
+                      <label style={s.label}>RAM / nœud (Go)</label>
+                      <input type="number" min={64} step={64} value={hciNodeRam} onChange={e=>setHciNodeRam(Number(e.target.value))} style={s.input}/>
+                    </div>
+                    <div>
+                      <label style={s.label}>Disques / nœud</label>
+                      <input type="number" min={2} step={2} value={hciNodeDisk} onChange={e=>setHciNodeDisk(Number(e.target.value))} style={s.input}/>
+                    </div>
+                    <div>
+                      <label style={s.label}>Capacité disque (TiB)</label>
+                      <select value={hciDiskCap} onChange={e=>setHciDiskCap(Number(e.target.value))} style={s.select}>
+                        {[[1.92,"SSD 1,92 TiB"],[3.84,"SSD 3,84 TiB"],[7.68,"SSD 7,68 TiB"],[15.36,"NVMe 15,36 TiB"]].map(([v,l])=>
+                          <option key={v} value={v}>{l}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{background:th.cardBg,borderTop:`1px solid ${th.border}`,borderRight:`1px solid ${th.border}`,borderBottom:`1px solid ${th.border}`,borderLeft:`2px solid ${th.accent2}`,borderRadius:6,padding:16}}>
+                  <div style={s.secTitle}>Résultats détaillés</div>
+                  {[
+                    {label:"VMs × vCPU total",val:fmt(hciSrcVcpu)+" vCPUs",sub:`→ ${fmt(Math.round(hciTgtVcpu))} avec croissance`},
+                    {label:"RAM totale requise",val:fmt(hciSrcRam)+" Go",sub:`→ ${fmt(Math.round(hciTgtRam))} Go avec croissance`},
+                    {label:"Stockage brut requis",val:fmt(hciSrcStorage,1)+" To",sub:`→ ${fmt(hciTgtStorage,1)} To avec croissance`},
+                    {label:"Nœuds par contrainte",val:`CPU:${nodesByCpu} RAM:${nodesByRam} STO:${nodesByStorage}`,sub:`Contrainte principale : ${bottleneck}`,highlight:true},
+                    {label:"Stockage brut / nœud",val:fmt(nodeRawStorage,1)+" TiB",sub:`${hciNodeDisk} × ${hciDiskCap} TiB`},
+                    {label:"Stockage utile / nœud",val:fmt(nodeUsable,1)+" To",sub:`RF${hciRf} + slack ${hciOverhead}% + dédup ×${hciDedup}`},
+                  ].map(r=>(
+                    <div key={r.label} style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",padding:"7px 0",borderBottom:`1px solid ${th.border}`}}>
+                      <span style={{fontSize:11,color:th.t2}}>{r.label}{r.sub&&<><br/><span style={{fontSize:10,color:th.t3}}>{r.sub}</span></>}</span>
+                      <span style={{fontFamily:"monospace",fontWeight:600,fontSize:12,color:r.highlight?th.accent:th.t1,whiteSpace:"nowrap",marginLeft:8}}>{r.val}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
     </div>
   );
