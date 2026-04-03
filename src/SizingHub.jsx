@@ -166,12 +166,12 @@ function VMwareCalc({th, isMobile=false}) {
     const surcharge       = totalBilled>totalPhys;
     const surPct          = totalPhys>0?Math.round(((totalBilled-totalPhys)/totalPhys)*100):0;
     const annualCost      = totalBilled*pricePerCore;
-    const annualCostEur   = annualCost;
+    const annualCostEur   = Math.round(annualCost*fxRate);
     const maintenanceCost = annualCost*(maintenancePct/100);
     const totalAnnual     = annualCost+maintenanceCost;
+    const totalAnnualEur  = Math.round(totalAnnual*fxRate);
+    const totalProjectEur = Math.round(totalAnnual*yearsTotal*fxRate);
     const totalProject    = totalAnnual*yearsTotal;
-    const totalAnnualEur  = totalAnnual;
-    const totalProjectEur = totalProject;
     const optBilled       = totalSockets*16;
     const optAnnual       = optBilled*pricePerCore;
     const savingsVsOpt    = annualCost-optAnnual;
@@ -180,7 +180,6 @@ function VMwareCalc({th, isMobile=false}) {
       totalSockets,totalPhys,billedPerSocket,totalBilled,totalRamTo,
       vcpuTotal,haRam,haCores,haVcpu,haPct,packs,surcharge,surPct,
       annualCost,annualCostEur,maintenanceCost,totalAnnual,totalProject,totalAnnualEur,totalProjectEur,
-      annualCostEur,totalAnnualEur,totalProjectEur,
       optBilled,optAnnual,savingsVsOpt,showOpt,
     };
   },[nodes,sockets,cores,ram,overcommit,pricePerCore,maintenancePct,yearsTotal,fxRate]);
