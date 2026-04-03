@@ -1785,7 +1785,7 @@ const TOOLS=[
 
 export default function SizingHub() {
   const [active,setActive]=useState("vmware");
-  const [dark,setDark]=useState(true);
+  const [dark,setDark]=useState(false);
   const [menuOpen,setMenuOpen]=useState(false);
   const isMobile = useIsMobile();
   const th=dark?DARK:LIGHT;
