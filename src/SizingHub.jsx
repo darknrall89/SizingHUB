@@ -166,20 +166,21 @@ function VMwareCalc({th, isMobile=false}) {
     const surcharge       = totalBilled>totalPhys;
     const surPct          = totalPhys>0?Math.round(((totalBilled-totalPhys)/totalPhys)*100):0;
     const annualCost      = totalBilled*pricePerCore;
-    const annualCostEur   = Math.round(annualCost*fxRate);
+    const annualCostEur   = annualCost;
     const maintenanceCost = annualCost*(maintenancePct/100);
     const totalAnnual     = annualCost+maintenanceCost;
-    const totalAnnualEur  = Math.round(totalAnnual*fxRate);
-    const totalProjectEur = Math.round(totalAnnual*yearsTotal*fxRate);
     const totalProject    = totalAnnual*yearsTotal;
+    const totalAnnualEur  = totalAnnual;
+    const totalProjectEur = totalProject;
     const optBilled       = totalSockets*16;
     const optAnnual       = optBilled*pricePerCore;
     const savingsVsOpt    = annualCost-optAnnual;
-    const showOpt         = cores>16;
+    const showOpt         = cores < 16; // Surcoût réel seulement si CPU < 16 cœurs/socket
     return {
       totalSockets,totalPhys,billedPerSocket,totalBilled,totalRamTo,
       vcpuTotal,haRam,haCores,haVcpu,haPct,packs,surcharge,surPct,
       annualCost,annualCostEur,maintenanceCost,totalAnnual,totalProject,totalAnnualEur,totalProjectEur,
+      annualCostEur,totalAnnualEur,totalProjectEur,
       optBilled,optAnnual,savingsVsOpt,showOpt,
     };
   },[nodes,sockets,cores,ram,overcommit,pricePerCore,maintenancePct,yearsTotal,fxRate]);
@@ -306,18 +307,20 @@ function VMwareCalc({th, isMobile=false}) {
           <hr style={s.divider}/>
           <div style={{fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10,fontFamily:"monospace"}}>Optimisation licensing</div>
           {r.showOpt?(
-            <div style={{background:"rgba(0,212,170,0.07)",border:"1px solid rgba(0,212,170,0.2)",borderRadius:4,padding:"10px 12px"}}>
-              <div style={{fontSize:12,color:th.accent,fontFamily:"monospace",fontWeight:600,marginBottom:6}}>
-                Réduire à 16 cœurs/socket → économie de ~{fmt(Math.round(r.savingsVsOpt*fxRate))} €/an
+            <div style={{background:"rgba(255,181,71,0.08)",border:"1px solid rgba(255,181,71,0.25)",borderRadius:4,padding:"10px 12px"}}>
+              <div style={{fontSize:12,color:"#ffb347",fontFamily:"monospace",fontWeight:600,marginBottom:6}}>
+                ⚠ CPUs à {cores} cœurs/socket — Broadcom facture 16 minimum
               </div>
-              <div style={{fontSize:11,color:th.t2,marginBottom:4}}>
-                {fmt(r.optBilled)} cœurs au lieu de {fmt(r.totalBilled)} · ~{fmt(Math.round(r.optAnnual*fxRate))} €/an
+              <div style={{fontSize:11,color:th.t2,marginBottom:6}}>
+                Vous payez {fmt(r.totalBilled)} cœurs pour {fmt(r.totalPhys)} cœurs physiques réels ({r.surPct}% de surcoût).
               </div>
-              <div style={{fontSize:10,color:th.t3,fontFamily:"monospace"}}>~{r.surPct}% de surcoût lié à la règle min 16/socket</div>
+              <div style={{padding:"6px 10px",background:th.bg2,borderRadius:3,fontSize:11,color:th.t1,fontFamily:"monospace"}}>
+                💡 Conseil : choisir des CPUs à 16 cœurs/socket vous donnerait plus de puissance au même prix Broadcom.
+              </div>
             </div>
           ):(
             <div style={{background:"rgba(0,212,170,0.07)",border:"1px solid rgba(0,212,170,0.2)",borderRadius:4,padding:"10px 12px",fontSize:11,color:th.accent}}>
-              ✓ Configuration optimale — aucun surcoût min 16/socket
+              ✓ Configuration optimale — cœurs physiques ≥ 16/socket, aucun surcoût Broadcom
             </div>
           )}
           <div style={{marginTop:10,fontSize:10,color:th.t3,fontFamily:"monospace"}}>
@@ -929,6 +932,25 @@ function StorageCalc({ th, isMobile=false }) {
           })}
 
           <button onClick={addChassis} style={{...s.btn(th.accent),width:"100%",marginBottom:14}}>+ Ajouter un châssis</button>
+
+          {/* Paramètres globaux */}
+          <div style={s.card(th.accent2)}>
+            <div style={s.secTitle}>Paramètres globaux du pool</div>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
+              <div>
+                <label style={s.label}>Ratio déduplication / compression</label>
+                <select value={String(dedup)} onChange={e=>setDedup(Number(e.target.value))} style={s.select}>
+                  {[["1","1:1 — aucune"],["1.5","1.5:1 — légère"],["2","2:1 — standard"],["3","3:1 — agressive"],["4","4:1 — maximale"],["5","5:1 — extrême"]].map(([v,l])=>
+                    <option key={v} value={v}>{l}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={s.label}>IOPS cibles (validation)</label>
+                <input type="number" min={1000} step={5000} value={iopsTarget}
+                  onChange={e=>setIopsTarget(Number(e.target.value))} style={s.input} />
+              </div>
+            </div>
+          </div>
 
 
           {/* Recommandations */}
