@@ -48,11 +48,13 @@ const LIGHT = {
 const fmt = (n, dec=0) => Number.isFinite(n) ? n.toLocaleString("fr-FR",{maximumFractionDigits:dec}) : "—";
 
 // ─── UI primitives ────────────────────────────────────────────────────────────
-function KpiCard({label, value, color, th}) {
+function KpiCard({label, value, color, sub, bg, th}) {
+  const hasBg = !!bg;
   return (
-    <div style={{background:th.cardBg, border:`1px solid ${th.border}`, borderRadius:6, padding:16}}>
-      <div style={{fontSize:10, color:th.t3, fontFamily:"monospace", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6}}>{label}</div>
-      <div style={{fontSize:24, fontWeight:600, fontFamily:"monospace", color:color||th.accent}}>{value}</div>
+    <div style={{background:hasBg?bg:th.cardBg, border:hasBg?"none":`1px solid ${th.border}`, borderRadius:8, padding:"14px 16px"}}>
+      <div style={{fontSize:10, color:hasBg?"rgba(255,255,255,0.6)":th.t3, fontFamily:"monospace", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:4}}>{label}</div>
+      <div style={{fontSize:22, fontWeight:700, fontFamily:"monospace", color:hasBg?"#fff":(color||th.accent)}}>{value}</div>
+      {sub&&<div style={{fontSize:11, color:hasBg?"rgba(255,255,255,0.7)":th.t3, fontFamily:"monospace", marginTop:3}}>{sub}</div>}
     </div>
   );
 }
@@ -500,10 +502,10 @@ function WindowsCalc({th, isMobile=false}) {
     <div>
       <InfoBox th={th}>Windows Server vendu par packs de 2 cœurs, minimum 16 cœurs/serveur. Datacenter = VMs illimitées. Standard = 2 VMs/licence.</InfoBox>
       <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:10,marginBottom:20}}>
-        <KpiCard label="Packs WS" value={fmt(r.wsLicenses)} th={th} />
-        <KpiCard label="Packs SQL" value={fmt(r.sqlLicenses)} color={th.accent2} th={th} />
-        <KpiCard label="VMs couvertes" value={wsEdition==="datacenter"?"Illimitées":fmt(vms)} color={th.t1} th={th} />
-        <KpiCard label="Statut SQL" value={sqlWarn?"WARN":"OK"} color={sqlWarn?th.warn:th.accent} th={th} />
+        <KpiCard label="Packs WS" value={fmt(r.wsLicenses)} sub={servers+" serveurs × "+coresPerServer+" cœurs"} bg="linear-gradient(135deg,#0077cc,#005599)" th={th} />
+        <KpiCard label="Packs SQL" value={fmt(r.sqlLicenses)} sub={sqlInstances+" instances SQL"} bg="linear-gradient(135deg,#5a4fcf,#3d35a0)" th={th} />
+        <KpiCard label="VMs couvertes" value={wsEdition==="datacenter"?"Illimitées":fmt(vms)} sub={wsEdition==="datacenter"?"Datacenter":"Standard"} bg="linear-gradient(135deg,#00a884,#007a60)" th={th} />
+        <KpiCard label="Statut SQL" value={sqlWarn?"⚠ WARN":"✓ OK"} sub={sqlWarn?"Limite Standard dépassée":"Configuration valide"} bg={sqlWarn?"linear-gradient(135deg,#d97706,#b45309)":"linear-gradient(135deg,#00a884,#007a60)"} th={th} />
       </div>
       <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
         <Card accent="accent" th={th}>
@@ -569,10 +571,10 @@ function M365Calc({th, isMobile=false}) {
   return (
     <div>
       <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:10,marginBottom:20}}>
-        <KpiCard label="Total users" value={fmt(r.total)} th={th} />
-        <KpiCard label="Budget mensuel" value={fmt(r.monthly,0)+" €"} th={th} />
-        <KpiCard label="Budget annuel" value={fmt(r.annual,0)+" €"} color={th.t1} th={th} />
-        <KpiCard label="Coût / user / mois" value={fmt(r.ppu,2)+" €"} color={th.accent2} th={th} />
+        <KpiCard label="Total users" value={fmt(r.total)} sub="licences Microsoft 365" bg="linear-gradient(135deg,#0077cc,#005599)" th={th} />
+        <KpiCard label="Budget mensuel" value={fmt(r.monthly,0)+" €"} sub="abonnement mensuel" bg="linear-gradient(135deg,#00a884,#007a60)" th={th} />
+        <KpiCard label="Budget annuel" value={fmt(r.annual,0)+" €"} sub="engagement annuel" bg="linear-gradient(135deg,#5a4fcf,#3d35a0)" th={th} />
+        <KpiCard label="Coût / user / mois" value={fmt(r.ppu,2)+" €"} sub="coût moyen par utilisateur" bg="linear-gradient(135deg,#0099ff,#0066cc)" th={th} />
       </div>
       <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
         <Card accent="accent" th={th}>
@@ -933,6 +935,25 @@ function StorageCalc({ th, isMobile=false }) {
 
           <button onClick={addChassis} style={{...s.btn(th.accent),width:"100%",marginBottom:14}}>+ Ajouter un châssis</button>
 
+          {/* Paramètres globaux */}
+          <div style={s.card(th.accent2)}>
+            <div style={s.secTitle}>Paramètres globaux du pool</div>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
+              <div>
+                <label style={s.label}>Ratio déduplication / compression</label>
+                <select value={String(dedup)} onChange={e=>setDedup(Number(e.target.value))} style={s.select}>
+                  {[["1","1:1 — aucune"],["1.5","1.5:1 — légère"],["2","2:1 — standard"],["3","3:1 — agressive"],["4","4:1 — maximale"],["5","5:1 — extrême"]].map(([v,l])=>
+                    <option key={v} value={v}>{l}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={s.label}>IOPS cibles (validation)</label>
+                <input type="number" min={1000} step={5000} value={iopsTarget}
+                  onChange={e=>setIopsTarget(Number(e.target.value))} style={s.input} />
+              </div>
+            </div>
+          </div>
+
 
           {/* Recommandations */}
           {recommendations.length>0 && (
@@ -1237,10 +1258,10 @@ function VeeamCalc({th, isMobile=false}) {
     <div>
       <InfoBox th={th}>Veeam VBR v12 : sizing repo = Full compressé + (incrémentaux × rétention) × copies. Ajouter 20% de marge opérationnelle.</InfoBox>
       <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:10,marginBottom:20}}>
-        <KpiCard label="Données source" value={fmt(r.srcTB,2)+" To"} th={th} />
-        <KpiCard label="Stockage repo" value={fmt(r.repoMargin,2)+" To"} th={th} />
-        <KpiCard label="Fenêtre backup" value={r.windowOk?"OK":"SERRÉ"} color={r.windowOk?th.accent:th.warn} th={th} />
-        <KpiCard label="Licences VMs" value={fmt(vms)} color={th.accent2} th={th} />
+        <KpiCard label="Données source" value={fmt(r.srcTB,2)+" To"} sub={vms+" VMs × "+fmt(vmSizeGb)+" Go"} bg="linear-gradient(135deg,#0077cc,#005599)" th={th} />
+        <KpiCard label="Stockage repo" value={fmt(r.repoMargin,2)+" To"} sub={"Repo +20% marge opérationnelle"} bg="linear-gradient(135deg,#5a4fcf,#3d35a0)" th={th} />
+        <KpiCard label="Fenêtre backup" value={r.windowOk?"✓ OK":"⚠ SERRÉ"} sub={windowH+" h disponibles"} bg={r.windowOk?"linear-gradient(135deg,#00a884,#007a60)":"linear-gradient(135deg,#d97706,#b45309)"} th={th} />
+        <KpiCard label="Licences VMs" value={fmt(vms)} sub="Universal License (VUL)" bg="linear-gradient(135deg,#0099ff,#0066cc)" th={th} />
       </div>
       <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:14}}>
         <Card accent="accent" th={th}>
