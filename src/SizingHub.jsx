@@ -48,13 +48,11 @@ const LIGHT = {
 const fmt = (n, dec=0) => Number.isFinite(n) ? n.toLocaleString("fr-FR",{maximumFractionDigits:dec}) : "—";
 
 // ─── UI primitives ────────────────────────────────────────────────────────────
-function KpiCard({label, value, color, sub, bg, th}) {
-  const hasBg = !!bg;
+function KpiCard({label, value, color, th}) {
   return (
-    <div style={{background:hasBg?bg:th.cardBg, border:hasBg?"none":`1px solid ${th.border}`, borderRadius:8, padding:"14px 16px"}}>
-      <div style={{fontSize:10, color:hasBg?"rgba(255,255,255,0.6)":th.t3, fontFamily:"monospace", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:4}}>{label}</div>
-      <div style={{fontSize:22, fontWeight:700, fontFamily:"monospace", color:hasBg?"#fff":(color||th.accent)}}>{value}</div>
-      {sub&&<div style={{fontSize:11, color:hasBg?"rgba(255,255,255,0.7)":th.t3, fontFamily:"monospace", marginTop:3}}>{sub}</div>}
+    <div style={{background:th.cardBg, border:`1px solid ${th.border}`, borderRadius:6, padding:16}}>
+      <div style={{fontSize:10, color:th.t3, fontFamily:"monospace", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:6}}>{label}</div>
+      <div style={{fontSize:24, fontWeight:600, fontFamily:"monospace", color:color||th.accent}}>{value}</div>
     </div>
   );
 }
@@ -502,10 +500,10 @@ function WindowsCalc({th, isMobile=false}) {
     <div>
       <InfoBox th={th}>Windows Server vendu par packs de 2 cœurs, minimum 16 cœurs/serveur. Datacenter = VMs illimitées. Standard = 2 VMs/licence.</InfoBox>
       <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:10,marginBottom:20}}>
-        <KpiCard label="Packs WS" value={fmt(r.wsLicenses)} sub={servers+" serveurs × "+coresPerServer+" cœurs"} bg="linear-gradient(135deg,#0077cc,#005599)" th={th} />
-        <KpiCard label="Packs SQL" value={fmt(r.sqlLicenses)} sub={sqlInstances+" instances SQL"} bg="linear-gradient(135deg,#5a4fcf,#3d35a0)" th={th} />
-        <KpiCard label="VMs couvertes" value={wsEdition==="datacenter"?"Illimitées":fmt(vms)} sub={wsEdition==="datacenter"?"Datacenter":"Standard"} bg="linear-gradient(135deg,#00a884,#007a60)" th={th} />
-        <KpiCard label="Statut SQL" value={sqlWarn?"⚠ WARN":"✓ OK"} sub={sqlWarn?"Limite Standard dépassée":"Configuration valide"} bg={sqlWarn?"linear-gradient(135deg,#d97706,#b45309)":"linear-gradient(135deg,#00a884,#007a60)"} th={th} />
+        <KpiCard label="Packs WS" value={fmt(r.wsLicenses)} th={th} />
+        <KpiCard label="Packs SQL" value={fmt(r.sqlLicenses)} color={th.accent2} th={th} />
+        <KpiCard label="VMs couvertes" value={wsEdition==="datacenter"?"Illimitées":fmt(vms)} color={th.t1} th={th} />
+        <KpiCard label="Statut SQL" value={sqlWarn?"WARN":"OK"} color={sqlWarn?th.warn:th.accent} th={th} />
       </div>
       <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
         <Card accent="accent" th={th}>
@@ -571,10 +569,10 @@ function M365Calc({th, isMobile=false}) {
   return (
     <div>
       <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:10,marginBottom:20}}>
-        <KpiCard label="Total users" value={fmt(r.total)} sub="licences Microsoft 365" bg="linear-gradient(135deg,#0077cc,#005599)" th={th} />
-        <KpiCard label="Budget mensuel" value={fmt(r.monthly,0)+" €"} sub="abonnement mensuel" bg="linear-gradient(135deg,#00a884,#007a60)" th={th} />
-        <KpiCard label="Budget annuel" value={fmt(r.annual,0)+" €"} sub="engagement annuel" bg="linear-gradient(135deg,#5a4fcf,#3d35a0)" th={th} />
-        <KpiCard label="Coût / user / mois" value={fmt(r.ppu,2)+" €"} sub="coût moyen par utilisateur" bg="linear-gradient(135deg,#0099ff,#0066cc)" th={th} />
+        <KpiCard label="Total users" value={fmt(r.total)} th={th} />
+        <KpiCard label="Budget mensuel" value={fmt(r.monthly,0)+" €"} th={th} />
+        <KpiCard label="Budget annuel" value={fmt(r.annual,0)+" €"} color={th.t1} th={th} />
+        <KpiCard label="Coût / user / mois" value={fmt(r.ppu,2)+" €"} color={th.accent2} th={th} />
       </div>
       <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
         <Card accent="accent" th={th}>
@@ -612,6 +610,7 @@ function M365Calc({th, isMobile=false}) {
   );
 }
 
+// ─── 4. Stockage (avancé) ────────────────────────────────────────────────────
 // ─── 4. Stockage (avancé) ────────────────────────────────────────────────────
 // ─── 4. Stockage (avancé) ────────────────────────────────────────────────────
 
@@ -702,6 +701,7 @@ function StorageCalc({ th, isMobile=false }) {
   const [dedup, setDedup] = useState(1);
   const [iopsTarget,     setIopsTarget]     = useState(50000);
   const [capacityTarget, setCapacityTarget] = useState(100);
+  const [storageTab,     setStorageTab]     = useState('classic'); // 'classic' | 'vendor' | 'hci'
   const [vendorOpen,     setVendorOpen]     = useState(false);
   const [vVendor,        setVVendor]        = useState("dell");
   const [vModel,         setVModel]         = useState("powerstore");
@@ -797,6 +797,26 @@ function StorageCalc({ th, isMobile=false }) {
 
   return (
     <div>
+      {/* Onglets */}
+      <div style={{display:"flex",gap:2,marginBottom:16,borderBottom:`2px solid ${th.border}`}}>
+        {[
+          {id:"classic",  label:"Classic",      icon:"🗄️"},
+          {id:"vendor",   label:"Constructeur", icon:"🏭"},
+          {id:"hci",      label:"HCI",          icon:"🔲"},
+        ].map(tab=>(
+          <button key={tab.id} onClick={()=>setStorageTab(tab.id)} style={{
+            cursor:"pointer", border:"none", background:"none",
+            padding:"8px 18px", fontSize:12, fontFamily:"monospace", fontWeight:600,
+            color:storageTab===tab.id?th.accent:th.t3,
+            borderBottom:storageTab===tab.id?`2px solid ${th.accent}`:"2px solid transparent",
+            marginBottom:-2, transition:"all 0.15s",
+            textTransform:"uppercase", letterSpacing:"0.08em",
+          }}>{tab.icon} {tab.label}</button>
+        ))}
+      </div>
+
+      {storageTab==="classic"&&(
+        <div>
       {/* KPIs */}
       <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:10,marginBottom:14}}>
         {[
@@ -995,18 +1015,10 @@ function StorageCalc({ th, isMobile=false }) {
           </div>
         </div>
       </div>
-
-      {/* ── Calculateur constructeur dépliable ─────────────────────────────── */}
-      <div style={{marginBottom:14}}>
-        <div onClick={()=>setVendorOpen(v=>!v)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 16px",cursor:"pointer",borderRadius:6,background:vendorOpen?"rgba(0,153,255,0.08)":th.bg2,border:`1px solid ${vendorOpen?"rgba(0,153,255,0.3)":th.border}`}}>
-          <div style={{display:"flex",alignItems:"center",gap:10}}>
-            <span style={{fontSize:12,fontWeight:600,color:vendorOpen?th.accent2:th.t2,fontFamily:"monospace"}}>Modèle constructeur — Sizing baie spécifique</span>
-            <span style={{fontSize:10,padding:"2px 8px",borderRadius:3,background:"rgba(0,153,255,0.1)",color:th.accent2,border:"1px solid rgba(0,153,255,0.2)",fontFamily:"monospace"}}>Dell · HPE · Huawei</span>
-          </div>
-          <span style={{color:th.t3,fontSize:14}}>{vendorOpen?"▲":"▼"}</span>
         </div>
+      )}
 
-        {vendorOpen&&(()=>{
+      {storageTab==="vendor"&&(()=>{
           const VENDORS = {
             dell: {
               label:"Dell", color:"#0076CE",
@@ -1216,12 +1228,24 @@ function StorageCalc({ th, isMobile=false }) {
               </div>
             </div>
           );
-        })()}
-      </div>
+
+      })()}
+
+      {storageTab==="hci"&&(
+        <div style={{padding:40,textAlign:"center",color:th.t3}}>
+          <div style={{fontSize:32,marginBottom:12}}>🔲</div>
+          <div style={{fontSize:16,fontWeight:600,color:th.t2,marginBottom:8}}>Capacity Planning HCI</div>
+          <div style={{fontSize:13,maxWidth:400,margin:"0 auto",lineHeight:1.6}}>
+            Sizing vSAN, Nutanix et Azure Stack HCI — en cours de développement.
+            <br/>Calcul par nœuds, RF2/RF3, overhead CVM et slack space.
+          </div>
+        </div>
+      )}
 
     </div>
   );
 }
+
 
 // ─── 5. Veeam ─────────────────────────────────────────────────────────────────
 function VeeamCalc({th, isMobile=false}) {
