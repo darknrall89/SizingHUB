@@ -1862,8 +1862,8 @@ function ComputeCalc({ th, isMobile=false }) {
 function SwitchCalc({ th, isMobile=false }) {
 
   const [serverGroups, setServerGroups] = useState([
-    { id:1, label:"Serveurs compute",  qty:8, ports1g:2, ports10g:2, ports25g:0, portsMgmt:1 },
-    { id:2, label:"Serveurs stockage", qty:4, ports1g:2, ports10g:0, ports25g:2, portsMgmt:1 },
+    { id:1, label:"Serveurs compute",  qty:1, ports1g:0, ports10g:0, ports25g:0, portsMgmt:0 },
+    { id:2, label:"Serveurs stockage", qty:1, ports1g:0, ports10g:0, ports25g:0, portsMgmt:0 },
   ]);
   const [redundancy,    setRedundancy]    = useState(true);
   const [uplinkSpeed,   setUplinkSpeed]   = useState(100);   // Gbps uplink vers core
@@ -1992,7 +1992,7 @@ function SwitchCalc({ th, isMobile=false }) {
   ].filter(Boolean);
 
   const updateGroup = (id, patch) => setServerGroups(gs => gs.map(g => g.id===id ? {...g,...patch} : g));
-  const addGroup    = () => { setServerGroups(gs=>[...gs, {id:nextId.current++, label:"Nouveau groupe", qty:2, ports1g:2, ports10g:2, ports25g:0, portsMgmt:1}]); };
+  const addGroup    = () => { setServerGroups(gs=>[...gs, {id:nextId.current++, label:"Nouveau groupe", qty:1, ports1g:0, ports10g:0, ports25g:0, portsMgmt:0}]); };
   const removeGroup = (id) => setServerGroups(gs => gs.filter(g => g.id!==id));
 
   const s = {
