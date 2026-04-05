@@ -235,7 +235,7 @@ function VMwareCalc({th, isMobile=false}) {
   return (
     <div>
       {/* KPIs */}
-      <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:10,marginBottom:20}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(5,1fr)",gap:10,marginBottom:20}}>
         <KpiC label="Licences VMware" value={fmt(r.totalBilled)+" cœurs"} sub={licType.toUpperCase()+" · min 16/socket"} bg="linear-gradient(135deg,#e05a20,#b84510)"/>
         <KpiC label="Packs nécessaires" value={fmt(r.packs)+" packs"} sub="Packs de 2 cœurs" bg="linear-gradient(135deg,#0077cc,#005599)"/>
         <KpiC label="Cluster" value="Conforme" sub="Résilience N-1" bg="linear-gradient(135deg,#00a884,#007a60)"/>
@@ -501,7 +501,7 @@ function WindowsCalc({th, isMobile=false}) {
   return (
     <div>
       <InfoBox th={th}>Windows Server vendu par packs de 2 cœurs, minimum 16 cœurs/serveur. Datacenter = VMs illimitées. Standard = 2 VMs/licence.</InfoBox>
-      <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:10,marginBottom:20}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(5,1fr)",gap:10,marginBottom:20}}>
         <KpiCard label="Packs WS" value={fmt(r.wsLicenses)} sub={servers+" serveurs × "+coresPerServer+" cœurs"} bg="linear-gradient(135deg,#0077cc,#005599)" th={th} />
         <KpiCard label="Packs SQL" value={fmt(r.sqlLicenses)} sub={sqlInstances+" instances SQL"} bg="linear-gradient(135deg,#5a4fcf,#3d35a0)" th={th} />
         <KpiCard label="VMs couvertes" value={wsEdition==="datacenter"?"Illimitées":fmt(vms)} sub={wsEdition==="datacenter"?"Datacenter":"Standard"} bg="linear-gradient(135deg,#00a884,#007a60)" th={th} />
@@ -570,7 +570,7 @@ function M365Calc({th, isMobile=false}) {
 
   return (
     <div>
-      <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:10,marginBottom:20}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(5,1fr)",gap:10,marginBottom:20}}>
         <KpiCard label="Total users" value={fmt(r.total)} sub="licences Microsoft 365" bg="linear-gradient(135deg,#0077cc,#005599)" th={th} />
         <KpiCard label="Budget mensuel" value={fmt(r.monthly,0)+" €"} sub="abonnement mensuel" bg="linear-gradient(135deg,#00a884,#007a60)" th={th} />
         <KpiCard label="Budget annuel" value={fmt(r.annual,0)+" €"} sub="engagement annuel" bg="linear-gradient(135deg,#5a4fcf,#3d35a0)" th={th} />
@@ -844,7 +844,7 @@ function StorageCalc({ th, isMobile=false }) {
       {storageTab==="classic"&&(
         <div>
       {/* KPIs */}
-      <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:10,marginBottom:14}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(5,1fr)",gap:10,marginBottom:14}}>
         {[
           {label:"Évolutivité",sub:"Slots disponibles",val:fmt(totals.freeSlots)+" slots",sub2:totals.usedSlots+" / "+totals.totalSlots+" utilisés",bg:"linear-gradient(135deg,#5a4fcf,#3d35a0)"},
           {label:"Capacité utile",sub:"Après RAID",val:fmt(totals.usable,1)+" To",sub2:fmt(totals.physical,1)+" To brut",bg:"linear-gradient(135deg,#0077cc,#005599)"},
@@ -959,7 +959,7 @@ function StorageCalc({ th, isMobile=false }) {
                       </div>
 
                       {/* Résumé inline groupe */}
-                      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6}}>
+                      <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:6}}>
                         {[
                           {label:"Disques",  val:fmt(group.count)+" disques",       color:th.t2},
                           {label:"Utile",    val:fmt(gr.usable,2)+" To",            color:th.accent},
@@ -1144,7 +1144,7 @@ function StorageCalc({ th, isMobile=false }) {
           return (
             <div>
               {/* KPIs */}
-              <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:10,marginBottom:14}}>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(5,1fr)",gap:10,marginBottom:14}}>
                 {vendorKpis.map(k=>(
                   <div key={k.label} style={{background:k.bg,borderRadius:8,padding:"14px 16px"}}>
                     <div style={{fontSize:10,color:"rgba(255,255,255,0.6)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>{k.label}</div>
@@ -1319,7 +1319,7 @@ function StorageCalc({ th, isMobile=false }) {
         return (
           <div>
             {/* KPIs */}
-            <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:10,marginBottom:14}}>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(5,1fr)",gap:10,marginBottom:14}}>
               {kpis.map(k=>(
                 <div key={k.label} style={{background:k.bg,borderRadius:8,padding:"14px 16px"}}>
                   <div style={{fontSize:10,color:"rgba(255,255,255,0.6)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>{k.label}</div>
@@ -1514,7 +1514,7 @@ function VeeamCalc({th, isMobile=false}) {
   return (
     <div>
       <InfoBox th={th}>Veeam VBR v12 : sizing repo = Full compressé + (incrémentaux × rétention) × copies. Ajouter 20% de marge opérationnelle.</InfoBox>
-      <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:10,marginBottom:20}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(5,1fr)",gap:10,marginBottom:20}}>
         <KpiCard label="Données source" value={fmt(r.srcTB,2)+" To"} sub={vms+" VMs × "+fmt(vmSizeGb)+" Go"} bg="linear-gradient(135deg,#0077cc,#005599)" th={th} />
         <KpiCard label="Stockage repo" value={fmt(r.repoMargin,2)+" To"} sub={"Repo +20% marge opérationnelle"} bg="linear-gradient(135deg,#5a4fcf,#3d35a0)" th={th} />
         <KpiCard label="Fenêtre backup" value={r.windowOk?"✓ OK":"⚠ SERRÉ"} sub={windowH+" h disponibles"} bg={r.windowOk?"linear-gradient(135deg,#00a884,#007a60)":"linear-gradient(135deg,#d97706,#b45309)"} th={th} />
@@ -2003,9 +2003,12 @@ function SwitchCalc({ th, isMobile=false }) {
   const kpis = [
     {label:"Switches recommandés", sub:redundancy?"Paire HA — "+["MLAG","StackWise","IRF","Sans stack"][["mlag","stackwise","irf","none"].indexOf(stackTech)]:"Sans redondance",
      val:totals.switchesReco+"×", bg:"linear-gradient(135deg,#0077cc,#005599)"},
-    {label:"Ports 10/25G requis",  sub:"Données + marge 20% / switch",
+    {label:"Ports 10/25G / switch", sub:Math.ceil(totals.portsNeeded10g/(redundancy?2:1))+"p 10G \u00b7 "+Math.ceil(totals.portsNeeded25g/(redundancy?2:1))+"p 25G \u00b7 marge 20%",
      val:(Math.ceil(totals.portsNeeded10g/(redundancy?2:1))+Math.ceil(totals.portsNeeded25g/(redundancy?2:1)))+" ports",
      bg:"linear-gradient(135deg,#5a4fcf,#3d35a0)"},
+    {label:"Ports 1G / switch",     sub:Math.ceil(totals.portsNeeded1g/(redundancy?2:1))+"p 1G \u00b7 mgmt + backup + marge 20%",
+     val:Math.ceil(totals.portsNeeded1g/(redundancy?2:1))+" ports",
+     bg:"linear-gradient(135deg,#2d7a4f,#1a5c38)"},
     {label:"BW East-West",         sub:"10G: "+totals.bwEW10g+"G + 25G: "+totals.bwEW25g+"G",
      val:totals.bwEW+" Gbps", bg:"linear-gradient(135deg,#e05a20,#b84510)"},
     {label:"Uplink nécessaire",    sub:"BW EW / oversubscription "+oversubRatio+":1",
@@ -2016,7 +2019,7 @@ function SwitchCalc({ th, isMobile=false }) {
   return (
     <div>
       {/* KPIs */}
-      <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:10,marginBottom:14}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(5,1fr)",gap:10,marginBottom:14}}>
         {kpis.map(k=>(
           <div key={k.label} style={{background:k.bg,borderRadius:8,padding:"14px 16px"}}>
             <div style={{fontSize:10,color:"rgba(255,255,255,0.6)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>{k.label}</div>
