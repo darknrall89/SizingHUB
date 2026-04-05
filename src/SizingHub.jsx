@@ -1611,11 +1611,6 @@ function ComputeCalc({ th, isMobile=false }) {
     const gainCoresPct = srcTotalCores>0?Math.round(((tgtTotalCores-srcTotalCores)/srcTotalCores)*100):0;
     const gainRamPct   = srcTotalRam>0?Math.round(((tgtTotalRam-srcTotalRam)/srcTotalRam)*100):0;
     const gainFreqPct  = srcTotalFreq>0?Math.round(((tgtTotalFreq-srcTotalFreq)/srcTotalFreq)*100):0;
-    const rawCluster  = tgtNodes*hciDisksPerNode*hciDisk.cap;
-    const usable      = rawCluster*(1-hciProfile.overhead)/hciResilOpt.factor*(1-hciProfile.metadataReserve);
-    const effective   = dedupEnabled?usable*dedupRatio:usable;
-    const savedByDedup= dedupEnabled?effective-usable:0;
-    const storageOk   = usable>=hciStorageTarget;
     return {
       srcTotalCores,srcTotalFreq,srcTotalRam,
       tgtTotalCores,tgtTotalFreq,tgtTotalRam,
@@ -1623,12 +1618,10 @@ function ComputeCalc({ th, isMobile=false }) {
       gainCoresPct,gainRamPct,gainFreqPct,
       gainCores:tgtTotalCores-srcTotalCores,
       gainRam:tgtTotalRam-srcTotalRam,
-      rawCluster,usable,effective,savedByDedup,storageOk,
     };
   },[srcNodes,srcSockets,srcCores,srcFreq,srcRam,
      tgtNodes,tgtSockets,tgtCores,tgtFreq,tgtRam,
-     haPolicy,hciDisk,hciDisksPerNode,hciProfile,hciResilOpt,hciStorageTarget,
-     dedupEnabled,dedupRatio]);
+     haPolicy]);
 
   const tt = {background:th.tooltipBg,border:`1px solid ${th.border2}`,borderRadius:4,fontSize:11,color:th.t1};
 
