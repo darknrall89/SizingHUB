@@ -1899,10 +1899,12 @@ function SwitchCalc({ th, isMobile=false }) {
     const bwUplinkNeeded  = bwEW / oversubRatio;
     const uplinkUtilPct   = bwUplink > 0 ? Math.round((bwUplinkNeeded / bwUplink) * 100) : 0;
 
-    // Ports avec marge 20%
-    const portsNeeded1g  = Math.ceil((t1g + tMgmt + firewallPorts) * 1.2);
-    const portsNeeded10g = Math.ceil(t10g * 1.2);
-    const portsNeeded25g = Math.ceil(t25g * 1.2);
+    // Ports par switch : total / nb switches, arrondi au pair supérieur
+    const sw = redundancy ? 2 : 1;
+    const ceilEven = n => { const v = Math.ceil(n / sw); return v % 2 === 0 ? v : v + 1; };
+    const portsNeeded1g  = ceilEven(t1g + tMgmt + firewallPorts);
+    const portsNeeded10g = ceilEven(t10g);
+    const portsNeeded25g = ceilEven(t25g);
 
     // Switches recommandés (48 ports par switch typiquement)
     const CAP = 48;
@@ -2003,11 +2005,11 @@ function SwitchCalc({ th, isMobile=false }) {
   const kpis = [
     {label:"Switches recommandés", sub:redundancy?"Paire HA — "+["MLAG","StackWise","IRF","Sans stack"][["mlag","stackwise","irf","none"].indexOf(stackTech)]:"Sans redondance",
      val:totals.switchesReco+"×", bg:"linear-gradient(135deg,#0077cc,#005599)"},
-    {label:"Ports 10/25G / switch", sub:Math.ceil(totals.portsNeeded10g/(redundancy?2:1))+"p 10G \u00b7 "+Math.ceil(totals.portsNeeded25g/(redundancy?2:1))+"p 25G \u00b7 marge 20%",
-     val:(Math.ceil(totals.portsNeeded10g/(redundancy?2:1))+Math.ceil(totals.portsNeeded25g/(redundancy?2:1)))+" ports",
+    {label:"Ports 10/25G / switch", sub:totals.portsNeeded10g+"p 10G \u00b7 "+totals.portsNeeded25g+"p 25G \u00b7 pair sup.",
+     val:(totals.portsNeeded10g+totals.portsNeeded25g)+" ports",
      bg:"linear-gradient(135deg,#5a4fcf,#3d35a0)"},
-    {label:"Ports 1G / switch",     sub:Math.ceil(totals.portsNeeded1g/(redundancy?2:1))+"p 1G \u00b7 mgmt + backup + marge 20%",
-     val:Math.ceil(totals.portsNeeded1g/(redundancy?2:1))+" ports",
+    {label:"Ports 1G / switch",     sub:totals.portsNeeded1g+"p 1G \u00b7 mgmt + backup \u00b7 pair sup.",
+     val:totals.portsNeeded1g+" ports",
      bg:"linear-gradient(135deg,#2d7a4f,#1a5c38)"},
     {label:"BW East-West",         sub:"10G: "+totals.bwEW10g+"G + 25G: "+totals.bwEW25g+"G",
      val:totals.bwEW+" Gbps", bg:"linear-gradient(135deg,#e05a20,#b84510)"},
