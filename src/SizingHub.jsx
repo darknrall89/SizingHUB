@@ -1868,6 +1868,7 @@ function SwitchCalc({ th, isMobile=false }) {
   const [redundancy,    setRedundancy]    = useState(true);
   const [uplinkSpeed,   setUplinkSpeed]   = useState(100);   // Gbps uplink vers core
   const [uplinkQty,     setUplinkQty]     = useState(2);     // uplinks par switch
+  const [uplinkWarnPct, setUplinkWarnPct] = useState(150);   // seuil alerte uplink %
   const [oversubRatio,  setOversubRatio]  = useState(3);
   const [usecase,       setUsecase]       = useState("virt");
   const [firewallPorts, setFirewallPorts] = useState(2);
@@ -1964,9 +1965,9 @@ function SwitchCalc({ th, isMobile=false }) {
   // Recommandations
   const recos = [
     // Uplinks
-    totals.uplinkUtilPct > 80 && {type:"warn", msg:"Uplinks saturés ("+totals.uplinkUtilPct+"%) — uplink minimum recommandé : "+totals.uplinkMinGbps+" Gbps/port ou augmenter la quantité"},
-    totals.uplinkUtilPct > 50 && totals.uplinkUtilPct <= 80 && {type:"info", msg:"Uplinks corrects ("+totals.uplinkUtilPct+"%) — marge acceptable avec oversubscription "+oversubRatio+":1"},
-    totals.uplinkUtilPct <= 50 && {type:"ok",  msg:"Uplinks bien dimensionnés ("+totals.uplinkUtilPct+"%) — bonne marge"},
+    totals.uplinkUtilPct > uplinkWarnPct && {type:"warn", msg:"Uplinks saturés ("+totals.uplinkUtilPct+"%) — uplink minimum recommandé : "+totals.uplinkMinGbps+" Gbps/port ou augmenter la quantité"},
+    totals.uplinkUtilPct > Math.round(uplinkWarnPct/2) && totals.uplinkUtilPct <= uplinkWarnPct && {type:"info", msg:"Uplinks corrects ("+totals.uplinkUtilPct+"%) — marge acceptable avec oversubscription "+oversubRatio+":1"},
+    totals.uplinkUtilPct <= Math.round(uplinkWarnPct/2) && {type:"ok",  msg:"Uplinks bien dimensionnés ("+totals.uplinkUtilPct+"%) — bonne marge"},
     // Redondance
     !redundancy && {type:"warn", msg:"Pas de redondance switch — SPOF réseau — recommander une paire HA"},
     redundancy && stackTech==="mlag" && {type:"ok",  msg:"MLAG recommandé — activer LACP sur les liens serveurs pour load-balancing et failover"},
@@ -2015,7 +2016,7 @@ function SwitchCalc({ th, isMobile=false }) {
      val:totals.bwEW+" Gbps", bg:"linear-gradient(135deg,#e05a20,#b84510)"},
     {label:"Uplink nécessaire",    sub:"BW EW / oversubscription "+oversubRatio+":1",
      val:totals.uplinkUtilPct+"%",
-     bg:totals.uplinkUtilPct<=50?"linear-gradient(135deg,#00a884,#007a60)":totals.uplinkUtilPct<=80?"linear-gradient(135deg,#d97706,#b45309)":"linear-gradient(135deg,#cc3333,#991111)"},
+     bg:totals.uplinkUtilPct<=Math.round(uplinkWarnPct/2)?"linear-gradient(135deg,#00a884,#007a60)":totals.uplinkUtilPct<=uplinkWarnPct?"linear-gradient(135deg,#d97706,#b45309)":"linear-gradient(135deg,#cc3333,#991111)"},
   ];
 
   return (
@@ -2117,6 +2118,11 @@ function SwitchCalc({ th, isMobile=false }) {
               <div>
                 <label style={s.label}>Nb uplinks / switch</label>
                 <input type="number" min={1} max={8} value={uplinkQty} onChange={e=>setUplinkQty(Number(e.target.value))} style={s.input}/>
+              </div>
+              <div style={{gridColumn:"1/-1"}}>
+                <label style={s.label}>Seuil alerte uplink (%)</label>
+                <input type="number" min={50} max={500} step={10} value={uplinkWarnPct} onChange={e=>setUplinkWarnPct(Number(e.target.value))} style={s.input}/>
+                <div style={{fontSize:10,color:th.t3,marginTop:3}}>Vert &lt; {Math.round(uplinkWarnPct/2)}% · Ambre &lt; {uplinkWarnPct}% · Rouge &ge; {uplinkWarnPct}% — défaut 150%</div>
               </div>
             </div>
             <div style={{marginTop:10,padding:"8px 10px",background:th.bg2,borderRadius:4,fontSize:11,fontFamily:"monospace",color:th.t2}}>
