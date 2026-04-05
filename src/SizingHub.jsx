@@ -1,6 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import {
-  Server, HardDrive, Cloud, Cpu, Database,
+  Server, HardDrive, Cloud, Cpu, Database, Network,
   BarChart2, Shield, CheckCircle, AlertTriangle,
   Info, Sun, Moon, Menu, X
 } from "lucide-react";
@@ -1855,6 +1855,313 @@ function ComputeCalc({ th, isMobile=false }) {
   );
 }
 
+
+// ─── Switch Fabric ────────────────────────────────────────────────────────────
+function SwitchCalc({ th, isMobile=false }) {
+
+  // Types de serveurs (groupes)
+  const [serverGroups, setServerGroups] = useState([
+    { id:1, label:"Serveurs compute", qty:8,  ports1g:2, ports10g:2, ports25g:0, portsMgmt:1 },
+    { id:2, label:"Serveurs stockage", qty:4, ports1g:2, ports10g:0, ports25g:2, portsMgmt:1 },
+  ]);
+  const [redundancy,   setRedundancy]   = useState(true);   // HA switches
+  const [uplinkSpeed,  setUplinkSpeed]  = useState(100);    // Gbps uplink par switch
+  const [uplinkQty,    setUplinkQty]    = useState(2);      // uplinks par switch
+  const [oversubRatio, setOversubRatio] = useState(3);      // ratio oversubscription
+  const [usecase,      setUsecase]      = useState("virt"); // virt | hci | storage | mixed
+  const [firewallPorts,setFirewallPorts]= useState(2);
+  const nextId = useRef(3);
+
+  // ── Calculs ──────────────────────────────────────────────────────────────
+  const totals = useMemo(()=>{
+    let t1g=0, t10g=0, t25g=0, tMgmt=0, tServers=0;
+    serverGroups.forEach(g=>{
+      t1g   += g.qty * g.ports1g;
+      t10g  += g.qty * g.ports10g;
+      t25g  += g.qty * g.ports25g;
+      tMgmt += g.qty * g.portsMgmt;
+      tServers += g.qty;
+    });
+
+    // Ports totaux nécessaires
+    const dataPortsTotal = t1g + t10g + t25g;
+    const mgmtPortsTotal = tMgmt;
+
+    // Bande passante East-West (serveur→switch)
+    const bwEW = t10g*10 + t25g*25; // Gbps
+
+    // Uplinks North-South
+    const bwUplink = uplinkQty * uplinkSpeed; // Gbps par switch
+    const uplinkUtilPct = bwEW > 0 ? Math.round((bwEW/oversubRatio/bwUplink)*100) : 0;
+
+    // Ports totaux avec marge 20%
+    const portsNeeded1g  = Math.ceil((t1g + tMgmt + firewallPorts) * 1.2);
+    const portsNeeded10g = Math.ceil(t10g * 1.2);
+    const portsNeeded25g = Math.ceil(t25g * 1.2);
+
+    // Nombre de switches recommandés
+    // Un switch ToR = 48 ports 25G typiquement
+    const SWITCH_CAP_25G = 48;
+    const SWITCH_CAP_10G = 48;
+    const SWITCH_CAP_1G  = 48;
+    const switchBy25g = portsNeeded25g > 0 ? Math.ceil(portsNeeded25g / SWITCH_CAP_25G) : 0;
+    const switchBy10g = portsNeeded10g > 0 ? Math.ceil(portsNeeded10g / SWITCH_CAP_10G) : 0;
+    const switchBy1g  = portsNeeded1g  > 0 ? Math.ceil(portsNeeded1g  / SWITCH_CAP_1G)  : 0;
+    const switchesNeeded = Math.max(switchBy25g, switchBy10g, switchBy1g, 1);
+    const switchesReco   = redundancy ? switchesNeeded * 2 : switchesNeeded;
+
+    // Taux utilisation ports
+    const portUtil = Math.round((dataPortsTotal / (switchesReco * SWITCH_CAP_25G)) * 100);
+
+    return {
+      t1g, t10g, t25g, tMgmt, tServers,
+      dataPortsTotal, mgmtPortsTotal,
+      bwEW, bwUplink, uplinkUtilPct,
+      portsNeeded1g, portsNeeded10g, portsNeeded25g,
+      switchesNeeded, switchesReco, portUtil,
+    };
+  }, [serverGroups, redundancy, uplinkSpeed, uplinkQty, oversubRatio, firewallPorts]);
+
+  // ── VLANs selon usecase ──────────────────────────────────────────────────
+  const VLAN_TEMPLATES = {
+    virt:    [
+      {id:10,  name:"Management",  use:"ESXi/Hyp. management",    speed:"1G",  qos:"Assured"},
+      {id:20,  name:"vMotion",     use:"Migration live VMs",       speed:"10G", qos:"Best effort"},
+      {id:30,  name:"VM Network",  use:"Trafic VM production",     speed:"10G", qos:"Best effort"},
+      {id:40,  name:"Storage",     use:"NFS/iSCSI/NVMe-oF",       speed:"25G", qos:"Priority"},
+      {id:100, name:"iLO/iDRAC",   use:"Management hors-bande",    speed:"1G",  qos:"Low"},
+      {id:200, name:"Uplink/FW",   use:"North-South / Firewall",   speed:"Uplink", qos:"Mixed"},
+    ],
+    hci:     [
+      {id:10,  name:"Management",  use:"HCI management + CVM",     speed:"1G",  qos:"Assured"},
+      {id:20,  name:"Storage",     use:"Réplication inter-nœuds",  speed:"25G", qos:"Priority"},
+      {id:30,  name:"VM Network",  use:"Trafic VM production",     speed:"10G", qos:"Best effort"},
+      {id:100, name:"iLO/iDRAC",   use:"Management hors-bande",    speed:"1G",  qos:"Low"},
+      {id:200, name:"Uplink/FW",   use:"North-South / Firewall",   speed:"Uplink", qos:"Mixed"},
+    ],
+    storage: [
+      {id:10,  name:"Management",  use:"Management baies/serveurs", speed:"1G",  qos:"Assured"},
+      {id:20,  name:"Storage-A",   use:"Fabric A (iSCSI/NVMe)",    speed:"25G", qos:"Priority"},
+      {id:21,  name:"Storage-B",   use:"Fabric B (redondance)",     speed:"25G", qos:"Priority"},
+      {id:100, name:"iLO/iDRAC",   use:"Management hors-bande",    speed:"1G",  qos:"Low"},
+    ],
+    mixed:   [
+      {id:10,  name:"Management",  use:"Management infrastructure", speed:"1G",  qos:"Assured"},
+      {id:20,  name:"vMotion",     use:"Migration live VMs",        speed:"10G", qos:"Best effort"},
+      {id:30,  name:"VM Network",  use:"Trafic VM production",      speed:"10G", qos:"Best effort"},
+      {id:40,  name:"Storage",     use:"NFS/iSCSI/NVMe-oF",        speed:"25G", qos:"Priority"},
+      {id:50,  name:"Backup",      use:"Trafic sauvegarde",         speed:"10G", qos:"Low"},
+      {id:100, name:"iLO/iDRAC",   use:"Management hors-bande",     speed:"1G",  qos:"Low"},
+      {id:200, name:"Uplink/FW",   use:"North-South / Firewall",    speed:"Uplink", qos:"Mixed"},
+    ],
+  };
+  const vlans = VLAN_TEMPLATES[usecase] || VLAN_TEMPLATES.virt;
+
+  // ── Recommandations ──────────────────────────────────────────────────────
+  const recos = [
+    totals.uplinkUtilPct > 70 && {type:"warn", msg:"Uplinks saturés ("+totals.uplinkUtilPct+"%) — augmenter le débit ou la quantité d'uplinks"},
+    totals.uplinkUtilPct <= 70 && {type:"ok",  msg:"Uplinks correctement dimensionnés ("+totals.uplinkUtilPct+"% utilisation estimée)"},
+    totals.portUtil > 80 && {type:"warn", msg:"Utilisation ports > 80% — prévoir un switch supplémentaire"},
+    totals.portUtil <= 80 && {type:"ok",  msg:"Taux d'utilisation ports acceptable ("+totals.portUtil+"%)"},
+    !redundancy && {type:"warn", msg:"Pas de redondance switch — SPOF réseau — recommander HA (paire de switches)"},
+    redundancy && {type:"ok",  msg:"Redondance switch active — paire HA recommandée avec LACP/MLAG"},
+    totals.t25g > 0 && {type:"info", msg:"Ports 25G détectés — recommander switches avec ASIC coupant faible latence (<1µs)"},
+    totals.t25g === 0 && totals.t10g > 0 && {type:"info", msg:"Environnement 10G — switches ToR 48×10G + 2×100G uplinks recommandés"},
+    usecase==="hci" && {type:"info", msg:"HCI : isoler le trafic storage sur VLAN dédié avec QoS Priority — éviter la contention avec VM Network"},
+    usecase==="virt" && totals.t10g === 0 && {type:"warn", msg:"vMotion nécessite au moins 10G — vérifier les interfaces de migration"},
+    firewallPorts > 0 && {type:"info", msg:firewallPorts+" port(s) réservé(s) firewall — placer sur un port trunk avec VLAN natif sécurisé"},
+    totals.tServers > 16 && {type:"info", msg:totals.tServers+" serveurs — envisager une architecture Spine-Leaf plutôt que ToR"},
+  ].filter(Boolean);
+
+  // ── Helpers ──────────────────────────────────────────────────────────────
+  const updateGroup = (id, patch) => setServerGroups(gs => gs.map(g => g.id===id ? {...g,...patch} : g));
+  const addGroup    = () => { setServerGroups(gs=>[...gs, {id:nextId.current++, label:"Nouveau groupe", qty:2, ports1g:2, ports10g:2, ports25g:0, portsMgmt:1}]); };
+  const removeGroup = (id) => setServerGroups(gs => gs.filter(g => g.id!==id));
+
+  const s = {
+    label:  {display:"block",fontSize:10,color:th.t3,fontFamily:"monospace",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4},
+    input:  {width:"100%",background:th.bg2,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"monospace",fontSize:13,boxSizing:"border-box"},
+    select: {width:"100%",background:th.bg2,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"monospace",fontSize:13,boxSizing:"border-box"},
+    card:   (accent) => ({background:th.cardBg,borderTop:`1px solid ${th.border}`,borderRight:`1px solid ${th.border}`,borderBottom:`1px solid ${th.border}`,borderLeft:`2px solid ${accent||th.border}`,borderRadius:6,padding:16,marginBottom:14}),
+    secTitle: {fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:14,fontFamily:"monospace"},
+  };
+
+  const kpis = [
+    {label:"Switches recommandés", sub:redundancy?"Paire HA":"Sans redondance",           val:totals.switchesReco+"×",         bg:"linear-gradient(135deg,#0077cc,#005599)"},
+    {label:"Ports 10/25G requis",  sub:"Données + marge 20%",                             val:(totals.portsNeeded10g+totals.portsNeeded25g)+" ports", bg:"linear-gradient(135deg,#5a4fcf,#3d35a0)"},
+    {label:"BW East-West",         sub:"Agrégée serveur→switch",                          val:totals.bwEW+" Gbps",             bg:"linear-gradient(135deg,#e05a20,#b84510)"},
+    {label:"Utilisation uplinks",  sub:"Avec oversubscription ×"+oversubRatio,            val:totals.uplinkUtilPct+"%",         bg:totals.uplinkUtilPct<=70?"linear-gradient(135deg,#00a884,#007a60)":"linear-gradient(135deg,#d97706,#b45309)"},
+  ];
+
+  return (
+    <div>
+      {/* KPIs */}
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:10,marginBottom:14}}>
+        {kpis.map(k=>(
+          <div key={k.label} style={{background:k.bg,borderRadius:8,padding:"14px 16px"}}>
+            <div style={{fontSize:10,color:"rgba(255,255,255,0.6)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>{k.label}</div>
+            <div style={{fontSize:10,color:"rgba(255,255,255,0.5)",marginBottom:4}}>{k.sub}</div>
+            <div style={{fontSize:20,fontWeight:700,fontFamily:"monospace",color:"#fff"}}>{k.val}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
+
+        {/* Colonne gauche */}
+        <div>
+          {/* Paramètres globaux */}
+          <div style={s.card(th.accent2)}>
+            <div style={s.secTitle}>Paramètres réseau</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+              <div>
+                <label style={s.label}>Cas d'usage</label>
+                <select value={usecase} onChange={e=>setUsecase(e.target.value)} style={s.select}>
+                  <option value="virt">Virtualisation VMware</option>
+                  <option value="hci">HCI (vSAN/Nutanix)</option>
+                  <option value="storage">Stockage dédié</option>
+                  <option value="mixed">Mixte / Générique</option>
+                </select>
+              </div>
+              <div>
+                <label style={s.label}>Redondance switch</label>
+                <select value={redundancy} onChange={e=>setRedundancy(e.target.value==="true")} style={s.select}>
+                  <option value="true">HA — Paire de switches</option>
+                  <option value="false">Simple (sans HA)</option>
+                </select>
+              </div>
+              <div>
+                <label style={s.label}>Débit uplink (Gbps)</label>
+                <select value={uplinkSpeed} onChange={e=>setUplinkSpeed(Number(e.target.value))} style={s.select}>
+                  {[10,25,40,100,400].map(v=><option key={v} value={v}>{v} Gbps</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={s.label}>Ports uplink / switch</label>
+                <input type="number" min={1} max={8} value={uplinkQty} onChange={e=>setUplinkQty(Number(e.target.value))} style={s.input}/>
+              </div>
+              <div>
+                <label style={s.label}>Oversubscription</label>
+                <select value={oversubRatio} onChange={e=>setOversubRatio(Number(e.target.value))} style={s.select}>
+                  {[[1,"1:1 — Non bloquant"],[2,"2:1 — Faible"],[3,"3:1 — Standard"],[4,"4:1 — Élevé"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={s.label}>Ports firewall réservés</label>
+                <input type="number" min={0} max={8} value={firewallPorts} onChange={e=>setFirewallPorts(Number(e.target.value))} style={s.input}/>
+              </div>
+            </div>
+          </div>
+
+          {/* Groupes de serveurs */}
+          <div style={s.card(th.accent)}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+              <div style={s.secTitle}>Serveurs</div>
+              <button onClick={addGroup} style={{cursor:"pointer",fontSize:11,padding:"4px 12px",borderRadius:4,border:`1px solid ${th.accent}`,background:`${th.accent}15`,color:th.accent,fontFamily:"monospace"}}>+ Groupe</button>
+            </div>
+
+            {/* Header */}
+            <div style={{display:"grid",gridTemplateColumns:"2fr 50px 40px 40px 40px 40px 30px",gap:6,marginBottom:6}}>
+              {["Groupe","Qté","1G","10G","25G","Mgmt",""].map((h,i)=>(
+                <div key={i} style={{fontSize:9,color:th.t3,fontFamily:"monospace",textTransform:"uppercase",textAlign:i>1?"center":"left"}}>{h}</div>
+              ))}
+            </div>
+
+            {serverGroups.map(g=>(
+              <div key={g.id} style={{display:"grid",gridTemplateColumns:"2fr 50px 40px 40px 40px 40px 30px",gap:6,marginBottom:8,alignItems:"center"}}>
+                <input value={g.label} onChange={e=>updateGroup(g.id,{label:e.target.value})}
+                  style={{...s.input,padding:"5px 8px",fontSize:11}}/>
+                {["qty","ports1g","ports10g","ports25g","portsMgmt"].map(field=>(
+                  <input key={field} type="number" min={0} max={field==="qty"?64:8} value={g[field]}
+                    onChange={e=>updateGroup(g.id,{[field]:Number(e.target.value)})}
+                    style={{...s.input,padding:"5px 4px",fontSize:11,textAlign:"center"}}/>
+                ))}
+                {serverGroups.length>1
+                  ? <button onClick={()=>removeGroup(g.id)} style={{cursor:"pointer",border:"none",background:"none",color:th.danger,fontSize:14,padding:0}}>✕</button>
+                  : <div/>
+                }
+              </div>
+            ))}
+
+            {/* Totaux */}
+            <div style={{borderTop:`1px solid ${th.border}`,paddingTop:10,marginTop:6,display:"grid",gridTemplateColumns:"2fr 50px 40px 40px 40px 40px 30px",gap:6}}>
+              <div style={{fontSize:11,fontWeight:600,color:th.t2,fontFamily:"monospace"}}>Total</div>
+              <div style={{fontSize:11,fontWeight:700,color:th.accent,fontFamily:"monospace",textAlign:"center"}}>{totals.tServers}</div>
+              <div style={{fontSize:11,fontWeight:700,color:th.t1,fontFamily:"monospace",textAlign:"center"}}>{totals.t1g}</div>
+              <div style={{fontSize:11,fontWeight:700,color:th.t1,fontFamily:"monospace",textAlign:"center"}}>{totals.t10g}</div>
+              <div style={{fontSize:11,fontWeight:700,color:th.accent,fontFamily:"monospace",textAlign:"center"}}>{totals.t25g}</div>
+              <div style={{fontSize:11,fontWeight:700,color:th.t1,fontFamily:"monospace",textAlign:"center"}}>{totals.tMgmt}</div>
+              <div/>
+            </div>
+          </div>
+        </div>
+
+        {/* Colonne droite */}
+        <div>
+          {/* Résumé ports */}
+          <div style={s.card(th.accent)}>
+            <div style={s.secTitle}>Ports recommandés / switch</div>
+            {[
+              {label:"Ports 1G (Mgmt + FW)",    val:Math.ceil(totals.portsNeeded1g  / (redundancy?2:1))+" ports", color:th.t2},
+              {label:"Ports 10G (données)",      val:Math.ceil(totals.portsNeeded10g / (redundancy?2:1))+" ports", color:th.accent2},
+              {label:"Ports 25G (données)",      val:Math.ceil(totals.portsNeeded25g / (redundancy?2:1))+" ports", color:th.accent},
+              {label:"Uplinks North-South",      val:uplinkQty+"× "+uplinkSpeed+" Gbps",                           color:"#e05a20"},
+              {label:"BW uplink total / switch", val:totals.bwUplink+" Gbps",                                      color:th.t1},
+              {label:"BW East-West agrégée",     val:totals.bwEW+" Gbps",                                          color:th.t1},
+            ].map(r=>(
+              <div key={r.label} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:`1px solid ${th.border}`}}>
+                <span style={{fontSize:11,color:th.t2}}>{r.label}</span>
+                <span style={{fontFamily:"monospace",fontWeight:600,fontSize:12,color:r.color}}>{r.val}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Segmentation VLAN */}
+          <div style={s.card(th.accent2)}>
+            <div style={s.secTitle}>Segmentation réseau recommandée</div>
+            <div style={{display:"grid",gridTemplateColumns:"40px 1fr 60px 60px",gap:6,marginBottom:6}}>
+              {["VLAN","Usage","Vitesse","QoS"].map(h=>(
+                <div key={h} style={{fontSize:9,color:th.t3,fontFamily:"monospace",textTransform:"uppercase"}}>{h}</div>
+              ))}
+            </div>
+            {vlans.map(v=>(
+              <div key={v.id} style={{display:"grid",gridTemplateColumns:"40px 1fr 60px 60px",gap:6,padding:"6px 0",borderBottom:`1px solid ${th.border}`}}>
+                <span style={{fontFamily:"monospace",fontWeight:700,fontSize:11,color:th.accent2}}>{v.id}</span>
+                <div>
+                  <div style={{fontSize:11,fontWeight:600,color:th.t1}}>{v.name}</div>
+                  <div style={{fontSize:10,color:th.t3}}>{v.use}</div>
+                </div>
+                <span style={{fontSize:10,fontFamily:"monospace",color:th.t2,alignSelf:"center"}}>{v.speed}</span>
+                <span style={{fontSize:10,fontFamily:"monospace",color:
+                  v.qos==="Priority"?"#e05a20":v.qos==="Assured"?th.accent:v.qos==="Low"?th.t3:th.t2,
+                  alignSelf:"center"}}>{v.qos}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Recommandations */}
+      <div style={s.card("#6b7280")}>
+        <div style={s.secTitle}>Recommandations</div>
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:8}}>
+          {recos.map((r,i)=>(
+            <div key={i} style={{
+              display:"flex",alignItems:"flex-start",gap:8,padding:"8px 10px",borderRadius:4,
+              background:r.type==="ok"?"rgba(0,212,170,0.06)":r.type==="warn"?"rgba(255,181,71,0.08)":"rgba(0,153,255,0.06)",
+              border:`1px solid ${r.type==="ok"?"rgba(0,212,170,0.2)":r.type==="warn"?"rgba(255,181,71,0.25)":"rgba(0,153,255,0.2)"}`,
+            }}>
+              <span style={{fontSize:13,flexShrink:0}}>{r.type==="ok"?"✓":r.type==="warn"?"⚠":"ℹ"}</span>
+              <span style={{fontSize:11,color:th.t1,lineHeight:1.5}}>{r.msg}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 // ─── App Shell ────────────────────────────────────────────────────────────────
 const TOOLS=[
   {id:"vmware",  label:"VMware / VCF",     icon:Cpu,      section:"VIRTUALISATION", comp:VMwareCalc,  badge:"VVF / VCF", sub:"VVF · VCF · Licence par cœur"},
@@ -1862,6 +2169,7 @@ const TOOLS=[
   {id:"m365",    label:"Microsoft 365",    icon:Cloud,    section:"MICROSOFT",      comp:M365Calc,    badge:"M365",      sub:"Sizing par profil utilisateur"},
   {id:"storage", label:"Capacity Planning",icon:HardDrive,section:"STOCKAGE",       comp:StorageCalc, badge:"Storage",   sub:"SAN · NAS · IOPS · RAID"},
   {id:"veeam",   label:"Veeam Backup",     icon:Shield,   section:"BACKUP",         comp:VeeamCalc,   badge:"Veeam v12", sub:"VBR · Cloud Connect · BaaS"},
+  {id:"switch",  label:"Switch Fabric",    icon:Network,  section:"RÉSEAU",         comp:SwitchCalc,  badge:"Switch",    sub:"Fabric · VLAN · QoS"},
   {id:"compute", label:"Compute & HCI",    icon:BarChart2,section:"COMPUTE",        comp:ComputeCalc, badge:"Compute",   sub:"Serveurs · HA · HCI"},
 ];
 
