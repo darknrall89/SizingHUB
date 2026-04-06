@@ -136,9 +136,9 @@ function SelectField({label, value, onChange, options, th}) {
 
 // ─── 1. VMware ────────────────────────────────────────────────────────────────
 function VMwareCalc({th, isMobile=false}) {
-  const [nodes,        setNodes]        = useState(6);
+  const [nodes,        setNodes]        = useState(1);
   const [sockets,      setSockets]      = useState(1);
-  const [cores,        setCores]        = useState(32);
+  const [cores,        setCores]        = useState(10);
   const [ram,          setRam]          = useState(768);
   const [overcommit,   setOvercommit]   = useState(3.75);
   const [licType,      setLicType]      = useState("vvf");
@@ -236,10 +236,9 @@ function VMwareCalc({th, isMobile=false}) {
     <div>
       {/* KPIs */}
       <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(5,1fr)",gap:10,marginBottom:20}}>
-        <KpiC label="Licences VMware" value={fmt(r.totalBilled)+" cœurs"} sub={licType.toUpperCase()+" · min 16/socket"} bg="linear-gradient(135deg,#e05a20,#b84510)"/>
-        <KpiC label="Packs nécessaires" value={fmt(r.packs)+" packs"} sub="Packs de 2 cœurs" bg="linear-gradient(135deg,#0077cc,#005599)"/>
-        <KpiC label="Cluster" value="Conforme" sub="Résilience N-1" bg="linear-gradient(135deg,#00a884,#007a60)"/>
-        <KpiC label="Capacité perdue HA" value={fmt(r.haPct,1)+" %"} sub={fmt(r.haCores)+" cœurs dispo N-1"} bg={r.haPct<=20?"linear-gradient(135deg,#00a884,#007a60)":"linear-gradient(135deg,#d97706,#b45309)"}/>
+        <KpiC label="Cœurs facturés" value={fmt(r.totalBilled)+" cœurs"} sub={licType.toUpperCase()+" · min 16/socket"} bg="linear-gradient(135deg,#e05a20,#b84510)"/>
+        <KpiC label="Coût annuel licences" value={"~ "+fmt(r.annualCost)+" €"} sub={licType.toUpperCase()+" · "+fmt(r.totalBilled)+" cœurs × "+pricePerCore+" €"} bg="linear-gradient(135deg,#5a4fcf,#3d35a0)"/>
+        <KpiC label={"Coût total "+yearsTotal+" ans"} value={"~ "+fmt(r.totalProject)+" €"} sub={"Licences + maintenance "+maintenancePct+"%"} bg="linear-gradient(135deg,#2d7a4f,#1a5c38)"/>
       </div>
 
       {/* 3 cards */}
