@@ -322,21 +322,6 @@ function VMwareCalc({th, isMobile=false}) {
           <RR label="Cœurs facturés"      value={fmt(r.totalBilled)+" cœurs"} color={r.surcharge?"#ffb347":th.accent} highlight/>
           <RR label="Packs 2-cœurs"       value={fmt(r.packs)+" packs"} color={th.accent}/>
         </div>
-      {/* Comparaison VVF vs VCF */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
-        <div style={{background:"linear-gradient(135deg,#0077cc,#005599)",borderRadius:8,padding:"16px 20px"}}>
-          <div style={{fontSize:10,color:"rgba(255,255,255,0.6)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>VMware VVF</div>
-          <div style={{fontSize:10,color:"rgba(255,255,255,0.5)",marginBottom:6}}>vSphere Foundation · {fmt(r.totalBilled)} cœurs × {licType==="vvf"?pricePerCore:50} €</div>
-          <div style={{fontSize:24,fontWeight:700,fontFamily:"monospace",color:"#fff"}}>~ {fmt(r.totalBilled*(licType==="vvf"?pricePerCore:50))} €<span style={{fontSize:12,fontWeight:400,marginLeft:6}}>/an</span></div>
-          <div style={{marginTop:8,fontSize:11,color:"rgba(255,255,255,0.7)"}}>✓ vSphere ESXi + vCenter · SAN/NAS existant</div>
-        </div>
-        <div style={{background:"linear-gradient(135deg,#e05a20,#b84510)",borderRadius:8,padding:"16px 20px"}}>
-          <div style={{fontSize:10,color:"rgba(255,255,255,0.6)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>VMware VCF</div>
-          <div style={{fontSize:10,color:"rgba(255,255,255,0.5)",marginBottom:6}}>Cloud Foundation · {fmt(r.totalBilled)} cœurs × {licType==="vcf"?pricePerCore:72} €</div>
-          <div style={{fontSize:24,fontWeight:700,fontFamily:"monospace",color:"#fff"}}>~ {fmt(r.totalBilled*(licType==="vcf"?pricePerCore:72))} €<span style={{fontSize:12,fontWeight:400,marginLeft:6}}>/an</span></div>
-          <div style={{marginTop:8,fontSize:11,color:"rgba(255,255,255,0.7)"}}>✓ vSphere + vSAN + NSX + Aria + Tanzu</div>
-        </div>
-      </div>
 
 
         </div>
