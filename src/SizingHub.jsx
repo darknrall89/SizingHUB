@@ -235,7 +235,7 @@ function VMwareCalc({th, isMobile=false}) {
   return (
     <div>
       {/* KPIs */}
-      <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(5,1fr)",gap:10,marginBottom:20}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(3,1fr)",gap:10,marginBottom:20}}>
         <KpiC label="Cœurs facturés" value={fmt(r.totalBilled)+" cœurs"} sub={licType.toUpperCase()+" · min 16/socket"} bg="linear-gradient(135deg,#e05a20,#b84510)"/>
         <KpiC label="Coût annuel licences" value={"~ "+fmt(r.annualCost)+" €"} sub={licType.toUpperCase()+" · "+fmt(r.totalBilled)+" cœurs × "+pricePerCore+" €"} bg="linear-gradient(135deg,#5a4fcf,#3d35a0)"/>
         <KpiC label={"Coût total "+yearsTotal+" ans"} value={"~ "+fmt(r.totalProject)+" €"} sub={"Licences + maintenance "+maintenancePct+"%"} bg="linear-gradient(135deg,#2d7a4f,#1a5c38)"/>
@@ -319,10 +319,6 @@ function VMwareCalc({th, isMobile=false}) {
           <RR label="Cœurs N-1 (HA)"     value={fmt(r.haCores)+" cœurs"}/>
           <RR label="Capacité perdue HA"  value={fmt(r.haPct,1)+" %"} color={r.haPct>20?"#ffb347":th.accent}/>
         </div>
-
-        </div>
-      </div>
-
       {/* Tableau VVF vs VCF */}
       <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14,marginBottom:14}}>
         {[
@@ -357,7 +353,7 @@ function VMwareCalc({th, isMobile=false}) {
                   <div style={{fontSize:11,color:th.t3,fontFamily:"monospace"}}>{lic.sub}</div>
                 </div>
                 <div style={{textAlign:"right"}}>
-                  <div style={{fontSize:18,fontWeight:700,fontFamily:"monospace",color:lic.color}}>~ {fmt(Math.round(annual*fxRate))} €</div>
+                  <div style={{fontSize:18,fontWeight:700,fontFamily:"monospace",color:lic.color}}>~ {fmt(Math.round(annual))} €</div>
                   <div style={{fontSize:10,color:th.t3,fontFamily:"monospace"}}>/ an · {fmt(r.totalBilled)} cœurs</div>
                 </div>
               </div>
@@ -375,6 +371,10 @@ function VMwareCalc({th, isMobile=false}) {
             </div>
           );
         })}
+      </div>
+
+
+        </div>
       </div>
 
       {/* Calculateur vSAN dépliable */}
