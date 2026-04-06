@@ -260,27 +260,6 @@ function VMwareCalc({th, isMobile=false}) {
             </select>
           </div>
         </div>
-
-        </div>
-        <div style={{display:"flex",flexDirection:"column",gap:14}}>
-        {/* Résultats licensing */}
-        <div style={s.card(th.accent2)}>
-          <div style={s.secTitle}>Résultats licensing</div>
-          {r.surcharge&&(
-            <div style={{background:"rgba(255,181,71,0.1)",border:"1px solid rgba(255,181,71,0.3)",borderRadius:4,padding:"8px 12px",marginBottom:12,fontSize:11,color:"#ffb347",fontFamily:"monospace"}}>
-              ⚠ {fmt(r.totalBilled)} cœurs facturés — minimum 16/socket appliqué
-            </div>
-          )}
-          <RR label="Total sockets"       value={fmt(r.totalSockets)+" sockets"}/>
-          <RR label="Cœurs physiques"     value={fmt(r.totalPhys)+" cœurs"}/>
-          <RR label="Min Broadcom/socket" value={fmt(r.billedPerSocket)+" cœurs"}/>
-          <RR label="Cœurs facturés"      value={fmt(r.totalBilled)+" cœurs"} color={r.surcharge?"#ffb347":th.accent} highlight/>
-          <RR label="Packs 2-cœurs"       value={fmt(r.packs)+" packs"} color={th.accent}/>
-          <hr style={s.divider}/>
-          <RR label="Cœurs N-1 (HA)"     value={fmt(r.haCores)+" cœurs"}/>
-          <RR label="Capacité perdue HA"  value={fmt(r.haPct,1)+" %"} color={r.haPct>20?"#ffb347":th.accent}/>
-        </div>
-
         {/* Impact financier */}
         <div style={s.card("#ff6b35")}>
           <div style={s.secTitle}>Impact financier</div>
@@ -320,6 +299,27 @@ function VMwareCalc({th, isMobile=false}) {
             Minimum commande : 72 cœurs · Renouvellement tardif : +20%
           </div>
         </div>
+
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:14}}>
+        {/* Résultats licensing */}
+        <div style={s.card(th.accent2)}>
+          <div style={s.secTitle}>Résultats licensing</div>
+          {r.surcharge&&(
+            <div style={{background:"rgba(255,181,71,0.1)",border:"1px solid rgba(255,181,71,0.3)",borderRadius:4,padding:"8px 12px",marginBottom:12,fontSize:11,color:"#ffb347",fontFamily:"monospace"}}>
+              ⚠ {fmt(r.totalBilled)} cœurs facturés — minimum 16/socket appliqué
+            </div>
+          )}
+          <RR label="Total sockets"       value={fmt(r.totalSockets)+" sockets"}/>
+          <RR label="Cœurs physiques"     value={fmt(r.totalPhys)+" cœurs"}/>
+          <RR label="Min Broadcom/socket" value={fmt(r.billedPerSocket)+" cœurs"}/>
+          <RR label="Cœurs facturés"      value={fmt(r.totalBilled)+" cœurs"} color={r.surcharge?"#ffb347":th.accent} highlight/>
+          <RR label="Packs 2-cœurs"       value={fmt(r.packs)+" packs"} color={th.accent}/>
+          <hr style={s.divider}/>
+          <RR label="Cœurs N-1 (HA)"     value={fmt(r.haCores)+" cœurs"}/>
+          <RR label="Capacité perdue HA"  value={fmt(r.haPct,1)+" %"} color={r.haPct>20?"#ffb347":th.accent}/>
+        </div>
+
         </div>
       </div>
 
