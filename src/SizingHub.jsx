@@ -312,58 +312,20 @@ function VMwareCalc({th, isMobile=false}) {
           <RR label="Cœurs facturés"      value={fmt(r.totalBilled)+" cœurs"} color={r.surcharge?"#ffb347":th.accent} highlight/>
           <RR label="Packs 2-cœurs"       value={fmt(r.packs)+" packs"} color={th.accent}/>
         </div>
-      {/* Tableau VVF vs VCF */}
-      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14,marginBottom:14}}>
-        {[
-          {id:"vvf",name:"VMware VVF",sub:"vSphere Foundation",priceRef:50,color:"#0099ff",features:[
-            {label:"vSphere (ESXi + vCenter)",ok:true},
-            {label:"vSAN (stockage HCI)",ok:false,note:"Add-on payant"},
-            {label:"NSX (réseau SDN)",ok:false,note:"Non inclus"},
-            {label:"Aria Suite (management)",ok:false,note:"Non inclus"},
-            {label:"Tanzu (containers)",ok:false,note:"Non inclus"},
-            {label:"vSAN inclus / cœur",ok:false,note:"0 TiB"},
-            {label:"Prix public / cœur / an",ok:true,note:"~46 €"},
-            {label:"Idéal pour",ok:true,note:"SAN/NAS existant"},
-          ]},
-          {id:"vcf",name:"VMware VCF",sub:"Cloud Foundation",priceRef:72,color:"#ff6b35",features:[
-            {label:"vSphere (ESXi + vCenter)",ok:true},
-            {label:"vSAN (stockage HCI)",ok:true,note:"0,25 TiB/cœur inclus"},
-            {label:"NSX (réseau SDN)",ok:true,note:"Full stack"},
-            {label:"Aria Suite (management)",ok:true,note:"Opérations + Logs"},
-            {label:"Tanzu (containers)",ok:true,note:"Kubernetes intégré"},
-            {label:"vSAN inclus / cœur",ok:true,note:"0,25 TiB/cœur"},
-            {label:"Prix public / cœur / an",ok:true,note:"~66 €"},
-            {label:"Idéal pour",ok:true,note:"Stack full SDDC"},
-          ]},
-        ].map(lic=>{
-          const annual = r.totalBilled * (lic.id === licType ? pricePerCore : lic.priceRef);
-          const isActive = licType === lic.id;
-          return (
-            <div key={lic.id} style={{background:th.cardBg,borderRadius:6,padding:16,border:`2px solid ${isActive?lic.color:th.border}`,opacity:isActive?1:0.8}}>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
-                <div>
-                  <div style={{fontSize:14,fontWeight:700,color:lic.color,fontFamily:"monospace"}}>{lic.name}</div>
-                  <div style={{fontSize:11,color:th.t3,fontFamily:"monospace"}}>{lic.sub}</div>
-                </div>
-                <div style={{textAlign:"right"}}>
-                  <div style={{fontSize:18,fontWeight:700,fontFamily:"monospace",color:lic.color}}>~ {fmt(Math.round(annual))} €</div>
-                  <div style={{fontSize:10,color:th.t3,fontFamily:"monospace"}}>/ an · {fmt(r.totalBilled)} cœurs</div>
-                </div>
-              </div>
-              <hr style={s.divider}/>
-              {lic.features.map((f,i)=>(
-                <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"5px 0",borderBottom:`1px solid ${th.border}`}}>
-                  <div style={{display:"flex",alignItems:"center",gap:8}}>
-                    <span style={{fontSize:12,color:f.ok?th.accent:th.danger,fontWeight:700}}>{f.ok?"✓":"✗"}</span>
-                    <span style={{fontSize:12,color:th.t2}}>{f.label}</span>
-                  </div>
-                  {f.note&&<span style={{fontSize:11,color:f.ok?th.t1:th.t3,fontFamily:"monospace"}}>{f.note}</span>}
-                </div>
-              ))}
-              {isActive&&<div style={{marginTop:10,padding:"6px 10px",background:`${lic.color}15`,borderRadius:4,fontSize:11,color:lic.color,fontFamily:"monospace",textAlign:"center",border:`1px solid ${lic.color}33`}}>← Licence sélectionnée</div>}
-            </div>
-          );
-        })}
+      {/* Comparaison VVF vs VCF */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+        <div style={{background:"linear-gradient(135deg,#0077cc,#005599)",borderRadius:8,padding:"16px 20px"}}>
+          <div style={{fontSize:10,color:"rgba(255,255,255,0.6)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>VMware VVF</div>
+          <div style={{fontSize:10,color:"rgba(255,255,255,0.5)",marginBottom:6}}>vSphere Foundation · {fmt(r.totalBilled)} cœurs × {licType==="vvf"?pricePerCore:50} €</div>
+          <div style={{fontSize:24,fontWeight:700,fontFamily:"monospace",color:"#fff"}}>~ {fmt(r.totalBilled*(licType==="vvf"?pricePerCore:50))} €<span style={{fontSize:12,fontWeight:400,marginLeft:6}}>/an</span></div>
+          <div style={{marginTop:8,fontSize:11,color:"rgba(255,255,255,0.7)"}}>✓ vSphere ESXi + vCenter · SAN/NAS existant</div>
+        </div>
+        <div style={{background:"linear-gradient(135deg,#e05a20,#b84510)",borderRadius:8,padding:"16px 20px"}}>
+          <div style={{fontSize:10,color:"rgba(255,255,255,0.6)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>VMware VCF</div>
+          <div style={{fontSize:10,color:"rgba(255,255,255,0.5)",marginBottom:6}}>Cloud Foundation · {fmt(r.totalBilled)} cœurs × {licType==="vcf"?pricePerCore:72} €</div>
+          <div style={{fontSize:24,fontWeight:700,fontFamily:"monospace",color:"#fff"}}>~ {fmt(r.totalBilled*(licType==="vcf"?pricePerCore:72))} €<span style={{fontSize:12,fontWeight:400,marginLeft:6}}>/an</span></div>
+          <div style={{marginTop:8,fontSize:11,color:"rgba(255,255,255,0.7)"}}>✓ vSphere + vSAN + NSX + Aria + Tanzu</div>
+        </div>
       </div>
 
 
