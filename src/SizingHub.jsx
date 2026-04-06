@@ -683,7 +683,7 @@ function StorageCalc({ th, isMobile=false }) {
       {storageTab==="classic"&&(
         <div>
       {/* KPIs */}
-      <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(6,1fr)",gap:10,marginBottom:14}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(6,1fr)",gap:6,marginBottom:14}}>
         {[
           {label:"Évolutivité",sub:"Slots disponibles",val:fmt(totals.freeSlots)+" slots",sub2:totals.usedSlots+" / "+totals.totalSlots+" utilisés",bg:"linear-gradient(135deg,#5a4fcf,#3d35a0)"},
           {label:"Capacité utile",sub:"Après RAID",val:fmt(totals.usable,1)+" To",sub2:fmt(totals.physical,1)+" To brut",bg:"linear-gradient(135deg,#0077cc,#005599)"},
@@ -1157,12 +1157,12 @@ function StorageCalc({ th, isMobile=false }) {
         return (
           <div>
             {/* KPIs */}
-            <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(5,1fr)",gap:10,marginBottom:14}}>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(6,1fr)",gap:6,marginBottom:14}}>
               {kpis.map(k=>(
-                <div key={k.label} style={{background:k.bg,borderRadius:8,padding:"14px 16px"}}>
-                  <div style={{fontSize:10,color:"rgba(255,255,255,0.6)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>{k.label}</div>
-                  <div style={{fontSize:10,color:"rgba(255,255,255,0.5)",marginBottom:4}}>{k.sub}</div>
-                  <div style={{fontSize:20,fontWeight:700,fontFamily:"monospace",color:"#fff"}}>{k.val}</div>
+                <div key={k.label} style={{background:k.bg,borderRadius:8,padding:"10px 12px"}}>
+                  <div style={{fontSize:9,color:"rgba(255,255,255,0.6)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2}}>{k.label}</div>
+                  <div style={{fontSize:9,color:"rgba(255,255,255,0.5)",marginBottom:3}}>{k.sub}</div>
+                  <div style={{fontSize:17,fontWeight:700,fontFamily:"monospace",color:"#fff"}}>{k.val}</div>
                 </div>
               ))}
             </div>
