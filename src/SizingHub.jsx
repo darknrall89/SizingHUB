@@ -145,6 +145,7 @@ function VMwareCalc({th, isMobile=false}) {
   const [pricePerCore, setPricePerCore] = useState(50);
   const [yearsTotal,   setYearsTotal]   = useState(3);
   const [maintenancePct,setMaintenancePct]=useState(20);
+  const [financeOpen,  setFinanceOpen]  = useState(false);
   const [fxRate,       setFxRate]       = useState(0.92);
 
   const LICENSE_PRICES = { vvf:50, vcf:72 };
@@ -257,8 +258,12 @@ function VMwareCalc({th, isMobile=false}) {
           </div>
         </div>
         {/* Impact financier */}
-        <div style={s.card("#ff6b35")}>
-          <div style={s.secTitle}>Impact financier</div>
+        <div style={{borderRadius:6,border:`1px solid ${th.border}`,overflow:"hidden",marginBottom:4}}>
+          <div onClick={()=>setFinanceOpen(v=>!v)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 16px",cursor:"pointer",background:financeOpen?"rgba(255,107,53,0.08)":th.bg2}}>
+            <span style={{fontSize:11,fontWeight:600,color:financeOpen?"#ff6b35":th.t2,textTransform:"uppercase",letterSpacing:"0.08em",fontFamily:"monospace"}}>💰 Impact financier</span>
+            <span style={{color:th.t3}}>{financeOpen?"▲":"▼"}</span>
+          </div>
+          {financeOpen&&<div style={{padding:16}}>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
             <NF label="Prix / cœur / an" value={pricePerCore} onChange={setPricePerCore} min={1} max={200} unit="€" note={licType==="vvf"?"Indicatif : ~46 €/cœur/an":"Indicatif : ~66 €/cœur/an"}/>
             <NF label="Durée contrat" value={yearsTotal} onChange={setYearsTotal} min={1} max={5} unit="ans"/>
@@ -294,6 +299,7 @@ function VMwareCalc({th, isMobile=false}) {
           <div style={{marginTop:10,fontSize:10,color:th.t3,fontFamily:"monospace"}}>
             Minimum commande : 72 cœurs · Renouvellement tardif : +20%
           </div>
+          </div>}
         </div>
 
         </div>
