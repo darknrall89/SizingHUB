@@ -251,8 +251,7 @@ function VMwareCalc({th, isMobile=false}) {
           <NF label="Nœuds" value={nodes} onChange={setNodes} min={1} max={32} unit="serveurs"/>
           <NF label="Sockets / nœud" value={sockets} onChange={setSockets} min={1} max={4} unit="sockets" note="1 = mono-proc | 2 = bi-proc"/>
           <NF label="Cœurs physiques / socket" value={cores} onChange={setCores} min={4} max={128} step={2} unit="cœurs" note="Xeon : 16, 24, 32, 48, 64..."/>
-          <NF label="RAM / nœud" value={ram} onChange={setRam} min={64} max={6144} step={64} unit="Go"/>
-          <NF label="Overcommit vCPU" value={overcommit} onChange={setOvercommit} min={1} max={10} step={0.25} unit="vCPU/cœur" note="Ratio standard : 3,75"/>
+
           <div style={s.field}>
             <label style={s.label}>Licence</label>
             <select value={licType} onChange={e=>{setLicType(e.target.value);setPricePerCore(LICENSE_PRICES[e.target.value]);}} style={s.select}>
@@ -291,14 +290,7 @@ function VMwareCalc({th, isMobile=false}) {
             <NF label="Durée contrat" value={yearsTotal} onChange={setYearsTotal} min={1} max={5} unit="ans"/>
             <NF label="Maintenance annuelle" value={maintenancePct} onChange={setMaintenancePct} min={0} max={30} unit="%" note="Incluse abonnement Broadcom"/>
 
-            <div style={s.field}>
-              <label style={s.label}>Taux de change USD / EUR</label>
-              <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                <input type="number" min={0.5} max={1.5} step={0.01} value={fxRate} onChange={e=>setFxRate(Number(e.target.value))} style={s.input}/>
-                <span style={{fontSize:11,color:th.t3}}>€/$</span>
-              </div>
-              <div style={{fontSize:10,color:th.t3,marginTop:3}}>Taux indicatif — ajuster selon contrat</div>
-            </div>
+
 
           </div>
           <hr style={s.divider}/>
