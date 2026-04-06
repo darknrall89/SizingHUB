@@ -565,6 +565,8 @@ function StorageCalc({ th, isMobile=false }) {
   const [hciSrcRamN,     setHciSrcRamN]     = useState(256);
   const [hciSrcCores,    setHciSrcCores]    = useState(32);
   const [hciHaPolicy,    setHciHaPolicy]    = useState(1);
+  const [hciNodes,       setHciNodes]       = useState(3);
+  const [hciOvercommit,  setHciOvercommit]  = useState(4);
   const [vendorOpen,     setVendorOpen]     = useState(false);
   const [vVendor,        setVVendor]        = useState("dell");
   const [vModel,         setVModel]         = useState("powerstore");
@@ -1174,17 +1176,40 @@ function StorageCalc({ th, isMobile=false }) {
                 <div style={{background:th.cardBg,borderTop:`1px solid ${th.border}`,borderRight:`1px solid ${th.border}`,borderBottom:`1px solid ${th.border}`,borderLeft:`2px solid ${th.accent2}`,borderRadius:6,padding:16}}>
                   <div style={s.secTitle}>Plateforme HCI</div>
                   <div style={{marginBottom:8}}>
-                    <label style={s.label}>Solution</label>
+                    <label style={s.label}>Hyperviseur</label>
                     <select value={hciSolution} onChange={e=>{setHciSolution(e.target.value);setHciResil(HCI_PROFILES[e.target.value].resiliency[0].id);}} style={s.select}>
                       {Object.entries(HCI_PROFILES).map(([k,p])=><option key={k} value={k}>{p.label}</option>)}
                     </select>
                   </div>
                   <div style={{marginBottom:8}}>
-                    <label style={s.label}>Resilience</label>
+                    <label style={s.label}>Résilience</label>
                     <select value={hciResil} onChange={e=>setHciResil(e.target.value)} style={s.select}>
                       {hciProfile.resiliency.map(r=><option key={r.id} value={r.id}>{r.label}</option>)}
                     </select>
                   </div>
+                  <div style={{marginBottom:8}}>
+                    <label style={s.label}>Nombre de nœuds</label>
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <input type="range" min={2} max={32} value={hciNodes} onChange={e=>setHciNodes(Number(e.target.value))} style={{flex:1}}/>
+                      <span style={{fontSize:13,fontWeight:600,fontFamily:"monospace",color:th.t1,minWidth:30}}>{hciNodes}</span>
+                    </div>
+                  </div>
+                  <div style={{marginBottom:8}}>
+                    <label style={s.label}>Overcommit vCPU</label>
+                    <select value={hciOvercommit} onChange={e=>setHciOvercommit(Number(e.target.value))} style={s.select}>
+                      {[[1,"1:1 — Sans overcommit"],[2,"2:1"],[3,"3:1"],[4,"4:1 — Standard"],[6,"6:1"],[8,"8:1 — Densité élevée"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}
+                    </select>
+                  </div>
+                  {hciSolution==="proxmox"&&(hciResil==="ceph_rf2"||hciResil==="ceph_rf3")&&hciNodes<3&&(
+                    <div style={{background:"rgba(255,181,71,0.1)",border:"1px solid rgba(255,181,71,0.3)",borderRadius:4,padding:"8px 10px",marginBottom:8,fontSize:11,color:"#ffb347",fontFamily:"monospace"}}>
+                      Ceph nécessite minimum 3 nœuds pour le quorum
+                    </div>
+                  )}
+                  {hciSolution==="proxmox"&&hciResil==="zfs_mirror"&&hciNodes>2&&(
+                    <div style={{background:"rgba(0,153,255,0.08)",border:"1px solid rgba(0,153,255,0.2)",borderRadius:4,padding:"8px 10px",marginBottom:8,fontSize:11,color:th.accent2,fontFamily:"monospace"}}>
+                      ZFS + réplication est optimal pour 2 nœuds — considérez Ceph RF2/RF3
+                    </div>
+                  )}
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                     <div>
                       <label style={s.label}>Politique HA</label>
@@ -1405,14 +1430,14 @@ function VeeamCalc({th, isMobile=false}) {
 // ─── Compute & HCI Planning v3 ───────────────────────────────────────────────
 
 const HCI_PROFILES = {
-  nutanix:      { label:"Nutanix AOS/AHV",   color:"#00d4aa", overhead:0.20, minNodes:3, metadataReserve:0.05, defaultDedup:3.0,
-    resiliency:[{id:"rf2",label:"RF2 (1 panne)",factor:2},{id:"rf3",label:"RF3 (2 pannes)",factor:3}] },
-  vsan:         { label:"VMware vSAN",        color:"#0099ff", overhead:0.25, minNodes:4, metadataReserve:0.07, defaultDedup:2.0,
+  vsan:         { label:"VMware vSAN",           color:"#0099ff", overhead:0.25, minNodes:4, metadataReserve:0.07, defaultDedup:2.0,
     resiliency:[{id:"ftt1r1",label:"FTT=1 RAID-1",factor:2},{id:"ftt1r5",label:"FTT=1 RAID-5",factor:1.33},{id:"ftt2r1",label:"FTT=2 RAID-1",factor:3},{id:"ftt2r6",label:"FTT=2 RAID-6",factor:1.5}] },
-  azurestackhci:{ label:"Azure Stack HCI",   color:"#ff6b35", overhead:0.25, minNodes:2, metadataReserve:0.08, defaultDedup:2.0,
+  nutanix:      { label:"Nutanix AHV",            color:"#00d4aa", overhead:0.20, minNodes:3, metadataReserve:0.05, defaultDedup:3.0,
+    resiliency:[{id:"rf2",label:"RF2 (1 panne)",factor:2},{id:"rf3",label:"RF3 (2 pannes)",factor:3}] },
+  azurestackhci:{ label:"Hyper-V / Azure Stack HCI", color:"#ff6b35", overhead:0.25, minNodes:2, metadataReserve:0.08, defaultDedup:2.0,
     resiliency:[{id:"2way",label:"2-way mirror",factor:2},{id:"3way",label:"3-way mirror",factor:3},{id:"rs42",label:"RS 4+2",factor:1.5}] },
-  ceph:         { label:"Ceph",              color:"#ffb347", overhead:0.20, minNodes:3, metadataReserve:0.05, defaultDedup:1.5,
-    resiliency:[{id:"rep2",label:"Réplication ×2",factor:2},{id:"rep3",label:"Réplication ×3",factor:3},{id:"ec42",label:"Erasure 4+2",factor:1.5},{id:"ec82",label:"Erasure 8+2",factor:1.25}] },
+  proxmox:      { label:"Proxmox VE",              color:"#e05a20", overhead:0.15, minNodes:2, metadataReserve:0.05, defaultDedup:1.0,
+    resiliency:[{id:"zfs_mirror",label:"ZFS + Réplication (x2)",factor:2},{id:"ceph_rf2",label:"Ceph RF2 (x2)",factor:2},{id:"ceph_rf3",label:"Ceph RF3 (x3)",factor:3}] },
 };
 
 const HCI_DISKS = [
