@@ -242,7 +242,8 @@ function VMwareCalc({th, isMobile=false}) {
       </div>
 
       {/* 3 cards */}
-      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1.2fr 1.3fr",gap:14,marginBottom:14}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1.5fr",gap:14,marginBottom:14}}>
+        <div style={{display:"flex",flexDirection:"column",gap:14}}>
 
         {/* Paramètres */}
         <div style={s.card(th.accent)}>
@@ -260,6 +261,8 @@ function VMwareCalc({th, isMobile=false}) {
           </div>
         </div>
 
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:14}}>
         {/* Résultats licensing */}
         <div style={s.card(th.accent2)}>
           <div style={s.secTitle}>Résultats licensing</div>
@@ -316,6 +319,7 @@ function VMwareCalc({th, isMobile=false}) {
           <div style={{marginTop:10,fontSize:10,color:th.t3,fontFamily:"monospace"}}>
             Minimum commande : 72 cœurs · Renouvellement tardif : +20%
           </div>
+        </div>
         </div>
       </div>
 
