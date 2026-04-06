@@ -1169,8 +1169,8 @@ function StorageCalc({ th, isMobile=false }) {
             {/* Layout 3 colonnes */}
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:14}}>
 
-              {/* Col 1 — Workload */}
-              <div>
+              {/* Col 1 - Plateforme + Workload */}
+              <div style={{display:"flex",flexDirection:"column",gap:14}}>
                 <div style={{background:th.cardBg,borderTop:`1px solid ${th.border}`,borderRight:`1px solid ${th.border}`,borderBottom:`1px solid ${th.border}`,borderLeft:`2px solid ${th.accent2}`,borderRadius:6,padding:16}}>
                   <div style={s.secTitle}>Plateforme HCI</div>
                   <div style={{marginBottom:8}}>
@@ -1178,7 +1178,39 @@ function StorageCalc({ th, isMobile=false }) {
                     <select value={hciSolution} onChange={e=>{setHciSolution(e.target.value);setHciResil(HCI_PROFILES[e.target.value].resiliency[0].id);}} style={s.select}>
                       {Object.entries(HCI_PROFILES).map(([k,p])=><option key={k} value={k}>{p.label}</option>)}
                     </select>
-                <div style={{background:th.cardBg,borderTop:`1px solid ${th.border}`,borderRight:`1px solid ${th.border}`,borderBottom:`1px solid ${th.border}`,borderLeft:`2px solid ${th.accent}`,borderRadius:6,padding:16,marginBottom:14}}>
+                  </div>
+                  <div style={{marginBottom:8}}>
+                    <label style={s.label}>Resilience</label>
+                    <select value={hciResil} onChange={e=>setHciResil(e.target.value)} style={s.select}>
+                      {hciProfile.resiliency.map(r=><option key={r.id} value={r.id}>{r.label}</option>)}
+                    </select>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                    <div>
+                      <label style={s.label}>Politique HA</label>
+                      <select value={hciHaPolicy} onChange={e=>setHciHaPolicy(Number(e.target.value))} style={s.select}>
+                        <option value={1}>N+1 (1 panne)</option>
+                        <option value={2}>N+2 (2 pannes)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style={s.label}>Dedup/Compression</label>
+                      <select value={hciDedupEn} onChange={e=>setHciDedupEn(e.target.value==="true")} style={s.select}>
+                        <option value="false">Desactivee</option>
+                        <option value="true">Activee</option>
+                      </select>
+                    </div>
+                  </div>
+                  {hciDedupEn&&(
+                    <div style={{marginTop:8}}>
+                      <label style={s.label}>Ratio dedup</label>
+                      <select value={hciDedupRatio} onChange={e=>setHciDedupRatio(Number(e.target.value))} style={s.select}>
+                        {[["1.5","1.5:1"],["2","2:1"],["3","3:1"],["4","4:1"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}
+                      </select>
+                    </div>
+                  )}
+                </div>
+                <div style={{background:th.cardBg,borderTop:`1px solid ${th.border}`,borderRight:`1px solid ${th.border}`,borderBottom:`1px solid ${th.border}`,borderLeft:`2px solid ${th.accent}`,borderRadius:6,padding:16}}>
                   <div style={s.secTitle}>Workload VM (cible)</div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
                     {[
@@ -1198,40 +1230,8 @@ function StorageCalc({ th, isMobile=false }) {
                     <input type="number" min={0} step={5} value={hciGrowth} onChange={e=>setHciGrowth(Number(e.target.value))} style={s.input}/>
                   </div>
                 </div>
-
-                  </div>
-                  <div style={{marginBottom:8}}>
-                    <label style={s.label}>Résilience</label>
-                    <select value={hciResil} onChange={e=>setHciResil(e.target.value)} style={s.select}>
-                      {hciProfile.resiliency.map(r=><option key={r.id} value={r.id}>{r.label}</option>)}
-                    </select>
-                  </div>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                    <div>
-                      <label style={s.label}>Politique HA</label>
-                      <select value={hciHaPolicy} onChange={e=>setHciHaPolicy(Number(e.target.value))} style={s.select}>
-                        <option value={1}>N+1 (1 panne)</option>
-                        <option value={2}>N+2 (2 pannes)</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label style={s.label}>Dédup/Compression</label>
-                      <select value={hciDedupEn} onChange={e=>setHciDedupEn(e.target.value==="true")} style={s.select}>
-                        <option value="false">Désactivée</option>
-                        <option value="true">Activée</option>
-                      </select>
-                    </div>
-                  </div>
-                  {hciDedupEn&&(
-                    <div style={{marginTop:8}}>
-                      <label style={s.label}>Ratio dédup</label>
-                      <select value={hciDedupRatio} onChange={e=>setHciDedupRatio(Number(e.target.value))} style={s.select}>
-                        {[["1.5","1.5:1"],["2","2:1"],["3","3:1"],["4","4:1"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}
-                      </select>
-                    </div>
-                  )}
-                </div>
               </div>
+
 
               {/* Col 2 — Modèle de nœud */}
               <div>
