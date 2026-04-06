@@ -275,10 +275,7 @@ function VMwareCalc({th, isMobile=false}) {
           <RR label="Cœurs facturés"      value={fmt(r.totalBilled)+" cœurs"} color={r.surcharge?"#ffb347":th.accent} highlight/>
           <RR label="Packs 2-cœurs"       value={fmt(r.packs)+" packs"} color={th.accent}/>
           <hr style={s.divider}/>
-          <RR label="RAM totale"          value={fmt(r.totalRamTo,2)+" To"}/>
-          <RR label="vCPU cluster"        value={fmt(r.vcpuTotal)+" vCPU"}/>
           <RR label="Cœurs N-1 (HA)"     value={fmt(r.haCores)+" cœurs"}/>
-          <RR label="RAM N-1 (HA)"        value={fmt(r.haRam,2)+" To"}/>
           <RR label="Capacité perdue HA"  value={fmt(r.haPct,1)+" %"} color={r.haPct>20?"#ffb347":th.accent}/>
         </div>
 
@@ -347,7 +344,7 @@ function VMwareCalc({th, isMobile=false}) {
             {label:"Idéal pour",ok:true,note:"Stack full SDDC"},
           ]},
         ].map(lic=>{
-          const annual = r.totalBilled * lic.priceRef;
+          const annual = r.totalBilled * (lic.id === licType ? pricePerCore : lic.priceRef);
           const isActive = licType === lic.id;
           return (
             <div key={lic.id} style={{background:th.cardBg,borderRadius:6,padding:16,border:`2px solid ${isActive?lic.color:th.border}`,opacity:isActive?1:0.8}}>
