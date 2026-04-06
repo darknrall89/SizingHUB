@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import {
   Server, HardDrive, Cloud, Cpu, Database, Network,
   BarChart2, Shield, CheckCircle, AlertTriangle,
@@ -146,6 +146,7 @@ function VMwareCalc({th, isMobile=false}) {
   const [yearsTotal,   setYearsTotal]   = useState(3);
   const [maintenancePct,setMaintenancePct]=useState(20);
   const [financeOpen,  setFinanceOpen]  = useState(false);
+  useEffect(()=>{ setFinanceOpen(cores < 16); }, [cores]);
   const [fxRate,       setFxRate]       = useState(0.92);
 
   const LICENSE_PRICES = { vvf:50, vcf:72 };
@@ -260,7 +261,10 @@ function VMwareCalc({th, isMobile=false}) {
         {/* Impact financier */}
         <div style={{borderRadius:6,border:`1px solid ${th.border}`,overflow:"hidden",marginBottom:4}}>
           <div onClick={()=>setFinanceOpen(v=>!v)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 16px",cursor:"pointer",background:financeOpen?"rgba(255,107,53,0.08)":th.bg2}}>
-            <span style={{fontSize:11,fontWeight:600,color:financeOpen?"#ff6b35":th.t2,textTransform:"uppercase",letterSpacing:"0.08em",fontFamily:"monospace"}}>💰 Impact financier</span>
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
+              <span style={{fontSize:11,fontWeight:600,color:financeOpen?"#ff6b35":th.t2,textTransform:"uppercase",letterSpacing:"0.08em",fontFamily:"monospace"}}>💰 Impact financier</span>
+              {r.showOpt&&<span style={{fontSize:10,background:"rgba(255,181,71,0.15)",color:"#ffb347",border:"1px solid rgba(255,181,71,0.4)",borderRadius:3,padding:"1px 6px",fontFamily:"monospace"}}>⚠️ Surcoût détecté</span>}
+            </div>
             <span style={{color:th.t3}}>{financeOpen?"▲":"▼"}</span>
           </div>
           {financeOpen&&<div style={{padding:16}}>
