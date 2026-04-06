@@ -322,6 +322,10 @@ function VMwareCalc({th, isMobile=false}) {
           <RR label="Cœurs facturés"      value={fmt(r.totalBilled)+" cœurs"} color={r.surcharge?"#ffb347":th.accent} highlight/>
           <RR label="Packs 2-cœurs"       value={fmt(r.packs)+" packs"} color={th.accent}/>
         </div>
+        <div style={{borderRadius:6,border:`1px solid ${r.showOpt?"rgba(255,181,71,0.4)":th.border}`,padding:"12px 16px",background:r.showOpt?"rgba(255,181,71,0.05)":"rgba(0,212,170,0.04)"}}>
+          <div style={{fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10,fontFamily:"monospace"}}>Optimisation licensing</div>
+          {r.showOpt?(<div><div style={{fontSize:12,color:"#ffb347",fontFamily:"monospace",fontWeight:600,marginBottom:6}}>CPUs a {cores} coeurs/socket - Broadcom facture 16 minimum</div><div style={{fontSize:11,color:th.t2,marginBottom:8}}>Vous payez {fmt(r.totalBilled)} coeurs pour {fmt(r.totalPhys)} coeurs physiques reels ({r.surPct}% de surcout).</div><div style={{padding:"6px 10px",background:th.bg2,borderRadius:3,fontSize:11,color:th.t1,fontFamily:"monospace"}}>Conseil : choisir des CPUs a 16 coeurs/socket vous donnerait plus de puissance au meme prix Broadcom.</div></div>):(<div style={{fontSize:11,color:th.accent}}>Configuration optimale - coeurs physiques 16/socket, aucun surcout Broadcom</div>)}
+        </div>
 
 
         </div>
