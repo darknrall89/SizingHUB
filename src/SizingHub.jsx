@@ -1171,6 +1171,13 @@ function StorageCalc({ th, isMobile=false }) {
 
               {/* Col 1 — Workload */}
               <div>
+                <div style={{background:th.cardBg,borderTop:`1px solid ${th.border}`,borderRight:`1px solid ${th.border}`,borderBottom:`1px solid ${th.border}`,borderLeft:`2px solid ${th.accent2}`,borderRadius:6,padding:16}}>
+                  <div style={s.secTitle}>Plateforme HCI</div>
+                  <div style={{marginBottom:8}}>
+                    <label style={s.label}>Solution</label>
+                    <select value={hciSolution} onChange={e=>{setHciSolution(e.target.value);setHciResil(HCI_PROFILES[e.target.value].resiliency[0].id);}} style={s.select}>
+                      {Object.entries(HCI_PROFILES).map(([k,p])=><option key={k} value={k}>{p.label}</option>)}
+                    </select>
                 <div style={{background:th.cardBg,borderTop:`1px solid ${th.border}`,borderRight:`1px solid ${th.border}`,borderBottom:`1px solid ${th.border}`,borderLeft:`2px solid ${th.accent}`,borderRadius:6,padding:16,marginBottom:14}}>
                   <div style={s.secTitle}>Workload VM (cible)</div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
@@ -1192,13 +1199,6 @@ function StorageCalc({ th, isMobile=false }) {
                   </div>
                 </div>
 
-                <div style={{background:th.cardBg,borderTop:`1px solid ${th.border}`,borderRight:`1px solid ${th.border}`,borderBottom:`1px solid ${th.border}`,borderLeft:`2px solid ${th.accent2}`,borderRadius:6,padding:16}}>
-                  <div style={s.secTitle}>Plateforme HCI</div>
-                  <div style={{marginBottom:8}}>
-                    <label style={s.label}>Solution</label>
-                    <select value={hciSolution} onChange={e=>{setHciSolution(e.target.value);setHciResil(HCI_PROFILES[e.target.value].resiliency[0].id);}} style={s.select}>
-                      {Object.entries(HCI_PROFILES).map(([k,p])=><option key={k} value={k}>{p.label}</option>)}
-                    </select>
                   </div>
                   <div style={{marginBottom:8}}>
                     <label style={s.label}>Résilience</label>
