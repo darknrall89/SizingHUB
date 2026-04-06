@@ -146,10 +146,6 @@ function VMwareCalc({th, isMobile=false}) {
   const [yearsTotal,   setYearsTotal]   = useState(3);
   const [maintenancePct,setMaintenancePct]=useState(20);
   const [fxRate,       setFxRate]       = useState(0.92);
-  const [vsanOpen,     setVsanOpen]     = useState(false);
-  const [vsanFtt,      setVsanFtt]      = useState("ftt1r1");
-  const [vsanOverhead, setVsanOverhead] = useState(25);
-  const [vsanTarget,   setVsanTarget]   = useState(50);
 
   const LICENSE_PRICES = { vvf:50, vcf:72 };
 
@@ -374,93 +370,6 @@ function VMwareCalc({th, isMobile=false}) {
         </div>
       </div>
 
-      {/* Calculateur vSAN dépliable */}
-      <div style={{marginBottom:14}}>
-        <div onClick={()=>setVsanOpen(v=>!v)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 16px",cursor:"pointer",borderRadius:6,background:vsanOpen?"rgba(0,153,255,0.08)":th.bg2,border:`1px solid ${vsanOpen?"rgba(0,153,255,0.3)":th.border}`}}>
-          <div style={{display:"flex",alignItems:"center",gap:10}}>
-            <span style={{fontSize:12,fontWeight:600,color:vsanOpen?th.accent2:th.t2,fontFamily:"monospace"}}>Calculateur vSAN — Capacité stockage HCI</span>
-            <span style={{fontSize:10,padding:"2px 8px",borderRadius:3,background:"rgba(0,153,255,0.1)",color:th.accent2,border:"1px solid rgba(0,153,255,0.2)",fontFamily:"monospace"}}>VCF uniquement</span>
-          </div>
-          <span style={{color:th.t3,fontSize:14}}>{vsanOpen?"▲":"▼"}</span>
-        </div>
-        {vsanOpen&&(
-          <div style={{background:th.cardBg,border:`1px solid ${th.border}`,borderTop:"none",borderRadius:"0 0 6px 6px",padding:16}}>
-            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:14}}>
-              <div style={{background:th.bg2,borderLeft:`2px solid ${th.accent2}`,borderRadius:4,padding:14}}>
-                <div style={{fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:12,fontFamily:"monospace"}}>Configuration vSAN</div>
-                <div style={s.field}>
-                  <label style={s.label}>Politique de résilience</label>
-                  <select value={vsanFtt} onChange={e=>setVsanFtt(e.target.value)} style={s.select}>
-                    <option value="ftt1r1">FTT=1 RAID-1 (×2)</option>
-                    <option value="ftt1r5">FTT=1 RAID-5 (×1,33) — ≥4 nœuds</option>
-                    <option value="ftt2r1">FTT=2 RAID-1 (×3) — ≥6 nœuds</option>
-                    <option value="ftt2r6">FTT=2 RAID-6 (×1,5) — ≥6 nœuds</option>
-                  </select>
-                </div>
-                <div style={s.field}>
-                  <label style={s.label}>Overhead vSAN (%)</label>
-                  <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                    <input type="number" min={10} max={40} value={vsanOverhead} onChange={e=>setVsanOverhead(Number(e.target.value))} style={s.input}/>
-                    <span style={{fontSize:11,color:th.t3}}>%</span>
-                  </div>
-                </div>
-                <div style={s.field}>
-                  <label style={s.label}>Capacité cible nette</label>
-                  <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                    <input type="number" min={1} step={10} value={vsanTarget} onChange={e=>setVsanTarget(Number(e.target.value))} style={s.input}/>
-                    <span style={{fontSize:11,color:th.t3}}>TiB</span>
-                  </div>
-                </div>
-              </div>
-              <div style={{background:th.bg2,borderLeft:`2px solid ${th.accent}`,borderRadius:4,padding:14}}>
-                <div style={{fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:12,fontFamily:"monospace"}}>Résultats vSAN</div>
-                {(()=>{
-                  const fttF={ftt1r1:2,ftt1r5:1.33,ftt2r1:3,ftt2r6:1.5}[vsanFtt]||2;
-                  const incl=r.totalBilled*0.25;
-                  const inclUsable=incl*(1-vsanOverhead/100)/fttF;
-                  const needsAddon=inclUsable<vsanTarget;
-                  const deficit=needsAddon?(vsanTarget-inclUsable)*fttF/(1-vsanOverhead/100):0;
-                  const addonTib=Math.ceil(deficit);
-                  return (
-                    <div>
-                      {[
-                        {label:"Cœurs VCF facturés",val:fmt(r.totalBilled)+" cœurs"},
-                        {label:"vSAN inclus (0,25 TiB/cœur)",val:fmt(incl,1)+" TiB bruts"},
-                        {label:"Utile après FTT+overhead",val:fmt(inclUsable,1)+" TiB",color:th.accent},
-                        {label:"Cible nette",val:fmt(vsanTarget,0)+" TiB"},
-                        {label:"Addon nécessaire",val:needsAddon?fmt(addonTib)+" TiB":"Aucun",color:needsAddon?th.danger:th.accent},
-                      ].map((row,i)=>(
-                        <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:`1px solid ${th.border}`}}>
-                          <span style={{fontSize:12,color:th.t2}}>{row.label}</span>
-                          <span style={{fontFamily:"monospace",fontWeight:600,fontSize:13,color:row.color||th.t1}}>{row.val}</span>
-                        </div>
-                      ))}
-                      {needsAddon
-                        ?<div style={{marginTop:10,padding:"8px 10px",background:"rgba(255,85,85,0.08)",border:"1px solid rgba(255,85,85,0.2)",borderRadius:4,fontSize:11,color:th.danger}}>⚠ vSAN Add-on requis : ~{fmt(addonTib)} TiB · ~{fmt(Math.round(addonTib*35*fxRate))} €/an</div>
-                        :<div style={{marginTop:10,padding:"8px 10px",background:"rgba(0,212,170,0.07)",border:"1px solid rgba(0,212,170,0.2)",borderRadius:4,fontSize:11,color:th.accent}}>✓ Capacité incluse dans VCF — pas d'addon nécessaire</div>
-                      }
-                    </div>
-                  );
-                })()}
-              </div>
-              <div style={{background:th.bg2,borderLeft:`2px solid ${th.warn}`,borderRadius:4,padding:14}}>
-                <div style={{fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:12,fontFamily:"monospace"}}>Points clés vSAN</div>
-                {[
-                  {icon:"⚡",text:"0,25 TiB brut/cœur VCF — s'épuise vite sur serveurs haute densité"},
-                  {icon:"📦",text:"L'Add-on vSAN repart de 0 TiB — impossible d'acheter que le delta"},
-                  {icon:"🔒",text:"Abonnement lié au cluster — expiration = perte d'accès au stockage"},
-                  {icon:"💡",text:"Si besoin >1 TiB/cœur : envisager SAN/NAS externe + VVF"},
-                ].map((tip,i)=>(
-                  <div key={i} style={{display:"flex",gap:10,marginBottom:10,padding:"8px 10px",background:th.bg1,borderRadius:4}}>
-                    <span style={{fontSize:14,flexShrink:0}}>{tip.icon}</span>
-                    <span style={{fontSize:11,color:th.t2,lineHeight:1.5}}>{tip.text}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
     </div>
   );
 }
