@@ -683,7 +683,7 @@ function StorageCalc({ th, isMobile=false }) {
       {storageTab==="classic"&&(
         <div>
       {/* KPIs */}
-      <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(5,1fr)",gap:10,marginBottom:14}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(6,1fr)",gap:10,marginBottom:14}}>
         {[
           {label:"Évolutivité",sub:"Slots disponibles",val:fmt(totals.freeSlots)+" slots",sub2:totals.usedSlots+" / "+totals.totalSlots+" utilisés",bg:"linear-gradient(135deg,#5a4fcf,#3d35a0)"},
           {label:"Capacité utile",sub:"Après RAID",val:fmt(totals.usable,1)+" To",sub2:fmt(totals.physical,1)+" To brut",bg:"linear-gradient(135deg,#0077cc,#005599)"},
@@ -1131,29 +1131,28 @@ function StorageCalc({ th, isMobile=false }) {
         const usablePerN  = rawPerNode * (1-hciProfile.overhead) / hciResilOpt.factor * (1-hciProfile.metadataReserve);
         const effPerNode  = hciDedupEn ? usablePerN*hciDedupRatio : usablePerN;
 
-        // Nœuds nécessaires
-        const nodesBySto  = Math.ceil(hciTgtStorage / effPerNode);
-        const nodesByRam  = Math.ceil(hciTgtRam / hciNodeRam);
-        const nodesByCpu  = Math.ceil(hciTgtVcpu / (hciNodeCpu * 4));
-        const nodesMin    = Math.max(nodesBySto, nodesByRam, nodesByCpu, hciProfile.minNodes);
-        const nodesReco   = nodesMin + hciHaPolicy;
-
-        // Headroom après HA
-        const haN         = nodesReco - hciHaPolicy;
-        const cpuHeadroom = Math.round((1 - hciTgtVcpu/(haN*hciNodeCpu*4))*100);
-        const ramHeadroom = Math.round((1 - hciTgtRam/(haN*hciNodeRam))*100);
-        const stoHeadroom = Math.round((1 - hciTgtStorage/(haN*effPerNode))*100);
+              // Nœuds fixés par l utilisateur
+        const nodesReco   = hciNodes;
+        const haN         = Math.max(nodesReco - hciHaPolicy, 1);
+        const cpuTotal    = nodesReco * hciNodeCpu;
+        const cpuHaN      = haN * hciNodeCpu;
+        const vcpuHaN     = cpuHaN * hciOvercommit;
+        const ramTotal    = nodesReco * hciNodeRam;
+        const ramHaN      = haN * hciNodeRam;
         const stoTotal    = nodesReco * effPerNode;
+        const stoHaN      = haN * effPerNode;
         const rawTotal    = nodesReco * rawPerNode;
-        const bottleneck  = nodesBySto>=nodesByRam&&nodesBySto>=nodesByCpu?"Stockage":nodesByRam>=nodesByCpu?"RAM":"CPU";
-
-        // KPIs
+        const cpuHeadroom = Math.round((1 - hciTgtVcpu/vcpuHaN)*100);
+        const ramHeadroom = Math.round((1 - hciTgtRam/ramHaN)*100);
+        const stoHeadroom = Math.round((1 - hciTgtStorage/stoHaN)*100);
         const kpis = [
-          {label:"Nœuds recommandés", sub:`N+${hciHaPolicy} HA · contrainte : ${bottleneck}`, val:nodesReco+" nœuds", bg:"linear-gradient(135deg,#0077cc,#005599)"},
-          {label:"CPU headroom",       sub:"Après panne (N-"+hciHaPolicy+")",                 val:cpuHeadroom+"%",    bg:cpuHeadroom>=20?"linear-gradient(135deg,#00a884,#007a60)":"linear-gradient(135deg,#d97706,#b45309)"},
-          {label:"RAM headroom",       sub:"Après panne (N-"+hciHaPolicy+")",                 val:ramHeadroom+"%",    bg:ramHeadroom>=20?"linear-gradient(135deg,#00a884,#007a60)":"linear-gradient(135deg,#d97706,#b45309)"},
-          {label:"Stockage effectif",  sub:`${hciProfile.label} · ${hciResilOpt.label}`,      val:stoTotal.toFixed(1)+" To", bg:stoHeadroom>=10?"linear-gradient(135deg,#5a4fcf,#3d35a0)":"linear-gradient(135deg,#cc3333,#991111)"},
-        ];
+          {label:"Nœuds",              sub:hciProfile.label+" · "+hciResilOpt.label,              val:nodesReco+" nœuds", bg:"linear-gradient(135deg,#0077cc,#005599)"},
+          {label:"CPU total cluster",  sub:nodesReco+" nœuds × "+hciNodeCpu+" cœurs",             val:cpuTotal+" cœurs",  bg:"linear-gradient(135deg,#e05a20,#b84510)"},
+          {label:"RAM totale cluster", sub:nodesReco+" nœuds × "+hciNodeRam+" Go",                val:ramTotal>=1024?(ramTotal/1024).toFixed(1)+" To":ramTotal+" Go", bg:"linear-gradient(135deg,#5a4fcf,#3d35a0)"},
+          {label:"Stockage effectif",  sub:hciProfile.label+" · dédup "+(hciDedupEn?"ON":"OFF"),  val:stoTotal.toFixed(1)+" To", bg:"linear-gradient(135deg,#2d7a4f,#1a5c38)"},
+          {label:"vCPU dispo N-"+hciHaPolicy, sub:haN+" nœuds actifs × "+hciOvercommit+":1",      val:vcpuHaN+" vCPU",    bg:cpuHeadroom>=10?"linear-gradient(135deg,#00a884,#007a60)":"linear-gradient(135deg,#cc3333,#991111)"},
+          {label:"RAM dispo N-"+hciHaPolicy,  sub:haN+" nœuds actifs · headroom "+ramHeadroom+"%",val:ramHaN>=1024?(ramHaN/1024).toFixed(1)+" To":ramHaN+" Go", bg:ramHeadroom>=10?"linear-gradient(135deg,#00a884,#007a60)":"linear-gradient(135deg,#cc3333,#991111)"},
+        ]
 
         return (
           <div>
@@ -1293,7 +1292,7 @@ function StorageCalc({ th, isMobile=false }) {
                     {label:"VMs → vCPU total (avec croissance)", val:fmt(Math.round(hciTgtVcpu))+" vCPUs"},
                     {label:"RAM requise (avec croissance)",       val:fmt(Math.round(hciTgtRam))+" Go"},
                     {label:"Stockage requis (avec croissance)",   val:hciTgtStorage.toFixed(1)+" To"},
-                    {label:"Nœuds : CPU / RAM / Stockage",        val:`${nodesByCpu} / ${nodesByRam} / ${nodesBySto}`, highlight:true},
+                    {label:"Stockage brut / nœud",                val:rawPerNode.toFixed(1)+" To", highlight:true},
                     {label:"Stockage brut total",                 val:rawTotal.toFixed(1)+" TB"},
                     {label:"Overhead plateforme",                 val:(hciProfile.overhead*100).toFixed(0)+"% + metadata "+(hciProfile.metadataReserve*100).toFixed(0)+"%"},
                   ].map(r=>(
