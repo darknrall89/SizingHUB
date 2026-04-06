@@ -281,28 +281,6 @@ function VMwareCalc({th, isMobile=false}) {
           <RR label="Maintenance / an"           value={"~ "+fmt(Math.round(r.maintenanceCost))+" €"} color={th.t2}/>
           <RR label="Coût annuel total"          value={"~ "+fmt(r.totalAnnualEur)+" €"} color={th.accent} highlight/>
           <RR label={"Coût total "+yearsTotal+" ans"} value={"~ "+fmt(r.totalProjectEur)+" €"} color={th.accent} highlight/>
-          <hr style={s.divider}/>
-          <div style={{fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10,fontFamily:"monospace"}}>Optimisation licensing</div>
-          {r.showOpt?(
-            <div style={{background:"rgba(255,181,71,0.08)",border:"1px solid rgba(255,181,71,0.25)",borderRadius:4,padding:"10px 12px"}}>
-              <div style={{fontSize:12,color:"#ffb347",fontFamily:"monospace",fontWeight:600,marginBottom:6}}>
-                ⚠ CPUs à {cores} cœurs/socket — Broadcom facture 16 minimum
-              </div>
-              <div style={{fontSize:11,color:th.t2,marginBottom:6}}>
-                Vous payez {fmt(r.totalBilled)} cœurs pour {fmt(r.totalPhys)} cœurs physiques réels ({r.surPct}% de surcoût).
-              </div>
-              <div style={{padding:"6px 10px",background:th.bg2,borderRadius:3,fontSize:11,color:th.t1,fontFamily:"monospace"}}>
-                💡 Conseil : choisir des CPUs à 16 cœurs/socket vous donnerait plus de puissance au même prix Broadcom.
-              </div>
-            </div>
-          ):(
-            <div style={{background:"rgba(0,212,170,0.07)",border:"1px solid rgba(0,212,170,0.2)",borderRadius:4,padding:"10px 12px",fontSize:11,color:th.accent}}>
-              ✓ Configuration optimale — cœurs physiques ≥ 16/socket, aucun surcoût Broadcom
-            </div>
-          )}
-          <div style={{marginTop:10,fontSize:10,color:th.t3,fontFamily:"monospace"}}>
-            Minimum commande : 72 cœurs · Renouvellement tardif : +20%
-          </div>
           </div>}
         </div>
 
