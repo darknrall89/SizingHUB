@@ -315,9 +315,6 @@ function VMwareCalc({th, isMobile=false}) {
           <RR label="Min Broadcom/socket" value={fmt(r.billedPerSocket)+" cœurs"}/>
           <RR label="Cœurs facturés"      value={fmt(r.totalBilled)+" cœurs"} color={r.surcharge?"#ffb347":th.accent} highlight/>
           <RR label="Packs 2-cœurs"       value={fmt(r.packs)+" packs"} color={th.accent}/>
-          <hr style={s.divider}/>
-          <RR label="Cœurs N-1 (HA)"     value={fmt(r.haCores)+" cœurs"}/>
-          <RR label="Capacité perdue HA"  value={fmt(r.haPct,1)+" %"} color={r.haPct>20?"#ffb347":th.accent}/>
         </div>
       {/* Tableau VVF vs VCF */}
       <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14,marginBottom:14}}>
