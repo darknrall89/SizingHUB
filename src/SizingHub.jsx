@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from "react";
+import AuditCalc from "./AuditCalc.jsx";
 import {
-  Server, HardDrive, Cloud, Cpu, Database, Network,
+  Server, HardDrive, Cloud, Cpu, Database, Network, FileSearch,
   BarChart2, Shield, CheckCircle, AlertTriangle,
   Info, Sun, Moon, Menu, X
 } from "lucide-react";
@@ -2116,6 +2117,7 @@ const TOOLS=[
   {id:"veeam",   label:"Veeam Backup",     icon:Shield,   section:"BACKUP",         comp:VeeamCalc,   badge:"Veeam v12", sub:"VBR · Cloud Connect · BaaS"},
   {id:"switch",  label:"Switch Fabric",    icon:Network,  section:"RÉSEAU",         comp:SwitchCalc,  badge:"Switch",    sub:"Fabric · VLAN · QoS"},
   {id:"compute", label:"Compute",    icon:BarChart2,section:"COMPUTE",        comp:ComputeCalc, badge:"Compute",   sub:"Serveurs · HA · Sizing"},
+  {id:"audit",   label:"Infrastructure Audit", icon:FileSearch, section:"IMPORT",  comp:AuditCalc,  badge:"Audit",    sub:"RVTools · CVE · Analyse IA"},
 ];
 
 export default function SizingHub() {
