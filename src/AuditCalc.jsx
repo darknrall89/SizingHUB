@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import * as XLSX from "xlsx";
 
 export default function AuditCalc({ th, isMobile=false }) {
@@ -7,130 +7,141 @@ export default function AuditCalc({ th, isMobile=false }) {
   const [report,     setReport]     = useState(null);
   const [error,      setError]      = useState(null);
   const [targetType, setTargetType] = useState("onpremise");
+  const [activeTab,  setActiveTab]  = useState("overview");
+  const [activeHost, setActiveHost] = useState(0);
 
   const s = {
-    card:    { background:th.cardBg, border:"1px solid "+th.border, borderRadius:8, padding:20, marginBottom:14 },
-    title:   { fontSize:11, fontWeight:600, color:th.t2, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:12, fontFamily:"monospace" },
-    btn:     { width:"100%", padding:"10px", background:th.accent, border:"none", borderRadius:6, color:"#fff", fontWeight:600, fontSize:13, cursor:"pointer", marginTop:12 },
-    kpi:     { background:th.bg2, borderRadius:6, padding:"12px 14px" },
-    kpiLbl:  { fontSize:10, color:th.t3, textTransform:"uppercase", fontFamily:"monospace", marginBottom:4 },
-    kpiVal:  { fontSize:20, fontWeight:700, fontFamily:"monospace", color:th.t1 },
-    kpiSub:  { fontSize:10, color:th.t3, marginTop:2 },
+    card:  { background:th.cardBg, border:"1px solid "+th.border, borderRadius:8, padding:20, marginBottom:14 },
+    title: { fontSize:11, fontWeight:600, color:th.t2, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:12, fontFamily:"monospace" },
+    btn:   { padding:"8px 16px", background:th.accent, border:"none", borderRadius:6, color:"#fff", fontWeight:600, fontSize:12, cursor:"pointer" },
+    kpi:   { background:th.bg2, borderRadius:6, padding:"12px 14px" },
+    kpiL:  { fontSize:9, color:th.t3, textTransform:"uppercase", fontFamily:"monospace", marginBottom:4 },
+    kpiV:  { fontSize:18, fontWeight:700, fontFamily:"monospace", color:th.t1 },
+    kpiS:  { fontSize:9, color:th.t3, marginTop:2 },
   };
 
-  const parseRVTools = (wb) => {
-    const getSheet = (name) => {
+  const Gauge = ({pct, label, sub}) => {
+    const c = pct > 80 ? "#cc3333" : pct > 60 ? "#d97706" : "#00a884";
+    return (
+      <div style={{marginBottom:12}}>
+        <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+          <span style={{fontSize:11,color:th.t2}}>{label}</span>
+          <span style={{fontSize:11,fontWeight:700,fontFamily:"monospace",color:c}}>{pct}%</span>
+        </div>
+        <div style={{background:th.bg2,borderRadius:4,height:8,overflow:"hidden"}}>
+          <div style={{width:pct+"%",height:"100%",background:c,borderRadius:4,transition:"width 0.5s"}}/>
+        </div>
+        {sub&&<div style={{fontSize:9,color:th.t3,marginTop:2}}>{sub}</div>}
+      </div>
+    );
+  };
+
+  const parseRVTools = (wb, fileName) => {
+    const getJson = (name) => {
       const ws = wb.Sheets[name];
-      if (!ws) return [];
-      return XLSX.utils.sheet_to_json(ws, { defval: null });
+      return ws ? XLSX.utils.sheet_to_json(ws, {defval:null}) : [];
     };
+    const vInfo      = getJson("vInfo");
+    const vHost      = getJson("vHost");
+    const vDatastore = getJson("vDatastore");
 
-    const vInfo    = getSheet("vInfo");
-    const vCPU     = getSheet("vCPU");
-    const vMemory  = getSheet("vMemory");
-    const vDisk    = getSheet("vDisk");
-    const vHost    = getSheet("vHost");
-    const vTools   = getSheet("vTools");
-
-    // Filtrer les templates
-    const vms    = vInfo.filter(r => r["Template"] !== "True" && r["Template"] !== true);
-    const vmOn   = vms.filter(r => r["Powerstate"] === "poweredOn");
-    const vmOff  = vms.filter(r => r["Powerstate"] === "poweredOff");
-
-    // VMs éteintes depuis longtemps (pas de PowerOn récent)
-    const now = new Date();
-    const vmOldOff = vmOff.filter(r => {
+    const vms   = vInfo.filter(r => r["Template"] !== "True" && r["Template"] !== true);
+    const vmOn  = vms.filter(r => r["Powerstate"] === "poweredOn");
+    const vmOff = vms.filter(r => r["Powerstate"] === "poweredOff");
+    const now   = new Date();
+    const vmOff20 = vmOff.filter(r => {
       if (!r["PowerOn"]) return true;
-      const d = new Date(r["PowerOn"]);
-      return (now - d) > 90 * 24 * 3600 * 1000;
+      return (now - new Date(r["PowerOn"])) > 20*24*3600*1000;
     });
 
-    // vCPU
-    const cpuData = vCPU.filter(r => r["Template"] !== "True" && r["Powerstate"] === "poweredOn");
-    const totalVcpu = cpuData.reduce((s,r) => s + (r["CPUs"]||0), 0);
+    const totalVcpu   = vmOn.reduce((s,r)=>s+(r["CPUs"]||0),0);
+    const totalRamGo  = Math.round(vmOn.reduce((s,r)=>s+(r["Memory"]||0),0)/1024);
+    const totalDiskTo = (vmOn.reduce((s,r)=>s+(r["Total disk capacity MiB"]||0),0)/1024/1024).toFixed(1);
 
-    // vMemory
-    const memData = vMemory.filter(r => r["Template"] !== "True" && r["Powerstate"] === "poweredOn");
-    const totalRamMib = memData.reduce((s,r) => s + (r["Size MiB"]||0), 0);
-    const totalRamGo = Math.round(totalRamMib / 1024);
+    const osCount = {};
+    vms.forEach(r=>{
+      const os = r["OS according to the VMware Tools"]||r["OS according to the configuration file"]||"Unknown";
+      osCount[os]=(osCount[os]||0)+1;
+    });
+    const osDistrib = Object.entries(osCount).sort((a,b)=>b[1]-a[1]);
 
-    // vDisk
-    const diskData = vDisk.filter(r => r["Template"] !== "True" && r["Powerstate"] === "poweredOn");
-    const totalDiskMib = diskData.reduce((s,r) => s + (r["Capacity MiB"]||0), 0);
-    const totalDiskTo = (totalDiskMib / 1024 / 1024).toFixed(1);
+    const hosts = vHost.map(h=>{
+      const hostVms = vmOn.filter(v=>v["Host"]===h["Host"]);
+      return {
+        name: h["Host"],
+        shortName: (h["Host"]||"").split(".")[0],
+        cpuModel: (h["CPU Model"]||"").replace(/\(R\)/g,"").replace(/\(TM\)/g,""),
+        cores: h["# Cores"]||0,
+        cpuUsagePct: h["CPU usage %"]||0,
+        ramGo: Math.round((h["# Memory"]||0)/1024),
+        ramUsagePct: h["Memory usage %"]||0,
+        vmsCount: h["# VMs"]||0,
+        esxVersion: h["ESX Version"]||"N/A",
+        vendor: h["Vendor"]||"N/A",
+        model: h["Model"]||"N/A",
+        vms: hostVms.map(v=>({
+          name: v["VM"],
+          vcpu: v["CPUs"]||0,
+          ramGo: Math.round((v["Memory"]||0)/1024),
+          os: v["OS according to the VMware Tools"]||"N/A",
+          diskGo: Math.round((v["Total disk capacity MiB"]||0)/1024),
+          powerstate: v["Powerstate"],
+        })),
+      };
+    });
 
-    // vHost
-    const hosts = vHost.length;
-    const esxVersions = [...new Set(vHost.map(r => r["ESX Version"]).filter(Boolean))];
-    const cpuModel = vHost[0] ? vHost[0]["CPU Model"] : "N/A";
-    const totalHostRam = vHost.reduce((s,r) => s + (r["# Memory"]||0), 0);
-    const totalHostRamGo = Math.round(totalHostRam / 1024);
-    const totalHostCores = vHost.reduce((s,r) => s + (r["# Cores"]||0), 0);
-    const vendor = vHost[0] ? vHost[0]["Vendor"] : "N/A";
-    const model  = vHost[0] ? vHost[0]["Model"]  : "N/A";
+    const datastores = getJson("vDatastore").map(d=>({
+      name: d["Name"]||"N/A",
+      type: d["Type"]||"N/A",
+      capMib: d["Capacity MiB"]||0,
+      inUseMib: d["In Use MiB"]||0,
+      freePct: d["Free %"]||0,
+      vms: d["# VMs"]||0,
+      hosts: d["# Hosts"]||0,
+    })).filter(d=>d.capMib>0);
 
-    // Score consolidation
-    const consolidationScore = Math.min(100, Math.round(
-      (vmOff.length / Math.max(vms.length, 1)) * 50 +
-      (vmOldOff.length / Math.max(vmOff.length + 1, 1)) * 30 +
-      (totalVcpu / Math.max(totalHostCores * 4, 1) < 0.5 ? 20 : 0)
-    ));
-
+    const esxVersions = [...new Set(vHost.map(r=>r["ESX Version"]).filter(Boolean))];
     return {
-      source: "RVTools",
-      vmsTotal: vms.length,
-      vmOn: vmOn.length,
-      vmOff: vmOff.length,
-      vmOldOff: vmOldOff.length,
-      totalVcpu,
-      totalRamGo,
-      totalDiskTo,
-      hosts,
+      fileName, source:"RVTools",
+      vendor: vHost[0]?.["Vendor"]||"N/A",
+      model:  vHost[0]?.["Model"]||"N/A",
       esxVersions,
-      cpuModel,
-      totalHostRamGo,
-      totalHostCores,
-      vendor,
-      model,
-      consolidationScore,
+      vmsTotal:vms.length, vmOn:vmOn.length, vmOff:vmOff.length, vmOff20:vmOff20.length,
+      totalVcpu, totalRamGo, totalDiskTo,
+      hosts, osDistrib, datastores,
+      hostsCount: vHost.length,
+      totalCores: vHost.reduce((s,h)=>s+(h["# Cores"]||0),0),
+      totalRamPhysGo: Math.round(vHost.reduce((s,h)=>s+(h["# Memory"]||0),0)/1024),
     };
   };
 
-  const handleFiles = (e) => {
-    const fs = Array.from(e.target.files);
-    setFiles(fs);
-    setReport(null);
-    setError(null);
-  };
+  const handleFiles = (e) => { setFiles(Array.from(e.target.files)); setReport(null); setError(null); };
 
   const analyse = async () => {
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null);
     try {
       const results = [];
       for (const file of files) {
         const buf = await file.arrayBuffer();
-        const wb  = XLSX.read(buf, { type:"array", cellDates:true });
-        const sheets = wb.SheetNames;
-        // Détecter source
-        if (sheets.includes("vInfo") && sheets.includes("vHost")) {
-          results.push({ fileName: file.name, ...parseRVTools(wb) });
+        const wb  = XLSX.read(buf,{type:"array",cellDates:true});
+        if (wb.SheetNames.includes("vInfo")&&wb.SheetNames.includes("vHost")) {
+          results.push(parseRVTools(wb, file.name));
         } else {
-          results.push({ fileName: file.name, source: "Inconnu", error: "Format non reconnu" });
+          results.push({fileName:file.name, error:"Format non reconnu"});
         }
       }
-      setReport(results);
-    } catch(e) {
-      setError("Erreur de lecture : " + e.message);
-    }
+      setReport(results); setActiveTab("overview"); setActiveHost(0);
+    } catch(e) { setError("Erreur : "+e.message); }
     setLoading(false);
   };
 
-  const r = report && report[0];
+  const r = report&&report[0];
+  const tabs = ["overview","hosts","os","stockage"];
+  const tabLabels = {overview:"Vue globale",hosts:"Par hyperviseur",os:"Systemes OS",stockage:"Stockage"};
 
   return (
     <div>
-      <div style={{marginBottom:20}}>
+      <div style={{marginBottom:16}}>
         <div style={{fontSize:13,color:th.t2}}>Analysez votre infrastructure existante — RVTools, Nutanix Collector, MAP Toolkit</div>
       </div>
 
@@ -148,78 +159,248 @@ export default function AuditCalc({ th, isMobile=false }) {
 
       <div style={s.card}>
         <div style={s.title}>Import fichiers</div>
-        <label style={{display:"block",border:"2px dashed "+th.border,borderRadius:8,padding:"32px 20px",textAlign:"center",cursor:"pointer",background:th.bg2}}>
+        <label style={{display:"block",border:"2px dashed "+th.border,borderRadius:8,padding:"28px 20px",textAlign:"center",cursor:"pointer",background:th.bg2}}>
           <input type="file" accept=".xlsx,.csv,.xls" multiple onChange={handleFiles} style={{display:"none"}}/>
-          <div style={{fontSize:24,marginBottom:8}}>📂</div>
+          <div style={{fontSize:22,marginBottom:6}}>📂</div>
           <div style={{fontSize:13,fontWeight:600,color:th.t1,marginBottom:4}}>
-            {files.length>0 ? files.map(f=>f.name).join(", ") : "Cliquez pour selectionner un ou plusieurs fichiers"}
+            {files.length>0?files.map(f=>f.name).join(", "):"Cliquez pour selectionner un ou plusieurs fichiers"}
           </div>
           <div style={{fontSize:11,color:th.t3}}>RVTools (.xlsx) · Nutanix Collector · MAP Toolkit</div>
         </label>
-        {files.length>0 && (
-          <button onClick={analyse} style={s.btn} disabled={loading}>
-            {loading ? "Analyse en cours..." : "Analyser avec Claude"}
+        {files.length>0&&(
+          <button onClick={analyse} disabled={loading} style={{...s.btn,width:"100%",marginTop:12,padding:"10px"}}>
+            {loading?"Analyse en cours...":"Analyser avec Claude"}
           </button>
         )}
-        {error && <div style={{marginTop:10,color:"#cc3333",fontSize:12,fontFamily:"monospace"}}>{error}</div>}
+        {error&&<div style={{marginTop:10,color:"#cc3333",fontSize:12,fontFamily:"monospace"}}>{error}</div>}
       </div>
 
-      {r && !r.error && (
+      {r&&!r.error&&(
         <>
-          <div style={s.card}>
-            <div style={s.title}>Infrastructure detectee — {r.fileName}</div>
-            <div style={{fontSize:11,color:th.t3,fontFamily:"monospace",marginBottom:12}}>
-              Source : {r.source} · {r.vendor} {r.model} · {r.esxVersions.join(", ")}
+          <div style={{...s.card,borderLeft:"3px solid "+th.accent}}>
+            <div style={{fontSize:11,color:th.t3,fontFamily:"monospace",marginBottom:8}}>
+              {r.source} · {r.vendor} {r.model} · {r.esxVersions.join(", ")}
             </div>
-            <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:8,marginBottom:12}}>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:8}}>
               {[
-                {bg:"linear-gradient(135deg,#0077cc,#005599)", label:"VMs actives",      val:r.vmOn,          sub:r.vmOff+" eteintes"},
-                {bg:"linear-gradient(135deg,#e05a20,#b84510)", label:"vCPU alloues",     val:r.totalVcpu,     sub:"VMs poweredOn"},
-                {bg:"linear-gradient(135deg,#5a4fcf,#3d35a0)", label:"RAM allouee",      val:r.totalRamGo+" Go", sub:"VMs poweredOn"},
-                {bg:"linear-gradient(135deg,#2d7a4f,#1a5c38)", label:"Stockage utilise", val:r.totalDiskTo+" To", sub:"VMs poweredOn"},
+                {bg:"linear-gradient(135deg,#0077cc,#005599)",l:"VMs actives",    v:r.vmOn,             s:r.vmOff+" eteintes"},
+                {bg:"linear-gradient(135deg,#e05a20,#b84510)",l:"vCPU alloues",   v:r.totalVcpu,        s:"VMs poweredOn"},
+                {bg:"linear-gradient(135deg,#5a4fcf,#3d35a0)",l:"RAM allouee",    v:r.totalRamGo+" Go", s:"VMs poweredOn"},
+                {bg:"linear-gradient(135deg,#2d7a4f,#1a5c38)",l:"Stockage",       v:r.totalDiskTo+" To",s:"VMs poweredOn"},
               ].map(k=>(
-                <div key={k.label} style={{background:k.bg,borderRadius:8,padding:"12px 14px"}}>
-                  <div style={{fontSize:9,color:"rgba(255,255,255,0.6)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2}}>{k.label}</div>
-                  <div style={{fontSize:20,fontWeight:700,fontFamily:"monospace",color:"#fff"}}>{k.val}</div>
-                  <div style={{fontSize:9,color:"rgba(255,255,255,0.5)"}}>{k.sub}</div>
+                <div key={k.l} style={{background:k.bg,borderRadius:8,padding:"12px 14px"}}>
+                  <div style={{fontSize:9,color:"rgba(255,255,255,0.6)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2}}>{k.l}</div>
+                  <div style={{fontSize:20,fontWeight:700,fontFamily:"monospace",color:"#fff"}}>{k.v}</div>
+                  <div style={{fontSize:9,color:"rgba(255,255,255,0.5)"}}>{k.s}</div>
                 </div>
               ))}
             </div>
-            <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(3,1fr)",gap:8}}>
-              {[
-                {label:"Hosts",              val:r.hosts,               sub:r.cpuModel.split("@")[0].trim()},
-                {label:"CPU physiques",      val:r.totalHostCores+" cores", sub:r.hosts+" hosts"},
-                {label:"RAM physique",       val:r.totalHostRamGo+" Go",   sub:"cluster total"},
-                {label:"VMs eteintes >90j",  val:r.vmOldOff,            sub:"candidates decommission"},
-                {label:"Score consolidation",val:r.consolidationScore+"/100", sub:"potentiel optimisation"},
-                {label:"Version ESXi",       val:r.esxVersions[0]||"N/A", sub:"analyse CVE disponible"},
-              ].map(k=>(
-                <div key={k.label} style={s.kpi}>
-                  <div style={s.kpiLbl}>{k.label}</div>
-                  <div style={s.kpiVal}>{k.val}</div>
-                  <div style={s.kpiSub}>{k.sub}</div>
-                </div>
-              ))}
-            </div>
+            {r.vmOff20>0&&(
+              <div style={{marginTop:10,padding:"8px 12px",background:"rgba(255,181,71,0.08)",border:"1px solid rgba(255,181,71,0.3)",borderRadius:6,fontSize:11,color:"#ffb347",fontFamily:"monospace"}}>
+                {r.vmOff20} VM(s) eteintes depuis plus de 20 jours — candidates au decommissionnement
+              </div>
+            )}
           </div>
 
-          {r.vmOff > 0 && (
-            <div style={{...s.card, border:"1px solid rgba(255,181,71,0.4)", background:"rgba(255,181,71,0.05)"}}>
-              <div style={s.title}>Alertes consolidation</div>
-              <div style={{fontSize:12,color:"#ffb347",fontFamily:"monospace"}}>
-                {r.vmOff} VMs eteintes dont {r.vmOldOff} depuis plus de 90 jours.
-                Le decommissionnement libererait des ressources significatives.
+          <div style={{display:"flex",gap:4,marginBottom:14,borderBottom:"1px solid "+th.border}}>
+            {tabs.map(t=>(
+              <button key={t} onClick={()=>setActiveTab(t)} style={{padding:"8px 16px",background:"none",border:"none",borderBottom:"2px solid "+(activeTab===t?th.accent:"transparent"),color:activeTab===t?th.accent:th.t2,fontWeight:activeTab===t?600:400,fontSize:12,cursor:"pointer",fontFamily:"monospace"}}>
+                {tabLabels[t]}
+              </button>
+            ))}
+          </div>
+
+          {activeTab==="overview"&&(
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
+              <div style={s.card}>
+                <div style={s.title}>Cluster</div>
+                {[
+                  {l:"Hosts",v:r.hostsCount+" hosts",s:r.model},
+                  {l:"CPU physiques",v:r.totalCores+" cores",s:r.hosts[0]?.cpuModel||""},
+                  {l:"RAM physique",v:r.totalRamPhysGo+" Go",s:"cluster total"},
+                  {l:"VMs totales",v:r.vmsTotal,s:r.vmOn+" actives · "+r.vmOff+" eteintes"},
+                  {l:"ESXi",v:r.esxVersions[0]||"N/A",s:"version detectee"},
+                ].map(k=>(
+                  <div key={k.l} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid "+th.border}}>
+                    <span style={{fontSize:11,color:th.t2}}>{k.l}</span>
+                    <div style={{textAlign:"right"}}>
+                      <span style={{fontSize:12,fontWeight:600,fontFamily:"monospace",color:th.t1}}>{k.v}</span>
+                      {k.s&&<div style={{fontSize:9,color:th.t3}}>{k.s}</div>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div style={s.card}>
+                <div style={s.title}>Utilisation cluster</div>
+                {r.hosts.map(h=>(
+                  <div key={h.name} style={{marginBottom:16}}>
+                    <div style={{fontSize:11,fontWeight:600,color:th.t1,marginBottom:6}}>{h.shortName}</div>
+                    <Gauge pct={h.cpuUsagePct} label={"CPU ("+h.cores+" cores)"} sub={h.cpuUsagePct+"% utilise"}/>
+                    <Gauge pct={h.ramUsagePct} label={"RAM ("+h.ramGo+" Go)"} sub={h.ramUsagePct+"% utilise"}/>
+                  </div>
+                ))}
               </div>
             </div>
           )}
 
-          <div style={{...s.card, border:"1px solid rgba(0,153,255,0.3)", background:"rgba(0,153,255,0.04)"}}>
-            <div style={s.title}>Analyse CVE — bientot disponible</div>
-            <div style={{fontSize:12,color:th.t2}}>
-              Version detectee : {r.esxVersions.join(", ")}<br/>
-              L analyse des CVE associees sera disponible dans la prochaine version.
+          {activeTab==="hosts"&&(
+            <div>
+              <div style={{display:"flex",gap:8,marginBottom:14}}>
+                {r.hosts.map((h,i)=>(
+                  <button key={i} onClick={()=>setActiveHost(i)} style={{padding:"6px 14px",background:activeHost===i?th.accent:th.bg2,border:"1px solid "+(activeHost===i?th.accent:th.border),borderRadius:6,color:activeHost===i?"#fff":th.t1,fontSize:11,cursor:"pointer",fontFamily:"monospace"}}>
+                    {h.shortName}
+                  </button>
+                ))}
+              </div>
+              {r.hosts[activeHost]&&(()=>{
+                const h=r.hosts[activeHost];
+                return (
+                  <div>
+                    <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14,marginBottom:14}}>
+                      <div style={s.card}>
+                        <div style={s.title}>Informations host</div>
+                        {[
+                          {l:"Modele",v:h.vendor+" "+h.model},
+                          {l:"CPU",v:h.cores+" cores",s:h.cpuModel},
+                          {l:"RAM",v:h.ramGo+" Go"},
+                          {l:"ESXi",v:h.esxVersion},
+                          {l:"VMs",v:h.vmsCount+" VMs"},
+                        ].map(k=>(
+                          <div key={k.l} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid "+th.border}}>
+                            <span style={{fontSize:11,color:th.t2}}>{k.l}</span>
+                            <div style={{textAlign:"right"}}>
+                              <span style={{fontSize:12,fontWeight:600,fontFamily:"monospace",color:th.t1}}>{k.v}</span>
+                              {k.s&&<div style={{fontSize:9,color:th.t3}}>{k.s}</div>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={s.card}>
+                        <div style={s.title}>Utilisation</div>
+                        <Gauge pct={h.cpuUsagePct} label={"CPU — "+h.cores+" cores physiques"} sub={Math.round(h.cores*h.cpuUsagePct/100)+" cores utilises"}/>
+                        <Gauge pct={h.ramUsagePct} label={"RAM — "+h.ramGo+" Go"} sub={Math.round(h.ramGo*h.ramUsagePct/100)+" Go utilises"}/>
+                        <div style={{marginTop:12,display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                          <div style={s.kpi}>
+                            <div style={s.kpiL}>vCPU alloues</div>
+                            <div style={s.kpiV}>{h.vms.reduce((s,v)=>s+v.vcpu,0)}</div>
+                            <div style={s.kpiS}>ratio {(h.vms.reduce((s,v)=>s+v.vcpu,0)/h.cores).toFixed(1)}:1</div>
+                          </div>
+                          <div style={s.kpi}>
+                            <div style={s.kpiL}>RAM allouee</div>
+                            <div style={s.kpiV}>{h.vms.reduce((s,v)=>s+v.ramGo,0)} Go</div>
+                            <div style={s.kpiS}>/ {h.ramGo} Go physique</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div style={s.card}>
+                      <div style={s.title}>VMs sur ce host ({h.vms.length})</div>
+                      <div style={{overflowX:"auto"}}>
+                        <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                          <thead>
+                            <tr style={{borderBottom:"1px solid "+th.border}}>
+                              {["Nom","vCPU","RAM","Stockage","OS","Etat"].map(col=>(
+                                <th key={col} style={{padding:"6px 8px",textAlign:"left",color:th.t3,fontFamily:"monospace",fontSize:9,textTransform:"uppercase"}}>{col}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {h.vms.map((v,i)=>(
+                              <tr key={i} style={{borderBottom:"1px solid "+th.border,background:i%2===0?"transparent":th.bg2+"44"}}>
+                                <td style={{padding:"6px 8px",fontWeight:600,color:th.t1}}>{v.name}</td>
+                                <td style={{padding:"6px 8px",fontFamily:"monospace",color:th.t2}}>{v.vcpu}</td>
+                                <td style={{padding:"6px 8px",fontFamily:"monospace",color:th.t2}}>{v.ramGo} Go</td>
+                                <td style={{padding:"6px 8px",fontFamily:"monospace",color:th.t2}}>{v.diskGo} Go</td>
+                                <td style={{padding:"6px 8px",color:th.t3,fontSize:10}}>{v.os}</td>
+                                <td style={{padding:"6px 8px"}}>
+                                  <span style={{fontSize:9,padding:"2px 6px",borderRadius:3,background:v.powerstate==="poweredOn"?"rgba(0,212,170,0.15)":"rgba(255,100,100,0.15)",color:v.powerstate==="poweredOn"?th.accent:"#cc3333"}}>
+                                    {v.powerstate==="poweredOn"?"ON":"OFF"}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
-          </div>
+          )}
+
+          {activeTab==="os"&&(
+            <div style={s.card}>
+              <div style={s.title}>Distribution OS ({r.vmsTotal} VMs)</div>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
+                <div>
+                  {r.osDistrib.map(([os,count])=>{
+                    const pct=Math.round(count/r.vmsTotal*100);
+                    const isWin=os.toLowerCase().includes("windows");
+                    const isLinux=os.toLowerCase().includes("linux")||os.toLowerCase().includes("ubuntu")||os.toLowerCase().includes("debian");
+                    const color=isWin?"#0078d4":isLinux?"#e05a20":"#888";
+                    return (
+                      <div key={os} style={{marginBottom:10}}>
+                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+                          <span style={{fontSize:11,color:th.t1}}>{os}</span>
+                          <span style={{fontSize:11,fontWeight:700,fontFamily:"monospace",color:th.t2}}>{count} ({pct}%)</span>
+                        </div>
+                        <div style={{background:th.bg2,borderRadius:4,height:8,overflow:"hidden"}}>
+                          <div style={{width:pct+"%",height:"100%",background:color,borderRadius:4}}/>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div>
+                  {[
+                    {label:"Windows",color:"#0078d4",filter:os=>os.toLowerCase().includes("windows")},
+                    {label:"Linux",  color:"#e05a20",filter:os=>os.toLowerCase().includes("linux")||os.toLowerCase().includes("ubuntu")||os.toLowerCase().includes("debian")},
+                    {label:"Autre",  color:"#888",   filter:os=>!os.toLowerCase().includes("windows")&&!os.toLowerCase().includes("linux")&&!os.toLowerCase().includes("ubuntu")&&!os.toLowerCase().includes("debian")},
+                  ].map(item=>{
+                    const count=r.osDistrib.filter(([os])=>item.filter(os)).reduce((s,[,c])=>s+c,0);
+                    return (
+                      <div key={item.label} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",background:th.bg2,borderRadius:8,marginBottom:8}}>
+                        <div style={{width:12,height:12,borderRadius:2,background:item.color,flexShrink:0}}/>
+                        <div>
+                          <div style={{fontSize:13,fontWeight:600,color:th.t1}}>{item.label}</div>
+                          <div style={{fontSize:11,color:th.t3}}>{count} VM{count>1?"s":""} — {Math.round(count/r.vmsTotal*100)}%</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab==="stockage"&&(
+            <div style={s.card}>
+              <div style={s.title}>Datastores detectes</div>
+              {r.datastores.length===0?(
+                <div style={{fontSize:12,color:th.t3}}>Aucun datastore avec capacite detecte</div>
+              ):r.datastores.map((d,i)=>{
+                const usedPct=Math.round(d.inUseMib/(d.capMib||1)*100);
+                return (
+                  <div key={i} style={{padding:"12px 0",borderBottom:"1px solid "+th.border}}>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                      <div>
+                        <div style={{fontSize:12,fontWeight:600,color:th.t1}}>{d.name}</div>
+                        <div style={{fontSize:10,color:th.t3,fontFamily:"monospace"}}>{d.type} · {d.vms} VMs · {d.hosts} host(s)</div>
+                      </div>
+                      <div style={{textAlign:"right"}}>
+                        <div style={{fontSize:12,fontWeight:600,fontFamily:"monospace",color:th.t1}}>{(d.capMib/1024).toFixed(0)} Go</div>
+                        <div style={{fontSize:10,color:th.t3}}>{usedPct}% utilise</div>
+                      </div>
+                    </div>
+                    <div style={{background:th.bg2,borderRadius:4,height:6,overflow:"hidden"}}>
+                      <div style={{width:usedPct+"%",height:"100%",background:usedPct>80?"#cc3333":usedPct>60?"#d97706":th.accent,borderRadius:4}}/>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </>
       )}
     </div>
