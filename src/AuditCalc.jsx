@@ -65,6 +65,7 @@ export default function AuditCalc({ th, isMobile=false }) {
     });
     const osDistrib = Object.entries(osCount).sort((a,b)=>b[1]-a[1]);
 
+    const vSwitchData = getJson("vSwitch");
     const hosts = vHost.map(h=>{
       const hostVms = vmOn.filter(v=>v["Host"]===h["Host"]);
       return {
@@ -79,6 +80,8 @@ export default function AuditCalc({ th, isMobile=false }) {
         esxVersion: h["ESX Version"]||"N/A",
         vendor: h["Vendor"]||"N/A",
         model: h["Model"]||"N/A",
+        nics: h["# NICs"]||0,
+        vSwitches: vSwitchData.filter(sw=>(sw["Host"]||"")===(h["Host"]||"")).map(sw=>sw["Switch"]||""),
         vms: hostVms.map(v=>({
           name: v["VM"],
           vcpu: v["CPUs"]||0,
@@ -100,6 +103,60 @@ export default function AuditCalc({ th, isMobile=false }) {
       hosts: d["# Hosts"]||0,
     })).filter(d=>d.capMib>0);
 
+    const vmOffList = vmOff.map(v => ({
+      name: v["VM"],
+      powerOn: v["PowerOn"] ? new Date(v["PowerOn"]) : null,
+      creationDate: v["Creation date"] ? new Date(v["Creation date"]) : null,
+      daysSince: v["PowerOn"] ? Math.round((now - new Date(v["PowerOn"])) / (24*3600*1000)) : null,
+      cpu: v["CPUs"]||0,
+      ramGo: Math.round((v["Memory"]||0)/1024),
+      diskGo: Math.round((v["Total disk capacity MiB"]||0)/1024),
+      os: v["OS according to the VMware Tools"]||"N/A",
+      host: (v["Host"]||"").split(".")[0],
+    })).sort((a,b)=>(b.daysSince||999)-(a.daysSince||999));
+    const dvPort = getJson("dvPort");
+    const dvVlans = dvPort.filter(d=>d["VLAN"]!==null&&d["VLAN"]!==undefined).map(d=>({
+      name: d["Port"]||"N/A", vlan:d["VLAN"], switch:d["Switch"]||"N/A", ports:d["# Ports"]||0, speed:d["Speed"]||0, type:"dvSwitch"
+    }));
+    const vPortData2 = getJson("vPort");
+    const vsVlans = vPortData2.filter(d=>d["VLAN"]!==null&&d["VLAN"]!==undefined).map(d=>({
+      name: d["Port Group"]||"N/A", vlan:d["VLAN"], switch:d["Switch"]||"N/A", ports:0, speed:0, type:"vSwitch"
+    }));
+    const allVlans = dvVlans.length>0 ? dvVlans : vsVlans;
+    const vlans = [...new Map(allVlans.map(v=>[v.name+v.vlan,v])).values()].sort((a,b)=>(a.vlan||0)-(b.vlan||0));
+    const vPortData = getJson("vPort");
+    const uniquePortGroups = [...new Map(vPortData.map(p=>[p["Port Group"]+p["VLAN"],{host:(p["Host"]||"").split(".")[0],portGroup:p["Port Group"]||"N/A",switch:p["Switch"]||"N/A",vlan:p["VLAN"]}])).values()];
+    // vSwitch avec port groups
+    const vPortAll = getJson("vPort");
+    const vSwitches = vSwitchData.map(sw=>({
+      host: (sw["Host"]||"").split(".")[0],
+      name: sw["Switch"]||"N/A",
+      ports: sw["# Ports"]||0,
+      freePorts: sw["Free Ports"]||0,
+      mtu: sw["MTU"]||0,
+      portGroups: vPortAll.filter(p=>p["Switch"]===sw["Switch"]&&(p["Host"]||"").split(".")[0]===(sw["Host"]||"").split(".")[0]).map(p=>({
+        name: p["Port Group"]||"N/A",
+        vlan: p["VLAN"],
+      })),
+    }));
+
+    // dvSwitch
+    const dvSwitchData = getJson("dvSwitch");
+    const dvSwitches = dvSwitchData.map(dv=>({
+      name: dv["Name"]||dv["Switch"]||"N/A",
+      version: dv["Version"]||"N/A",
+      hosts: dv["Host members"]||"N/A",
+      ports: dv["# Ports"]||0,
+      vms: dv["# VMs"]||0,
+      mtu: dv["Max MTU"]||0,
+    }));
+
+    const vNetData = getJson("vNetwork");
+    const vmNics = {};
+    vNetData.filter(r=>r["Template"]!=="True"&&r["Powerstate"]==="poweredOn").forEach(r=>{
+      if (!vmNics[r["VM"]]) vmNics[r["VM"]]=[];
+      vmNics[r["VM"]].push({nic:r["NIC label"]||"",network:r["Network"]||"N/A",ip:r["IPv4 Address"]||"N/A",switch:r["Switch"]||"N/A"});
+    });
     const esxVersions = [...new Set(vHost.map(r=>r["ESX Version"]).filter(Boolean))];
     return {
       fileName, source:"RVTools",
@@ -112,6 +169,7 @@ export default function AuditCalc({ th, isMobile=false }) {
       hostsCount: vHost.length,
       totalCores: vHost.reduce((s,h)=>s+(h["# Cores"]||0),0),
       totalRamPhysGo: Math.round(vHost.reduce((s,h)=>s+(h["# Memory"]||0),0)/1024),
+      vmOffList, vlans, uniquePortGroups, vmNics, vSwitches, dvSwitches,
     };
   };
 
@@ -136,8 +194,8 @@ export default function AuditCalc({ th, isMobile=false }) {
   };
 
   const r = report&&report[0];
-  const tabs = ["overview","hosts","os","stockage"];
-  const tabLabels = {overview:"Vue globale",hosts:"Par hyperviseur",os:"Systemes OS",stockage:"Stockage"};
+  const tabs = ["overview","hosts","os","stockage","vms-off","reseau"];
+  const tabLabels = {overview:"Vue globale",hosts:"Par hyperviseur",os:"Systemes OS",stockage:"Stockage","vms-off":"VMs eteintes",reseau:"Reseau"};
 
   return (
     <div>
@@ -399,6 +457,144 @@ export default function AuditCalc({ th, isMobile=false }) {
                   </div>
                 );
               })}
+            </div>
+          )}
+          {activeTab==="vms-off"&&(
+            <div style={s.card}>
+              <div style={s.title}>VMs eteintes ({r.vmOff} total · {r.vmOff20} depuis plus de 20 jours)</div>
+              {r.vmOffList.length===0?(
+                <div style={{fontSize:12,color:th.t3,fontFamily:"monospace"}}>Aucune VM eteinte detectee</div>
+              ):(
+                <div style={{overflowX:"auto"}}>
+                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                    <thead>
+                      <tr style={{borderBottom:"1px solid "+th.border}}>
+                        {["Nom VM","Host","vCPU","RAM","Disque","OS","Derniere mise sous tension","Jours eteinte"].map(col=>(
+                          <th key={col} style={{padding:"6px 8px",textAlign:"left",color:th.t3,fontFamily:"monospace",fontSize:9,textTransform:"uppercase"}}>{col}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {r.vmOffList.map((v,i)=>(
+                        <tr key={i} style={{borderBottom:"1px solid "+th.border,background:i%2===0?"transparent":th.bg2+"44"}}>
+                          <td style={{padding:"6px 8px",fontWeight:600,color:th.t1}}>{v.name}</td>
+                          <td style={{padding:"6px 8px",fontSize:10,color:th.t3}}>{v.host}</td>
+                          <td style={{padding:"6px 8px",fontFamily:"monospace",color:th.t2}}>{v.cpu}</td>
+                          <td style={{padding:"6px 8px",fontFamily:"monospace",color:th.t2}}>{v.ramGo} Go</td>
+                          <td style={{padding:"6px 8px",fontFamily:"monospace",color:th.t2}}>{v.diskGo} Go</td>
+                          <td style={{padding:"6px 8px",fontSize:10,color:th.t3}}>{v.os}</td>
+                          <td style={{padding:"6px 8px",fontSize:10,color:th.t2}}>{v.powerOn?v.powerOn.toLocaleDateString("fr-FR"):v.creationDate?("Cree le "+v.creationDate.toLocaleDateString("fr-FR")):"Jamais"}</td>
+                          <td style={{padding:"6px 8px"}}>
+                            {v.daysSince===null?(<span style={{fontSize:9,padding:"2px 6px",borderRadius:3,background:"rgba(204,51,51,0.15)",color:"#cc3333"}}>Jamais</span>
+                            ):v.daysSince>20?(<span style={{fontSize:9,padding:"2px 6px",borderRadius:3,background:"rgba(255,181,71,0.15)",color:"#ffb347"}}>{v.daysSince}j</span>
+                            ):(<span style={{fontSize:9,padding:"2px 6px",borderRadius:3,background:"rgba(0,212,170,0.15)",color:th.accent}}>{v.daysSince}j</span>)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab==="reseau"&&(
+            <div>
+              <div style={s.card}>
+                <div style={s.title}>VLANs detectes ({r.vlans.length})</div>
+                <div style={{overflowX:"auto"}}>
+                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                    <thead>
+                      <tr style={{borderBottom:"1px solid "+th.border}}>
+                        {["Port Group","Switch","VLAN ID","Ports","Vitesse"].map(col=>(
+                          <th key={col} style={{padding:"6px 8px",textAlign:"left",color:th.t3,fontFamily:"monospace",fontSize:9,textTransform:"uppercase"}}>{col}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {r.vlans.map((v,i)=>(
+                        <tr key={i} style={{borderBottom:"1px solid "+th.border,background:i%2===0?"transparent":th.bg2+"44"}}>
+                          <td style={{padding:"6px 8px",fontWeight:600,color:th.t1}}>{v.name}</td>
+                          <td style={{padding:"6px 8px",fontFamily:"monospace",color:th.t2}}>{v.switch}</td>
+                          <td style={{padding:"6px 8px"}}><span style={{fontSize:10,padding:"2px 8px",borderRadius:3,background:"rgba(0,153,255,0.1)",color:th.accent2,fontFamily:"monospace",border:"1px solid rgba(0,153,255,0.2)"}}>{v.vlan===0?"Trunk/Access":v.vlan}</span></td>
+                          <td style={{padding:"6px 8px",fontFamily:"monospace",color:th.t2}}>{v.ports}</td>
+                          <td style={{padding:"6px 8px",fontFamily:"monospace",color:th.t2}}>{v.speed} Gbps</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div style={s.card}>
+                <div style={s.title}>Port Groups ({r.uniquePortGroups.length})</div>
+                <div style={{overflowX:"auto"}}>
+                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                    <thead>
+                      <tr style={{borderBottom:"1px solid "+th.border}}>
+                        {["Port Group","Switch","VLAN"].map(col=>(
+                          <th key={col} style={{padding:"6px 8px",textAlign:"left",color:th.t3,fontFamily:"monospace",fontSize:9,textTransform:"uppercase"}}>{col}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {r.uniquePortGroups.map((p,i)=>(
+                        <tr key={i} style={{borderBottom:"1px solid "+th.border,background:i%2===0?"transparent":th.bg2+"44"}}>
+                          <td style={{padding:"6px 8px",fontWeight:600,color:th.t1}}>{p.portGroup}</td>
+                          <td style={{padding:"6px 8px",fontFamily:"monospace",color:th.t2}}>{p.switch}</td>
+                          <td style={{padding:"6px 8px"}}><span style={{fontSize:10,padding:"2px 8px",borderRadius:3,background:"rgba(90,79,207,0.1)",color:"#5a4fcf",fontFamily:"monospace"}}>{p.vlan===0?"0 (Access)":p.vlan}</span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+          {activeTab==="reseau"&&r.vSwitches&&r.vSwitches.length>0&&(
+            <div style={s.card}>
+              <div style={s.title}>vSwitches ({r.vSwitches.length})</div>
+              <div style={{overflowX:"auto"}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                  <thead>
+                    <tr style={{borderBottom:"1px solid "+th.border}}>
+                      {["Host","Switch","Ports","MTU","Port Groups / VLANs"].map(col=>(
+                        <th key={col} style={{padding:"6px 8px",textAlign:"left",color:th.t3,fontFamily:"monospace",fontSize:9,textTransform:"uppercase"}}>{col}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {r.vSwitches.map((sw,i)=>(
+                      <tr key={i} style={{borderBottom:"1px solid "+th.border,background:i%2===0?"transparent":th.bg2+"44"}}>
+                        <td style={{padding:"6px 8px",fontSize:10,color:th.t3}}>{sw.host}</td>
+                        <td style={{padding:"6px 8px",fontWeight:600,color:th.t1}}>{sw.name}</td>
+                        <td style={{padding:"6px 8px",fontFamily:"monospace",color:th.t2}}>{sw.ports}</td>
+                        <td style={{padding:"6px 8px",fontFamily:"monospace",color:th.t2}}>{sw.mtu}</td>
+                        <td style={{padding:"6px 8px"}}>
+                          {sw.portGroups.map((pg,j)=>(
+                            <span key={j} style={{display:"inline-block",margin:"1px 3px 1px 0",fontSize:9,padding:"1px 6px",borderRadius:3,background:"rgba(0,153,255,0.08)",color:th.accent2,border:"1px solid rgba(0,153,255,0.2)",fontFamily:"monospace"}}>
+                              {pg.name}{pg.vlan!==null&&pg.vlan!==undefined?" (VLAN "+pg.vlan+")":""}
+                            </span>
+                          ))}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+          {activeTab==="reseau"&&r.dvSwitches&&r.dvSwitches.length>0&&(
+            <div style={s.card}>
+              <div style={s.title}>Distributed vSwitches ({r.dvSwitches.length})</div>
+              {r.dvSwitches.map((dv,i)=>(
+                <div key={i} style={{padding:"10px 0",borderBottom:"1px solid "+th.border}}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                    <div style={{fontWeight:600,fontSize:12,color:th.t1}}>{dv.name} <span style={{fontSize:10,color:th.t3,fontWeight:400}}>v{dv.version}</span></div>
+                    <div style={{fontSize:11,fontFamily:"monospace",color:th.t2}}>{dv.vms} VMs · {dv.ports} ports · MTU {dv.mtu}</div>
+                  </div>
+                  <div style={{fontSize:10,color:th.t3}}>Hosts membres : {dv.hosts}</div>
+                </div>
+              ))}
             </div>
           )}
         </>
