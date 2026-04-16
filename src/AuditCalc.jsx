@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Modal3Tiers, ModalHCI } from "./ScenarioModal.jsx";
 import * as XLSX from "xlsx";
 
 export default function AuditCalc({ th, isMobile=false }) {
@@ -8,7 +9,12 @@ export default function AuditCalc({ th, isMobile=false }) {
   const [error,      setError]      = useState(null);
   const [targetType, setTargetType] = useState("onpremise");
   const [activeTab,  setActiveTab]  = useState("overview");
-  const [activeHost, setActiveHost] = useState(0);
+  const [activeHost,   setActiveHost]   = useState(0);
+  const [projectName,  setProjectName]  = useState("");
+  const [generating,   setGenerating]   = useState(false);
+  const [scenarios,    setScenarios]    = useState(null);
+  const [scenarioErr,  setScenarioErr]  = useState(null);
+  const [activeModal,  setActiveModal]  = useState(null);
 
   const s = {
     card:  { background:th.cardBg, border:"1px solid "+th.border, borderRadius:8, padding:20, marginBottom:14 },
@@ -173,7 +179,112 @@ export default function AuditCalc({ th, isMobile=false }) {
     };
   };
 
-  const handleFiles = (e) => { setFiles(Array.from(e.target.files)); setReport(null); setError(null); };
+  const generateScenarios = async () => {
+    if (!r) return;
+    setGenerating(true);
+    setScenarioErr(null);
+    setScenarios(null);
+
+    const growthFactor = 1.3;
+    const vcpuTarget = Math.ceil(r.totalVcpu * growthFactor);
+    const ramTarget  = Math.ceil(r.totalRamGo * growthFactor);
+    const stoTarget  = Math.ceil(parseFloat(r.totalDiskTo) * growthFactor);
+    const prompt = `Tu es un architecte infrastructure IT expert en avant-vente.
+Voici les donnees EXACTES de l infrastructure existante (source RVTools) :
+
+INFRASTRUCTURE ACTUELLE :
+- Constructeur actuel : ${r.vendor} ${r.model}
+- Hyperviseur : ${r.esxVersions[0]||"VMware"}
+- Nombre de hosts : ${r.hostsCount} hosts
+- CPU par host : ${r.hosts[0]?.cpuModel||"N/A"} — ${r.hosts[0]?.cores||0} cores physiques/host
+- RAM par host : ${r.hosts[0]?.ramGo||0} Go/host
+- Total CPU physique : ${r.totalCores} cores
+- Total RAM physique : ${r.totalRamPhysGo} Go
+- VMs actives : ${r.vmOn} VMs
+- vCPU alloues : ${r.totalVcpu} vCPU
+- RAM allouee : ${r.totalRamGo} Go
+- Stockage utilise : ${r.totalDiskTo} To
+
+CIBLE DE SIZING (avec 30% de croissance) :
+- vCPU necessaires : ${vcpuTarget} vCPU (overcommit 4:1 recommande)
+- RAM necessaire : ${ramTarget} Go
+- Stockage necessaire : ${stoTarget} To
+- Politique HA : N+1 obligatoire (1 noeud peut tomber sans impact)
+
+CONTRAINTES :
+- Minimum 3 noeuds pour le HCI (quorum)
+- Les noeuds doivent absorber la charge en N+1
+- Proposer des CPU standards du marche (Intel Xeon ou AMD EPYC)
+- Indiquer clairement le nombre de cores par socket et le nombre de sockets
+
+Genere exactement 3 scenarios d architecture pour migrer cette infrastructure, au format JSON strict :
+{
+  "scenarios": [
+    {
+      "id": "3tiers",
+      "titre": "3-Tiers On-Premise",
+      "description": "...",
+      "noeuds": 2,
+      "config_noeud": {"cpu": "...", "ram": "...", "stockage": "..."},
+      "stockage": "...",
+      "reseau": "...",
+      "avantages": ["...", "..."],
+      "inconvenients": ["...", "..."],
+      "points_attention": ["...", "..."],
+      "constructeurs_suggeres": ["..."]
+    },
+    {
+      "id": "hci",
+      "titre": "HCI On-Premise",
+      "description": "...",
+      "noeuds": 3,
+      "config_noeud": {"cpu": "...", "ram": "...", "stockage": "..."},
+      "stockage": "Distribue (vSAN/Ceph/Nutanix)",
+      "reseau": "...",
+      "avantages": ["...", "..."],
+      "inconvenients": ["...", "..."],
+      "points_attention": ["...", "..."],
+      "constructeurs_suggeres": ["..."]
+    },
+    {
+      "id": "heberge",
+      "titre": "Heberge OVH",
+      "description": "...",
+      "noeuds": 3,
+      "config_noeud": {"cpu": "...", "ram": "...", "stockage": "..."},
+      "stockage": "...",
+      "reseau": "3AZ ou 2AZ selon criticite",
+      "avantages": ["...", "..."],
+      "inconvenients": ["...", "..."],
+      "points_attention": ["...", "..."],
+      "constructeurs_suggeres": ["OVH"]
+    }
+  ]
+}
+Reponds UNIQUEMENT avec le JSON, sans markdown ni explication.`;
+
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {"Content-Type":"application/json","x-api-key":import.meta.env.VITE_ANTHROPIC_API_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 2000,
+          messages: [{role:"user", content:prompt}]
+        })
+      });
+      const data = await res.json();
+      const text = data.content?.[0]?.text||"";
+      const clean = text.replace(/```json|```/g,"").trim();
+      const parsed = JSON.parse(clean);
+      setScenarios(parsed.scenarios);
+    } catch(e) {
+      setScenarioErr("Erreur generation : "+e.message);
+    }
+    setGenerating(false);
+  };
+
+  const handleFiles = (e) => { setFiles(Array.from(e.target.files)); setReport(null); setError(null); setScenarios(null); };
 
   const analyse = async () => {
     setLoading(true); setError(null);
@@ -201,18 +312,6 @@ export default function AuditCalc({ th, isMobile=false }) {
     <div>
       <div style={{marginBottom:16}}>
         <div style={{fontSize:13,color:th.t2}}>Analysez votre infrastructure existante — RVTools, Nutanix Collector, MAP Toolkit</div>
-      </div>
-
-      <div style={s.card}>
-        <div style={s.title}>Architecture cible</div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-          {[["onpremise","On-Premise","3-tiers / HCI"],["hosted","Hebergee","1AZ / 2AZ / 3AZ OVH"]].map(([v,l,sub])=>(
-            <div key={v} onClick={()=>setTargetType(v)} style={{border:"2px solid "+(targetType===v?th.accent:th.border),borderRadius:8,padding:"12px 16px",cursor:"pointer",background:targetType===v?"rgba(0,212,170,0.05)":th.bg2}}>
-              <div style={{fontSize:14,fontWeight:600,color:targetType===v?th.accent:th.t1,marginBottom:4}}>{l}</div>
-              <div style={{fontSize:11,color:th.t3,fontFamily:"monospace"}}>{sub}</div>
-            </div>
-          ))}
-        </div>
       </div>
 
       <div style={s.card}>
@@ -597,7 +696,83 @@ export default function AuditCalc({ th, isMobile=false }) {
               ))}
             </div>
           )}
+          {/* Mode Projet */}
+          <div style={{...s.card, marginTop:14, borderLeft:"3px solid "+th.accent2}}>
+            <div style={s.title}>Generer les propositions d architecture</div>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"2fr 1fr",gap:10,marginBottom:12}}>
+              <div>
+                <label style={{display:"block",fontSize:10,color:th.t3,fontFamily:"monospace",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:5}}>Nom du projet</label>
+                <input type="text" value={projectName} onChange={e=>setProjectName(e.target.value)} placeholder="Ex: Migration Hydrostadium 2025" style={{width:"100%",background:th.bg2,border:"1px solid "+th.border,borderRadius:4,padding:"8px 10px",color:th.t1,fontFamily:"monospace",fontSize:12,boxSizing:"border-box"}}/>
+              </div>
+              <div style={{display:"flex",alignItems:"flex-end"}}>
+                <button onClick={generateScenarios} disabled={generating} style={{...s.btn,width:"100%",padding:"9px",opacity:generating?0.7:1}}>
+                  {generating?"Generation en cours...":"Generer avec Claude"}
+                </button>
+              </div>
+            </div>
+            <div style={{fontSize:10,color:th.t3}}>3 scenarios generes : 3-tiers On-Premise · HCI On-Premise · Heberge OVH</div>
+            {scenarioErr&&<div style={{marginTop:8,color:"#cc3333",fontSize:11,fontFamily:"monospace"}}>{scenarioErr}</div>}
+          </div>
+
+          {scenarios&&(
+            <div>
+              <div style={{fontSize:13,fontWeight:600,color:th.t1,marginBottom:14,marginTop:4}}>
+                Propositions d architecture — {projectName||r.fileName}
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",gap:14}}>
+                {scenarios.map((sc,i)=>{
+                  const colors = ["#0077cc","#e05a20","#00a884"];
+                  const c = colors[i]||th.accent;
+                  return (
+                    <div key={sc.id} style={{background:th.cardBg,border:"1px solid "+th.border,borderTop:"3px solid "+c,borderRadius:8,padding:16}}>
+                      <div style={{fontSize:13,fontWeight:700,color:c,marginBottom:4}}>{sc.titre}</div>
+                      <div style={{fontSize:11,color:th.t2,marginBottom:12}}>{sc.description}</div>
+                      <div style={{background:th.bg2,borderRadius:6,padding:"10px 12px",marginBottom:12}}>
+                        <div style={{fontSize:10,color:th.t3,textTransform:"uppercase",fontFamily:"monospace",marginBottom:6}}>Configuration recommandee</div>
+                        <div style={{fontSize:11,color:th.t1,marginBottom:2}}><b>{sc.noeuds} noeuds</b></div>
+                        <div style={{fontSize:11,color:th.t2}}>CPU : {sc.config_noeud?.cpu||"N/A"}</div>
+                        <div style={{fontSize:11,color:th.t2}}>RAM : {sc.config_noeud?.ram||"N/A"}</div>
+                        <div style={{fontSize:11,color:th.t2}}>Stockage : {sc.config_noeud?.stockage||"N/A"}</div>
+                        {sc.stockage&&<div style={{fontSize:11,color:th.t2,marginTop:4}}>SAN/HCI : {sc.stockage}</div>}
+                        {sc.reseau&&<div style={{fontSize:11,color:th.t2}}>Reseau : {sc.reseau}</div>}
+                      </div>
+                      {sc.constructeurs_suggeres?.length>0&&(
+                        <div style={{marginBottom:10}}>
+                          {sc.constructeurs_suggeres.map((cstr,j)=>(
+                            <span key={j} style={{display:"inline-block",margin:"2px 3px 2px 0",fontSize:9,padding:"2px 7px",borderRadius:3,background:c+"15",color:c,border:"1px solid "+c+"33",fontFamily:"monospace"}}>{cstr}</span>
+                          ))}
+                        </div>
+                      )}
+                      <div style={{marginBottom:8}}>
+                        <div style={{fontSize:10,color:"#00a884",fontWeight:600,marginBottom:4}}>Avantages</div>
+                        {sc.avantages?.map((a,j)=><div key={j} style={{fontSize:10,color:th.t2,marginBottom:2}}>✓ {a}</div>)}
+                      </div>
+                      <div style={{marginBottom:8}}>
+                        <div style={{fontSize:10,color:"#d97706",fontWeight:600,marginBottom:4}}>Inconvenients</div>
+                        {sc.inconvenients?.map((a,j)=><div key={j} style={{fontSize:10,color:th.t2,marginBottom:2}}>— {a}</div>)}
+                      </div>
+                      {sc.points_attention?.length>0&&(
+                        <div style={{padding:"8px 10px",background:"rgba(255,181,71,0.08)",border:"1px solid rgba(255,181,71,0.25)",borderRadius:4}}>
+                          <div style={{fontSize:10,color:"#ffb347",fontWeight:600,marginBottom:4}}>Points d attention</div>
+                          {sc.points_attention.map((p,j)=><div key={j} style={{fontSize:10,color:th.t2,marginBottom:2}}>⚠ {p}</div>)}
+                        </div>
+                      )}
+                      <button onClick={()=>setActiveModal(sc)} style={{marginTop:12,width:"100%",padding:"8px",background:"none",border:"1px solid "+c,borderRadius:6,color:c,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"monospace"}}>
+                        Ajuster cette proposition
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </>
+      )}
+      {activeModal&&activeModal.id==="3tiers"&&(
+        <Modal3Tiers scenario={activeModal} infraData={r} onClose={()=>setActiveModal(null)} th={th}/>
+      )}
+      {activeModal&&activeModal.id==="hci"&&(
+        <ModalHCI scenario={activeModal} infraData={r} onClose={()=>setActiveModal(null)} th={th}/>
       )}
     </div>
   );
