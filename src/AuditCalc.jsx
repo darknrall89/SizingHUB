@@ -185,10 +185,22 @@ export default function AuditCalc({ th, isMobile=false }) {
     setScenarioErr(null);
     setScenarios(null);
 
-    const growthFactor = 1.3;
-    const vcpuTarget = Math.ceil(r.totalVcpu * growthFactor);
-    const ramTarget  = Math.ceil(r.totalRamGo * growthFactor);
-    const stoTarget  = Math.ceil(parseFloat(r.totalDiskTo) * growthFactor);
+    const growthFactor   = 1.3;
+    const overcommit     = 4;
+    const haNodes        = 1;
+    const minNodes       = 3;
+    const vcpuTarget     = Math.ceil(r.totalVcpu * growthFactor);
+    const ramTarget      = Math.ceil(r.totalRamGo * growthFactor);
+    const stoTarget      = Math.ceil(parseFloat(r.totalDiskTo) * growthFactor);
+    const coresNeeded    = Math.ceil(vcpuTarget / overcommit);
+    const activeNodes    = minNodes - haNodes;
+    const coresPerNode   = Math.ceil(coresNeeded / activeNodes);
+    const coresPerSocket = Math.ceil(coresPerNode / 2);
+    const VALID_CORES    = [8,10,12,14,16,20,24,28,32,36,40,48,56,64,96,128,192];
+    const recCoresSocket = VALID_CORES.find(c => c >= coresPerSocket) || 16;
+    const recCoresNode   = recCoresSocket * 2;
+    const recRamNode     = Math.ceil(ramTarget / activeNodes / 64) * 64;
+    const recNodes       = minNodes;
     const prompt = `Tu es un architecte infrastructure IT expert en avant-vente.
 Voici les donnees EXACTES de l infrastructure existante (source RVTools) :
 
@@ -211,11 +223,18 @@ CIBLE DE SIZING (avec 30% de croissance) :
 - Stockage necessaire : ${stoTarget} To
 - Politique HA : N+1 obligatoire (1 noeud peut tomber sans impact)
 
-CONTRAINTES :
-- Minimum 3 noeuds pour le HCI (quorum)
-- Les noeuds doivent absorber la charge en N+1
-- Proposer des CPU standards du marche (Intel Xeon ou AMD EPYC)
-- Indiquer clairement le nombre de cores par socket et le nombre de sockets
+CONTRAINTES DE SIZING STRICTES :
+- Minimum 3 noeuds OBLIGATOIRE pour tous les scenarios
+- En mode N+1, les noeuds restants doivent absorber ${vcpuTarget} vCPU et ${ramTarget} Go RAM
+- Choisir des CPU avec 16 a 32 cores par socket maximum
+- Adapter le nombre de noeuds plutot que sur-dimensionner les CPU
+
+FORMAT STRICT DES CHAMPS JSON — VALEURS IMPOSEES :
+- "noeuds" : ${recNodes} — NE PAS MODIFIER
+- "cpu" : "2x [choisir un vrai CPU avec exactement ${recCoresSocket} cores/socket] (${recCoresNode} cores)" — NbCoresTotal DOIT ETRE ${recCoresNode}
+- "ram" : "${recRamNode} Go DDR4" — NE PAS MODIFIER
+- "stockage" : "${stoTarget} To NVMe" — NE PAS MODIFIER
+- Choisir un modele de CPU Intel Xeon ou AMD EPYC existant avec ${recCoresSocket} cores par socket
 
 Genere exactement 3 scenarios d architecture pour migrer cette infrastructure, au format JSON strict :
 {

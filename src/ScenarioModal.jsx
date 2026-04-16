@@ -66,6 +66,10 @@ const parseStorage = (str) => {
   return m ? parseFloat(m[1]) : 20;
 };
 
+// ── Catalogue cores valides ──────────────────────────────────────────────────
+const VALID_CORES = [8,10,12,14,16,20,24,28,32,36,40,48,56,64,96,128,192];
+const nextValidCores = (n) => VALID_CORES.find(c => c >= n) || 192;
+
 // ── Catalogues disques ───────────────────────────────────────────────────────
 const DISK_CATALOG = {
   "3.5": [
@@ -113,12 +117,18 @@ export function Modal3Tiers({ scenario, infraData, onClose, th }) {
   const [tab,            setTab]            = useState("compute");
   const [nodes,          setNodes]          = useState(scenario?.noeuds||2);
   const [sockets,        setSockets]        = useState(parseSockets(scenario?.config_noeud?.cpu));
-  const [cores,          setCores]          = useState(parseCores(scenario?.config_noeud?.cpu));
+  const rawCores = Math.ceil(
+    Math.ceil((scenario?.noeuds||2) > 0
+      ? parseCores(scenario?.config_noeud?.cpu) / (parseSockets(scenario?.config_noeud?.cpu)||2)
+      : 16)
+  );
+  const [cores,          setCores]          = useState(nextValidCores(rawCores));
   const [ramPerNode,     setRamPerNode]      = useState(parseRam(scenario?.config_noeud?.ram));
   const [overcommit,     setOvercommit]      = useState(4);
   const [haPolicy,       setHaPolicy]        = useState(1);
-  const [nicQty,         setNicQty]          = useState(4);
-  const [nicSpeed,       setNicSpeed]        = useState(25);
+  const [nicCards,      setNicCards]        = useState(2);
+  const [nicPorts,      setNicPorts]        = useState(2);
+  const [nicSpeed,      setNicSpeed]        = useState(25);
   const [storageUsable,  setStorageUsable]   = useState(parseStorage(scenario?.config_noeud?.stockage)||20);
   const [storageRaid,    setStorageRaid]     = useState("raid5");
   const [chassisId,      setChassisId]       = useState("2.5-24");
@@ -126,8 +136,7 @@ export function Modal3Tiers({ scenario, infraData, onClose, th }) {
   const [diskQty,        setDiskQty]         = useState(12);
   const [dedupRatio,     setDedupRatio]      = useState(1);
   const [iopsTarget,     setIopsTarget]      = useState(50000);
-  const [uplinkSpeed,    setUplinkSpeed]     = useState(100);
-  const [uplinkQty,      setUplinkQty]       = useState(2);
+
 
   const totalCores  = nodes * sockets * cores;
   const totalVcpu   = totalCores * overcommit;
@@ -161,8 +170,8 @@ export function Modal3Tiers({ scenario, infraData, onClose, th }) {
     kpiV:  {fontSize:18,fontWeight:700,fontFamily:"monospace",color:th.t1},
   };
 
-  const tabs = ["compute","stockage","reseau","panne"];
-  const tabLabels = {compute:"Compute",stockage:"Stockage",reseau:"Reseau",panne:"Simulation panne"};
+  const tabs = ["compute","stockage","panne"];
+  const tabLabels = {compute:"Compute",stockage:"Stockage",panne:"Simulation panne"};
 
   return (
     <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.6)",zIndex:1000,display:"flex",alignItems:"flex-start",justifyContent:"center",overflowY:"auto",padding:"20px"}}>
@@ -216,12 +225,18 @@ export function Modal3Tiers({ scenario, infraData, onClose, th }) {
                   {[
                     {l:"Nombre de serveurs",v:nodes,set:setNodes,min:1,max:32},
                     {l:"Sockets / serveur",v:sockets,set:setSockets,min:1,max:4},
-                    {l:"Coeurs / socket",v:cores,set:setCores,min:4,max:128,step:2},
+                    {l:"Coeurs / socket",v:cores,set:setCores,isSelect:true},
                     {l:"RAM / noeud (Go)",v:ramPerNode,set:setRamPerNode,min:64,max:6144,step:64},
                   ].map(f=>(
                     <div key={f.l}>
                       <label style={s.label}>{f.l}</label>
-                      <input type="number" min={f.min} max={f.max} step={f.step||1} value={f.v} onChange={e=>f.set(Number(e.target.value))} style={s.input}/>
+                      {f.isSelect?(
+                        <select value={f.v} onChange={e=>f.set(Number(e.target.value))} style={s.select}>
+                          {VALID_CORES.map(c=><option key={c} value={c}>{c} cores</option>)}
+                        </select>
+                      ):(
+                        <input type="number" min={f.min} max={f.max} step={f.step||1} value={f.v} onChange={e=>f.set(Number(e.target.value))} style={s.input}/>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -243,17 +258,31 @@ export function Modal3Tiers({ scenario, infraData, onClose, th }) {
                     <option value={2}>N+2 (2 pannes)</option>
                   </select>
                 </div>
-                <div style={{marginBottom:8}}>
-                  <label style={s.label}>Interfaces reseau / serveur</label>
-                  <input type="number" min={2} max={8} value={nicQty} onChange={e=>setNicQty(Number(e.target.value))} style={s.input}/>
+                <div style={{fontSize:11,fontWeight:600,color:th.t2,textTransform:"uppercase",marginBottom:8,marginTop:8,fontFamily:"monospace"}}>Interfaces reseau</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+                  <div>
+                    <label style={s.label}>Cartes NIC</label>
+                    <select value={nicCards} onChange={e=>setNicCards(Number(e.target.value))} style={s.select}>
+                      {[1,2,4].map(v=><option key={v} value={v}>{v} carte{v>1?"s":""}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={s.label}>Ports / carte</label>
+                    <select value={nicPorts} onChange={e=>setNicPorts(Number(e.target.value))} style={s.select}>
+                      {[1,2,4].map(v=><option key={v} value={v}>{v} port{v>1?"s":""}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={s.label}>Vitesse / port</label>
+                    <select value={nicSpeed} onChange={e=>setNicSpeed(Number(e.target.value))} style={s.select}>
+                      {[[1,"1G"],[10,"10G"],[25,"25G"],[100,"100G"]].map(([v,l])=>(
+                        <option key={v} value={v}>{l}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label style={s.label}>Vitesse interfaces</label>
-                  <select value={nicSpeed} onChange={e=>setNicSpeed(Number(e.target.value))} style={s.select}>
-                    {[[1,"1 Gbps"],[10,"10 Gbps"],[25,"25 Gbps"],[100,"100 Gbps"]].map(([v,l])=>(
-                      <option key={v} value={v}>{l}</option>
-                    ))}
-                  </select>
+                <div style={{marginTop:8,padding:"8px 10px",background:"rgba(0,119,204,0.08)",border:"1px solid rgba(0,119,204,0.2)",borderRadius:6,fontSize:11,fontFamily:"monospace",color:"#0077cc"}}>
+                  BW totale / noeud : {nicCards*nicPorts*nicSpeed} Gbps ({nicCards}x{nicPorts}p x {nicSpeed}G)
                 </div>
               </div>
             </div>
@@ -327,44 +356,7 @@ export function Modal3Tiers({ scenario, infraData, onClose, th }) {
           );
         })()}
 
-        {/* RESEAU */}
-        {tab==="reseau"&&(
-          <div style={s.card}>
-            <div style={{fontSize:11,fontWeight:600,color:th.t2,textTransform:"uppercase",marginBottom:12,fontFamily:"monospace"}}>Switch Fabric</div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-              <div>
-                {[
-                  {l:"Uplinks vers core (Gbps)",v:uplinkSpeed,set:setUplinkSpeed,type:"select",opts:[[1,"1G"],[10,"10G"],[25,"25G"],[40,"40G"],[100,"100G"]]},
-                  {l:"Nb uplinks / switch",v:uplinkQty,set:setUplinkQty,min:1,max:8},
-                ].map(f=>(
-                  <div key={f.l} style={{marginBottom:8}}>
-                    <label style={s.label}>{f.l}</label>
-                    {f.type==="select"?(
-                      <select value={f.v} onChange={e=>f.set(Number(e.target.value))} style={s.select}>
-                        {f.opts.map(([v,l])=><option key={v} value={v}>{l} Gbps</option>)}
-                      </select>
-                    ):(
-                      <input type="number" min={f.min} max={f.max} value={f.v} onChange={e=>f.set(Number(e.target.value))} style={s.input}/>
-                    )}
-                  </div>
-                ))}
-              </div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,alignContent:"start"}}>
-                {[
-                  {l:"BW serveurs total",  v:(nodes*nicQty*nicSpeed)+" Gbps"},
-                  {l:"BW uplinks / switch",v:(uplinkQty*uplinkSpeed)+" Gbps"},
-                  {l:"Oversubscription",   v:((nodes*nicQty*nicSpeed)/(uplinkQty*uplinkSpeed)).toFixed(1)+":1"},
-                  {l:"Interfaces / noeud", v:nicQty+"x "+nicSpeed+"G"},
-                ].map(k=>(
-                  <div key={k.l} style={{background:"rgba(224,90,32,0.08)",border:"1px solid rgba(224,90,32,0.2)",borderRadius:6,padding:"10px 12px"}}>
-                    <div style={s.kpiL}>{k.l}</div>
-                    <div style={{...s.kpiV,color:"#e05a20"}}>{k.v}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
+
 
         {/* SIMULATION PANNE */}
         {tab==="panne"&&(
@@ -388,7 +380,8 @@ export function ModalHCI({ scenario, infraData, onClose, th }) {
   const [tab,           setTab]          = useState("hci");
   const [nodes,         setNodes]        = useState(scenario?.noeuds||3);
   const [sockets,       setSockets]      = useState(2);
-  const [cores,         setCores]        = useState(parseCores(scenario?.config_noeud?.cpu));
+  const rawCoresHCI = Math.ceil(parseCores(scenario?.config_noeud?.cpu) / (parseSockets(scenario?.config_noeud?.cpu)||2));
+  const [cores,         setCores]        = useState(nextValidCores(rawCoresHCI));
   const [ramPerNode,    setRamPerNode]   = useState(parseRam(scenario?.config_noeud?.ram));
   const [overcommit,    setOvercommit]   = useState(4);
   const [haPolicy,      setHaPolicy]     = useState(1);
@@ -485,13 +478,19 @@ export function ModalHCI({ scenario, infraData, onClose, th }) {
                   {[
                     {l:"Nombre de noeuds",v:nodes,set:setNodes,min:3,max:32},
                     {l:"Sockets / noeud",v:sockets,set:setSockets,min:1,max:4},
-                    {l:"Coeurs / socket",v:cores,set:setCores,min:4,max:128,step:2},
+                    {l:"Coeurs / socket",v:cores,set:setCores,isSelect:true},
                     {l:"RAM / noeud (Go)",v:ramPerNode,set:setRamPerNode,min:64,max:6144,step:64},
                     {l:"Stockage / noeud (To)",v:storagePerNode,set:setStoragePerNode,min:1,max:100,step:1},
                   ].map(f=>(
                     <div key={f.l}>
                       <label style={s.label}>{f.l}</label>
-                      <input type="number" min={f.min} max={f.max} step={f.step||1} value={f.v} onChange={e=>f.set(Number(e.target.value))} style={s.input}/>
+                      {f.isSelect?(
+                        <select value={f.v} onChange={e=>f.set(Number(e.target.value))} style={s.select}>
+                          {VALID_CORES.map(c=><option key={c} value={c}>{c} cores</option>)}
+                        </select>
+                      ):(
+                        <input type="number" min={f.min} max={f.max} step={f.step||1} value={f.v} onChange={e=>f.set(Number(e.target.value))} style={s.input}/>
+                      )}
                     </div>
                   ))}
                   <div>
