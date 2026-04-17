@@ -942,8 +942,15 @@ function StorageCalc({ th, isMobile=false }) {
                   label:"OceanStor Dorado", protection:"RAID-TP triple parité",
                   overheadMin:25, overheadMax:30, overheadDefault:28,
                   hasDedup:true, dedupDefault:3.0,
-                  raids:[{id:"raidtp",label:"RAID-TP (triple parité)",factor:3/9}],
-                  note:"RAID-TP : résistance à 3 pannes simultanées. Dédup inline toujours actif."
+                  useTibConv:true,
+                  hotSpareDisks:1,
+                  raids:[
+                    {id:"raidtp_6d3p", label:"RAID-TP 6D+3P (9 disques min)",  dataDisks:6,  parityDisks:3, factor:3/9},
+                    {id:"raidtp_8d3p", label:"RAID-TP 8D+3P (11 disques min)", dataDisks:8,  parityDisks:3, factor:3/11},
+                    {id:"raidtp_12d2p",label:"RAID-TP 12D+2P (14 disques min)",dataDisks:12, parityDisks:2, factor:2/14},
+                    {id:"raidtp_16d2p",label:"RAID-TP 16D+2P (18 disques min)",dataDisks:16, parityDisks:2, factor:2/18},
+                  ],
+                  note:"RAID-TP 12D+2P : résistance à 3 pannes simultanées. Dédup inline toujours actif. Conversion TB→TiB appliquée."
                 },
                 pacific: {
                   label:"OceanStor Pacific", protection:"Erasure Coding",
@@ -964,11 +971,23 @@ function StorageCalc({ th, isMobile=false }) {
           const model  = vendor?.models[vModel];
           const raid   = model?.raids.find(r=>r.id===vRaid)||model?.raids[0];
 
-          const rawTB    = vDisks * vDiskCap;
-          const overheadF = vOverhead/100;
+          // Conversion TB → TiB si nécessaire (1 TB = 0.9095 TiB)
+          const tibFactor  = model?.useTibConv ? 0.9095 : 1;
+          const hotSpare   = model?.hotSpareDisks || 0;
+          const dataDisks  = vDisks - hotSpare;
+          const rawTB      = dataDisks * vDiskCap * tibFactor;
+          const overheadF  = vOverhead/100;
           let usable; let dreInfo=null;
-          if(model?.useDreCalc&&raid?.dataDisks){const tot=raid.dataDisks+raid.parityDisks+raid.spareDisks;const nb=Math.floor(vDisks/tot);const dreRaw=nb*raid.dataDisks*vDiskCap;usable=dreRaw*(1-overheadF);dreInfo={nb,used:nb*tot,unused:vDisks-nb*tot,dreRaw};}
-          else{usable=rawTB*(1-overheadF)*(1-(raid?.factor||0));}
+          if(raid?.dataDisks && raid?.parityDisks) {
+            // Calcul RAID précis avec schéma dataDisks+parityDisks
+            const groupSize  = raid.dataDisks + raid.parityDisks;
+            const nbGroups   = Math.floor(dataDisks / groupSize);
+            const dreRaw     = nbGroups * raid.dataDisks * vDiskCap * tibFactor;
+            usable           = dreRaw * (1 - overheadF);
+            dreInfo = {nb:nbGroups, used:nbGroups*groupSize, unused:dataDisks-nbGroups*groupSize, dreRaw};
+          } else {
+            usable = rawTB*(1-overheadF)*(1-(raid?.factor||0));
+          }
           const effective = (model?.hasDedup && vVendorDedup) ? usable * vDedupRatio : usable;
           const savedDedup= (model?.hasDedup && vVendorDedup) ? effective - usable : 0;
           const pctUsed   = vTarget > 0 ? Math.round((vTarget/effective)*100) : 0;
