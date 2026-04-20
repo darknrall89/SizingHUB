@@ -153,6 +153,210 @@ const OptimizationItem = ({ insight }) => {
   );
 };
 
+// ── Compute helpers ──────────────────────────────────────────────────────────
+const ServerNodeVisual = ({ health="healthy" }) => {
+  const borderColor = health==="critical"?"#ef4444":health==="warning"?"#f59e0b":"#3b82f6";
+  return (
+    <svg viewBox="0 0 56 56" className="w-full h-full" fill="none">
+      <rect x="4" y="6"  width="48" height="10" rx="3" fill={borderColor} opacity="0.15"/>
+      <rect x="4" y="6"  width="48" height="10" rx="3" stroke={borderColor} strokeWidth="1.5"/>
+      <rect x="8" y="9"  width="24" height="4" rx="1.5" fill={borderColor} opacity="0.3"/>
+      <circle cx="46" cy="11" r="2" fill={borderColor}/>
+      <circle cx="41" cy="11" r="1.5" fill={borderColor} opacity="0.5"/>
+      <rect x="4" y="20" width="48" height="10" rx="3" fill={borderColor} opacity="0.1"/>
+      <rect x="4" y="20" width="48" height="10" rx="3" stroke={borderColor} strokeWidth="1.5"/>
+      <rect x="8" y="23" width="20" height="4" rx="1.5" fill={borderColor} opacity="0.25"/>
+      <circle cx="46" cy="25" r="2" fill={borderColor} opacity="0.7"/>
+      <circle cx="41" cy="25" r="1.5" fill={borderColor} opacity="0.4"/>
+      <rect x="4" y="34" width="48" height="10" rx="3" fill={borderColor} opacity="0.07"/>
+      <rect x="4" y="34" width="48" height="10" rx="3" stroke={borderColor} strokeWidth="1.5" opacity="0.7"/>
+      <rect x="8" y="37" width="16" height="4" rx="1.5" fill={borderColor} opacity="0.2"/>
+      <circle cx="46" cy="39" r="2" fill={borderColor} opacity="0.4"/>
+    </svg>
+  );
+};
+
+const OsIcon = ({ os }) => {
+  const n = (os||"").toLowerCase();
+  if (n.includes("windows")) return (
+    <svg viewBox="0 0 24 24" className="w-7 h-7" fill="none">
+      <rect x="2" y="2" width="9" height="9" rx="1" fill="#0078d4"/>
+      <rect x="13" y="2" width="9" height="9" rx="1" fill="#0078d4" opacity="0.8"/>
+      <rect x="2" y="13" width="9" height="9" rx="1" fill="#0078d4" opacity="0.8"/>
+      <rect x="13" y="13" width="9" height="9" rx="1" fill="#0078d4" opacity="0.6"/>
+    </svg>
+  );
+  if (n.includes("ubuntu")) return (
+    <svg viewBox="0 0 24 24" className="w-7 h-7" fill="none">
+      <circle cx="12" cy="12" r="10" fill="#E95420" opacity="0.15"/>
+      <circle cx="12" cy="12" r="10" stroke="#E95420" strokeWidth="1.5"/>
+      <circle cx="12" cy="4"  r="2.5" fill="#E95420"/>
+      <circle cx="19.5" cy="16" r="2.5" fill="#E95420"/>
+      <circle cx="4.5" cy="16" r="2.5" fill="#E95420"/>
+      <path d="M12 6.5 Q17 10 17 14" stroke="#E95420" strokeWidth="1.2" fill="none"/>
+      <path d="M12 6.5 Q7 10 7 14" stroke="#E95420" strokeWidth="1.2" fill="none"/>
+      <path d="M7 14 Q9 18 17 14" stroke="#E95420" strokeWidth="1.2" fill="none"/>
+    </svg>
+  );
+  if (n.includes("debian")) return (
+    <svg viewBox="0 0 24 24" className="w-7 h-7" fill="none">
+      <circle cx="12" cy="12" r="10" fill="#A80030" opacity="0.12"/>
+      <circle cx="12" cy="12" r="10" stroke="#A80030" strokeWidth="1.5"/>
+      <path d="M8 8 Q16 6 16 12 Q16 18 8 16" stroke="#A80030" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+      <circle cx="12" cy="12" r="2" fill="#A80030" opacity="0.5"/>
+    </svg>
+  );
+  if (n.includes("linux")||n.includes("centos")||n.includes("rocky")||n.includes("rhel")) return (
+    <svg viewBox="0 0 24 24" className="w-7 h-7" fill="none">
+      <circle cx="12" cy="12" r="10" fill="#f97316" opacity="0.12"/>
+      <circle cx="12" cy="12" r="10" stroke="#f97316" strokeWidth="1.5"/>
+      <path d="M9 8 L9 16 M9 12 L15 12 M15 8 L15 16" stroke="#f97316" strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  );
+  return (
+    <svg viewBox="0 0 24 24" className="w-7 h-7" fill="none">
+      <rect x="2" y="2" width="20" height="20" rx="4" fill="#64748b" opacity="0.12"/>
+      <rect x="2" y="2" width="20" height="20" rx="4" stroke="#64748b" strokeWidth="1.5"/>
+      <path d="M7 12 h10 M7 8 h10 M7 16 h6" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  );
+};
+
+// ── Storage helpers ──────────────────────────────────────────────────────────
+const getStorageHealth = (pct) => {
+  if (pct >= 80) return { color:"text-red-600",   bar:"bg-red-500",   badge:"bg-red-100 text-red-700",   label:"Critique", border:"border-red-200" };
+  if (pct >= 60) return { color:"text-amber-600", bar:"bg-amber-400", badge:"bg-amber-100 text-amber-700",label:"Modere",   border:"border-amber-200" };
+  return              { color:"text-emerald-600", bar:"bg-emerald-500",badge:"bg-emerald-100 text-emerald-700",label:"Sain", border:"border-gray-100" };
+};
+
+const getDatastorePurpose = (name, type) => {
+  const n = (name||"").toLowerCase();
+  if (n.includes("veeam")||n.includes("backup")||n.includes("bkp")) return "backup";
+  if (n.includes("iso")||n.includes("media")) return "iso";
+  if (n.includes("vms")||n.includes("vm-")) return "production";
+  if ((type||"").toLowerCase().includes("nfs")) return "nfs";
+  return "generic";
+};
+
+const getPurposeBadge = (purpose) => {
+  const map = {
+    backup:     { label:"Backup",     cls:"bg-purple-100 text-purple-700" },
+    iso:        { label:"ISO/Media",  cls:"bg-slate-100 text-slate-600"   },
+    production: { label:"Production", cls:"bg-blue-100 text-blue-700"     },
+    nfs:        { label:"NFS",        cls:"bg-cyan-100 text-cyan-700"     },
+    generic:    { label:"VMFS",       cls:"bg-gray-100 text-gray-600"     },
+  };
+  return map[purpose]||map.generic;
+};
+
+const DatastoreIcon = ({ purpose }) => {
+  if (purpose === "backup") return (
+    <svg viewBox="0 0 48 48" className="w-full h-full" fill="none">
+      <rect x="4" y="8" width="40" height="32" rx="4" fill="#7c3aed" opacity="0.12"/>
+      <rect x="4" y="8" width="40" height="32" rx="4" stroke="#7c3aed" strokeWidth="1.5"/>
+      <rect x="8" y="14" width="32" height="6" rx="2" fill="#7c3aed" opacity="0.3"/>
+      <rect x="8" y="23" width="32" height="6" rx="2" fill="#7c3aed" opacity="0.2"/>
+      <circle cx="36" cy="17" r="2" fill="#7c3aed"/>
+      <circle cx="36" cy="26" r="2" fill="#7c3aed" opacity="0.6"/>
+      <path d="M16 35 l4-4 l3 3 l6-6 l3 3" stroke="#7c3aed" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+  if (purpose === "iso") return (
+    <svg viewBox="0 0 48 48" className="w-full h-full" fill="none">
+      <rect x="4" y="8" width="40" height="32" rx="4" fill="#0891b2" opacity="0.12"/>
+      <rect x="4" y="8" width="40" height="32" rx="4" stroke="#0891b2" strokeWidth="1.5"/>
+      <circle cx="24" cy="24" r="8" stroke="#0891b2" strokeWidth="1.5" opacity="0.5"/>
+      <circle cx="24" cy="24" r="3" fill="#0891b2" opacity="0.4"/>
+      <rect x="8" y="14" width="12" height="3" rx="1" fill="#0891b2" opacity="0.3"/>
+    </svg>
+  );
+  if (purpose === "nfs") return (
+    <svg viewBox="0 0 48 48" className="w-full h-full" fill="none">
+      <rect x="4" y="8" width="40" height="32" rx="4" fill="#0284c7" opacity="0.12"/>
+      <rect x="4" y="8" width="40" height="32" rx="4" stroke="#0284c7" strokeWidth="1.5"/>
+      <path d="M12 24 h8 M28 24 h8 M20 24 l4-6 l4 6" stroke="#0284c7" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <rect x="8" y="14" width="32" height="4" rx="1.5" fill="#0284c7" opacity="0.2"/>
+      <rect x="8" y="30" width="32" height="4" rx="1.5" fill="#0284c7" opacity="0.2"/>
+    </svg>
+  );
+  if (purpose === "production") return (
+    <svg viewBox="0 0 48 48" className="w-full h-full" fill="none">
+      <rect x="4" y="6" width="40" height="10" rx="3" fill="#1d4ed8" opacity="0.15"/>
+      <rect x="4" y="6" width="40" height="10" rx="3" stroke="#1d4ed8" strokeWidth="1.5"/>
+      <rect x="4" y="19" width="40" height="10" rx="3" fill="#1d4ed8" opacity="0.1"/>
+      <rect x="4" y="19" width="40" height="10" rx="3" stroke="#1d4ed8" strokeWidth="1.5"/>
+      <rect x="4" y="32" width="40" height="10" rx="3" fill="#1d4ed8" opacity="0.07"/>
+      <rect x="4" y="32" width="40" height="10" rx="3" stroke="#1d4ed8" strokeWidth="1.5"/>
+      <circle cx="36" cy="11" r="2" fill="#1d4ed8"/>
+      <circle cx="36" cy="24" r="2" fill="#1d4ed8" opacity="0.7"/>
+      <circle cx="36" cy="37" r="2" fill="#1d4ed8" opacity="0.4"/>
+      <rect x="8" y="9" width="20" height="4" rx="1" fill="#1d4ed8" opacity="0.3"/>
+      <rect x="8" y="22" width="16" height="4" rx="1" fill="#1d4ed8" opacity="0.2"/>
+      <rect x="8" y="35" width="12" height="4" rx="1" fill="#1d4ed8" opacity="0.15"/>
+    </svg>
+  );
+  return (
+    <svg viewBox="0 0 48 48" className="w-full h-full" fill="none">
+      <rect x="4" y="10" width="40" height="28" rx="4" fill="#64748b" opacity="0.12"/>
+      <rect x="4" y="10" width="40" height="28" rx="4" stroke="#64748b" strokeWidth="1.5"/>
+      <rect x="8" y="16" width="32" height="5" rx="2" fill="#64748b" opacity="0.25"/>
+      <rect x="8" y="24" width="32" height="5" rx="2" fill="#64748b" opacity="0.15"/>
+      <circle cx="36" cy="18.5" r="1.5" fill="#64748b"/>
+      <circle cx="36" cy="26.5" r="1.5" fill="#64748b" opacity="0.6"/>
+    </svg>
+  );
+};
+
+const DatastoreCard = ({ ds }) => {
+  const pct     = Math.round(ds.usedPercent||ds.inUseMib/(ds.capMib||1)*100);
+  const health  = getStorageHealth(pct);
+  const purpose = getDatastorePurpose(ds.name, ds.type);
+  const badge   = getPurposeBadge(purpose);
+  const capGo   = ds.capMib ? (ds.capMib/1024).toFixed(0) : (ds.capacityGb||0);
+  const usedGo  = ds.inUseMib ? (ds.inUseMib/1024).toFixed(0) : (ds.usedGb||0);
+  const freeGo  = ds.capMib ? ((ds.capMib-ds.inUseMib)/1024).toFixed(0) : (ds.freeGb||0);
+
+  return (
+    <div className={"flex items-center gap-4 p-4 rounded-xl border bg-white transition-all hover:shadow-md "+(pct>=80?"border-red-200 bg-red-50/20":pct>=60?"border-amber-200":"border-gray-100")}>
+      {/* Icône */}
+      <div className="w-14 h-14 flex-shrink-0">
+        <DatastoreIcon purpose={purpose}/>
+      </div>
+      {/* Infos */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1 flex-wrap">
+          <span className="text-sm font-bold text-gray-800 truncate max-w-xs">{ds.name}</span>
+          <span className={"text-xs px-2 py-0.5 rounded-full font-semibold "+badge.cls}>{badge.label}</span>
+          {pct>=80&&<span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-red-100 text-red-700">Critique</span>}
+        </div>
+        <div className="flex items-center gap-3 text-xs text-gray-400 mb-2">
+          <span className="flex items-center gap-1">
+            <span className="w-3 h-3 inline-flex items-center justify-center bg-blue-100 rounded text-blue-600 text-xs">VM</span>
+            {ds.vms||0} VM{(ds.vms||0)>1?"s":""}
+          </span>
+          <span>·</span>
+          <span>{ds.hosts||0} host{(ds.hosts||0)>1?"s":""}</span>
+          {ds.type&&<span>· {ds.type}</span>}
+        </div>
+        {/* Barre capacité */}
+        <div className="relative w-full h-3 bg-gray-100 rounded-full overflow-hidden">
+          <div className={"h-full rounded-full transition-all "+health.bar} style={{width:Math.min(pct,100)+"%"}}/>
+          {/* Seuil 80% */}
+          <div className="absolute top-0 bottom-0 w-px bg-red-300 opacity-60" style={{left:"80%"}}/>
+        </div>
+        {ds.warningMessage&&<div className="mt-1 text-xs text-red-500 font-medium">{ds.warningMessage}</div>}
+      </div>
+      {/* Métriques */}
+      <div className="text-right flex-shrink-0 min-w-32">
+        <div className="text-sm font-semibold text-gray-700">{usedGo} Go utilisé</div>
+        <div className="text-xs text-gray-400">/ {capGo} Go total</div>
+        <div className="text-xs text-gray-400">{freeGo} Go libre</div>
+        <div className={"text-base font-bold mt-1 "+health.color}>{pct}% utilisé</div>
+      </div>
+    </div>
+  );
+};
+
 export const mapRvToolsAnalysisToClusterViewModel = (rv) => {
   if (!rv) return {platformContext:{},clusterSummary:{},hosts:[],insights:[]};
   const totalCores = rv.totalCores||0;
@@ -228,6 +432,13 @@ export const mapRvToolsAnalysisToClusterViewModel = (rv) => {
       warning:(h.ramUsagePct||0)>=80?"RAM critique — risque de contention":null,
     })),
     insights,
+    osDistrib: rv.osDistrib || [],
+    datastores: rv.datastores || [],
+    vlans: rv.vlans || [],
+    vSwitches: rv.vSwitches || [],
+    dvSwitches: rv.dvSwitches || [],
+    vmOffList: rv.vmOffList || [],
+    uniquePortGroups: rv.uniquePortGroups || [],
   };
 };
 
@@ -242,6 +453,7 @@ const TABS = [
 
 export default function ClusterOverviewDashboard({
   platformContext={}, clusterSummary={}, hosts=[], insights=[],
+  osDistrib=[], datastores=[], vlans=[], vSwitches=[], dvSwitches=[], vmOffList=[], uniquePortGroups=[],
 }) {
   const [activeTab, setActiveTab] = useState("overview");
   const sortedHosts = [...hosts].sort((a,b)=>
@@ -354,44 +566,305 @@ export default function ClusterOverviewDashboard({
       )}
 
       {activeTab==="compute"&&(
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <h3 className="text-sm font-bold text-gray-800 mb-4">Compute — Detail par host</h3>
-          <div className="space-y-3">
-            {sortedHosts.map(h=>(
-              <div key={h.id} className="flex items-center gap-4 p-3 rounded-xl bg-gray-50">
-                <div className="w-40 text-sm font-semibold text-gray-700 truncate">{h.name}</div>
-                <div className="flex-1">
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="text-blue-600 font-medium">CPU</span>
-                    <span className={getUsageTone(h.cpuUsagePercent||0).color+" font-semibold"}>{h.cpuUsagePercent||0}%</span>
-                  </div>
-                  <UsageBar pct={h.cpuUsagePercent||0} color="bg-blue-500"/>
-                </div>
-                <div className="text-xs text-gray-400 w-20 text-right">{h.totalCpuCores} cores</div>
+        <div className="space-y-4">
+          {/* KPIs Compute */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              {label:"Total hosts",      val:hosts.length,                                    sub:"noeuds physiques",    bg:"bg-gradient-to-br from-slate-500 to-slate-700"},
+              {label:"CPU total",        val:(clusterSummary.totalCpuCores||0)+" cores",       sub:"cluster",             bg:"bg-gradient-to-br from-blue-500 to-blue-700"},
+              {label:"vCPU alloues",     val:clusterSummary.allocatedVcpu,                    sub:"oversubscription "+clusterSummary.cpuOversubscription, bg:"bg-gradient-to-br from-indigo-500 to-indigo-700"},
+              {label:"Avg VM / host",    val:hosts.length>0?Math.round((clusterSummary.activeVms||0)/hosts.length):"N/A", sub:"VMs par noeud", bg:"bg-gradient-to-br from-violet-500 to-violet-700"},
+            ].map(k=>(
+              <div key={k.label} className={"rounded-2xl p-4 text-white "+k.bg}>
+                <div className="text-xs font-semibold uppercase tracking-widest opacity-70 mb-1">{k.label}</div>
+                <div className="text-2xl font-bold">{k.val}</div>
+                <div className="text-xs opacity-60 mt-1">{k.sub}</div>
               </div>
             ))}
           </div>
+
+          {/* Hosts CPU */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <h3 className="text-sm font-bold text-gray-800 mb-4">Compute — Utilisation CPU par host</h3>
+            <div className="space-y-3">
+              {sortedHosts.map(h=>{
+                const tone = getUsageTone(h.cpuUsagePercent||0);
+                const usedCores = Math.round((h.cpuUsagePercent||0)*h.totalCpuCores/100);
+                const freeCores = h.totalCpuCores - usedCores;
+                const health = (h.cpuUsagePercent||0)>=80?"critical":(h.cpuUsagePercent||0)>=60?"warning":"healthy";
+                return (
+                  <div key={h.id} className={"flex items-center gap-4 p-4 rounded-xl border transition-all hover:shadow-sm "+
+                    (health==="critical"?"border-red-200 bg-red-50/20":health==="warning"?"border-amber-200 bg-amber-50/10":"border-gray-100 bg-gray-50")}>
+                    <div className="w-14 h-14 flex-shrink-0">
+                      <ServerNodeVisual health={health}/>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold text-gray-800 truncate">{h.name}</span>
+                          <span className="text-xs text-gray-400">{h.totalCpuCores} cores physiques</span>
+                          {h.vmCount&&<span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{h.vmCount} VMs</span>}
+                        </div>
+                        <span className={tone.color+" text-base font-bold ml-4"}>{h.cpuUsagePercent||0}%</span>
+                      </div>
+                      <div className="relative w-full h-3 bg-gray-100 rounded-full overflow-hidden mb-1.5">
+                        <div className={"h-full rounded-full transition-all bg-blue-500"} style={{width:Math.min(h.cpuUsagePercent||0,100)+"%"}}/>
+                        <div className="absolute top-0 bottom-0 w-px bg-amber-400 opacity-60" style={{left:"60%"}}/>
+                        <div className="absolute top-0 bottom-0 w-px bg-red-400 opacity-60" style={{left:"80%"}}/>
+                      </div>
+                      <div className="flex justify-between text-xs text-gray-400">
+                        <span>Utilise : <strong className="text-gray-600">{usedCores} cores</strong></span>
+                        <span>Libre : <strong className="text-gray-600">{freeCores} cores</strong></span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Distribution OS */}
+          {osDistrib.length>0&&(
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <h3 className="text-sm font-bold text-gray-800 mb-4">Distribution OS ({osDistrib.reduce((s,[,c])=>s+c,0)} VMs)</h3>
+              <div className="space-y-3">
+                {osDistrib.map(([os,count])=>{
+                  const total = osDistrib.reduce((s,[,c])=>s+c,0);
+                  const pct   = Math.round(count/total*100);
+                  const isWin = os.toLowerCase().includes("windows");
+                  const isUbu = os.toLowerCase().includes("ubuntu");
+                  const isDeb = os.toLowerCase().includes("debian");
+                  const isLin = os.toLowerCase().includes("linux")||os.toLowerCase().includes("centos")||os.toLowerCase().includes("rocky");
+                  const barColor = isWin?"bg-blue-500":isUbu?"bg-orange-400":isDeb?"bg-rose-500":isLin?"bg-orange-300":"bg-gray-400";
+                  const textColor = isWin?"text-blue-600":isUbu?"text-orange-500":isDeb?"text-rose-500":isLin?"text-orange-400":"text-gray-500";
+                  return (
+                    <div key={os} className="flex items-center gap-3">
+                      <div className="flex-shrink-0"><OsIcon os={os}/></div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between text-xs mb-1.5">
+                          <span className="text-gray-700 font-medium truncate">{os}</span>
+                          <span className={textColor+" font-semibold ml-2 whitespace-nowrap"}>{count} VM{count>1?"s":""} ({pct}%)</span>
+                        </div>
+                        <div className="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div className={"h-full rounded-full "+barColor} style={{width:pct+"%"}}/>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       {activeTab==="memory"&&(
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <h3 className="text-sm font-bold text-gray-800 mb-4">Memory — Detail par host</h3>
-          <div className="space-y-3">
-            {sortedHosts.map(h=>(
-              <div key={h.id} className="flex items-center gap-4 p-3 rounded-xl bg-gray-50">
-                <div className="w-40 text-sm font-semibold text-gray-700 truncate">{h.name}</div>
-                <div className="flex-1">
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="text-orange-500 font-medium">RAM</span>
-                    <span className={getUsageTone(h.ramUsagePercent||0).color+" font-semibold"}>{h.ramUsagePercent||0}%</span>
+        <div className="space-y-4">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <h3 className="text-sm font-bold text-gray-800 mb-4">Memory — Utilisation RAM par host</h3>
+            <div className="space-y-4">
+              {sortedHosts.map(h=>(
+                <div key={h.id} className="p-4 rounded-xl bg-gray-50">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 bg-orange-100 rounded-lg flex items-center justify-center">
+                        <Server size={12} className="text-orange-500"/>
+                      </div>
+                      <span className="text-sm font-semibold text-gray-800">{h.name}</span>
+                      <span className="text-xs text-gray-400">{formatRam(h.totalRamGb)} physique</span>
+                    </div>
+                    <span className={getUsageTone(h.ramUsagePercent||0).color+" text-sm font-bold"}>{h.ramUsagePercent||0}%</span>
                   </div>
                   <UsageBar pct={h.ramUsagePercent||0} color="bg-orange-400"/>
+                  <div className="flex justify-between mt-1.5 text-xs text-gray-400">
+                    <span>Utilise : {formatRam(Math.round((h.ramUsagePercent||0)*h.totalRamGb/100))}</span>
+                    <span>Libre : {formatRam(Math.round((1-(h.ramUsagePercent||0)/100)*h.totalRamGb))}</span>
+                  </div>
                 </div>
-                <div className="text-xs text-gray-400 w-20 text-right">{formatRam(h.totalRamGb)}</div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
+          {vmOffList.length>0&&(
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <h3 className="text-sm font-bold text-gray-800 mb-1">VMs eteintes ({vmOffList.length})</h3>
+              <p className="text-xs text-gray-400 mb-4">Ressources recuperables si decommissionnement</p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-gray-100">
+                      {["Nom VM","Host","vCPU","RAM","Derniere MAJ","Statut"].map(col=>(
+                        <th key={col} className="text-left py-2 px-2 text-gray-400 font-semibold uppercase tracking-wide text-xs">{col}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {vmOffList.map((v,i)=>(
+                      <tr key={i} className={"border-b border-gray-50 "+(i%2===0?"":"bg-gray-50/50")}>
+                        <td className="py-2 px-2 font-semibold text-gray-800">{v.name}</td>
+                        <td className="py-2 px-2 text-gray-500">{v.host}</td>
+                        <td className="py-2 px-2 font-mono text-gray-600">{v.cpu}</td>
+                        <td className="py-2 px-2 font-mono text-gray-600">{v.ramGo} Go</td>
+                        <td className="py-2 px-2 text-gray-500">{v.powerOn?new Date(v.powerOn).toLocaleDateString("fr-FR"):v.creationDate?new Date(v.creationDate).toLocaleDateString("fr-FR"):"Jamais"}</td>
+                        <td className="py-2 px-2">
+                          {v.daysSince===null?<span className="bg-red-100 text-red-600 px-2 py-0.5 rounded-full text-xs font-medium">Jamais allumee</span>
+                          :v.daysSince>20?<span className="bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full text-xs font-medium">{v.daysSince}j</span>
+                          :<span className="bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full text-xs font-medium">{v.daysSince}j</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab==="storage"&&(
+        <div className="space-y-4">
+          {/* KPIs stockage */}
+          {datastores.length>0&&(()=>{
+            const critical = datastores.filter(d=>Math.round(d.inUseMib/(d.capMib||1)*100)>=80).length;
+            const warning  = datastores.filter(d=>{const p=Math.round(d.inUseMib/(d.capMib||1)*100);return p>=60&&p<80;}).length;
+            const healthy  = datastores.length - critical - warning;
+            const totalGo  = datastores.reduce((s,d)=>s+(d.capMib||0),0)/1024;
+            const usedGo   = datastores.reduce((s,d)=>s+(d.inUseMib||0),0)/1024;
+            return (
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                {[
+                  {label:"Datastores",   val:datastores.length,        sub:"total",              bg:"bg-gradient-to-br from-slate-500 to-slate-700"},
+                  {label:"Sains",        val:healthy,                   sub:"< 60% utilise",      bg:"bg-gradient-to-br from-emerald-500 to-emerald-700"},
+                  {label:"En tension",   val:warning,                   sub:"60-80% utilise",     bg:"bg-gradient-to-br from-amber-400 to-amber-600"},
+                  {label:"Critiques",    val:critical,                  sub:">= 80% utilise",     bg:"bg-gradient-to-br from-red-500 to-red-700"},
+                ].map(k=>(
+                  <div key={k.label} className={"rounded-2xl p-4 text-white "+k.bg}>
+                    <div className="text-xs font-semibold uppercase tracking-widest opacity-70 mb-1">{k.label}</div>
+                    <div className="text-3xl font-bold">{k.val}</div>
+                    <div className="text-xs opacity-60 mt-1">{k.sub}</div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+
+          {/* Liste datastores triée par criticité */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-bold text-gray-800">Datastores ({datastores.length})</h3>
+              <div className="flex items-center gap-4 text-xs text-gray-400">
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"/>Sain (&lt;60%)</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block"/>Modere (60-80%)</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block"/>Critique (&gt;=80%)</span>
+              </div>
+            </div>
+            <div className="space-y-3">
+              {[...datastores].sort((a,b)=>{
+                const pa=Math.round(a.inUseMib/(a.capMib||1)*100);
+                const pb=Math.round(b.inUseMib/(b.capMib||1)*100);
+                return pb-pa;
+              }).map((d,i)=><DatastoreCard key={i} ds={d}/>)}
+            </div>
+          </div>
+
+          {/* Insights stockage */}
+          {insights.filter(i=>i.id&&i.id.includes&&(i.id.includes("storage")||i.id.includes("ds"))).length>0&&(
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <h3 className="text-sm font-bold text-gray-800 mb-3">Storage Insights</h3>
+              <div className="space-y-2">
+                {insights.map(i=><OptimizationItem key={i.id} insight={i}/>)}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab==="network"&&(
+        <div className="space-y-4">
+          {vlans.length>0&&(
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <h3 className="text-sm font-bold text-gray-800 mb-4">VLANs / Port Groups ({vlans.length})</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-gray-100">
+                      {["Port Group","Switch","VLAN ID","Ports","Vitesse"].map(col=>(
+                        <th key={col} className="text-left py-2 px-3 text-gray-400 font-semibold uppercase tracking-wide">{col}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {vlans.map((v,i)=>(
+                      <tr key={i} className={"border-b border-gray-50 "+(i%2===0?"":"bg-gray-50/50")}>
+                        <td className="py-2 px-3 font-semibold text-gray-800">{v.name}</td>
+                        <td className="py-2 px-3 font-mono text-gray-500">{v.switch}</td>
+                        <td className="py-2 px-3">
+                          <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-mono font-semibold">{v.vlan===0?"Trunk":v.vlan}</span>
+                        </td>
+                        <td className="py-2 px-3 text-gray-500">{v.ports||"—"}</td>
+                        <td className="py-2 px-3 text-gray-500">{v.speed?v.speed+" Gbps":"—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+          {vSwitches.length>0&&(
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <h3 className="text-sm font-bold text-gray-800 mb-4">vSwitches ({vSwitches.length})</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-gray-100">
+                      {["Host","Switch","MTU","Port Groups"].map(col=>(
+                        <th key={col} className="text-left py-2 px-3 text-gray-400 font-semibold uppercase tracking-wide">{col}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {vSwitches.map((sw,i)=>(
+                      <tr key={i} className={"border-b border-gray-50 "+(i%2===0?"":"bg-gray-50/50")}>
+                        <td className="py-2 px-3 text-gray-500">{sw.host}</td>
+                        <td className="py-2 px-3 font-semibold text-gray-800">{sw.name}</td>
+                        <td className="py-2 px-3 font-mono text-gray-500">{sw.mtu}</td>
+                        <td className="py-2 px-3">
+                          <div className="flex flex-wrap gap-1">
+                            {(sw.portGroups||[]).map((pg,j)=>(
+                              <span key={j} className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full text-xs font-mono">
+                                {pg.name}{pg.vlan!==null&&pg.vlan!==undefined?" ("+pg.vlan+")":""}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+          {dvSwitches.length>0&&(
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <h3 className="text-sm font-bold text-gray-800 mb-4">Distributed vSwitches ({dvSwitches.length})</h3>
+              {dvSwitches.map((dv,i)=>(
+                <div key={i} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
+                  <div>
+                    <div className="text-sm font-semibold text-gray-800">{dv.name} <span className="text-xs text-gray-400 font-normal">v{dv.version}</span></div>
+                    <div className="text-xs text-gray-400 mt-0.5">{dv.hosts}</div>
+                  </div>
+                  <div className="text-right text-xs text-gray-500 font-mono">
+                    <div>{dv.vms} VMs · {dv.ports} ports</div>
+                    <div>MTU {dv.mtu}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {vlans.length===0&&vSwitches.length===0&&dvSwitches.length===0&&(
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 text-center py-12">
+              <div className="text-gray-400 text-sm">Aucune donnee reseau detectee</div>
+            </div>
+          )}
         </div>
       )}
 
@@ -402,12 +875,6 @@ export default function ClusterOverviewDashboard({
             ?<div className="text-sm text-gray-400 text-center py-8">Aucune recommandation — infrastructure saine</div>
             :<div className="space-y-3">{[...criticals,...warnings,...infos].map(i=><OptimizationItem key={i.id} insight={i}/>)}</div>
           }
-        </div>
-      )}
-
-      {["storage","network"].includes(activeTab)&&(
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 text-center py-12">
-          <div className="text-gray-400 text-sm">Onglet {activeTab} — disponible prochainement</div>
         </div>
       )}
     </div>

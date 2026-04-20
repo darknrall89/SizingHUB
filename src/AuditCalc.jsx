@@ -365,6 +365,13 @@ Reponds UNIQUEMENT avec le JSON, sans markdown ni explication.`;
                 clusterSummary={vm.clusterSummary}
                 hosts={vm.hosts}
                 insights={vm.insights}
+                osDistrib={vm.osDistrib}
+                datastores={vm.datastores}
+                vlans={vm.vlans}
+                vSwitches={vm.vSwitches}
+                dvSwitches={vm.dvSwitches}
+                vmOffList={vm.vmOffList}
+                uniquePortGroups={vm.uniquePortGroups}
               />
             );
           })()}
