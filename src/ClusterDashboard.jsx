@@ -153,6 +153,28 @@ const OptimizationItem = ({ insight }) => {
   );
 };
 
+// ── Memory helpers ───────────────────────────────────────────────────────────
+const MemoryNodeVisual = ({ health="healthy" }) => {
+  const c = health==="critical"?"#f87171":health==="warning"?"#fbbf24":"#60a5fa";
+  return (
+    <svg viewBox="0 0 56 56" className="w-full h-full" fill="none">
+      <rect x="4" y="8"  width="48" height="12" rx="3" fill={c} opacity="0.12"/>
+      <rect x="4" y="8"  width="48" height="12" rx="3" stroke={c} strokeWidth="1.5"/>
+      {[8,16,24,32,40].map(x=>(
+        <rect key={x} x={x} y="11" width="5" height="6" rx="1" fill={c} opacity="0.35"/>
+      ))}
+      <rect x="4" y="24" width="48" height="12" rx="3" fill={c} opacity="0.08"/>
+      <rect x="4" y="24" width="48" height="12" rx="3" stroke={c} strokeWidth="1.5" opacity="0.7"/>
+      {[8,16,24,32].map(x=>(
+        <rect key={x} x={x} y="27" width="5" height="6" rx="1" fill={c} opacity="0.2"/>
+      ))}
+      <rect x="4" y="40" width="48" height="8" rx="3" fill={c} opacity="0.05"/>
+      <rect x="4" y="40" width="48" height="8" rx="3" stroke={c} strokeWidth="1.5" opacity="0.5"/>
+      <rect x="8" y="43" width="20" height="2" rx="1" fill={c} opacity="0.15"/>
+    </svg>
+  );
+};
+
 // ── Compute helpers ──────────────────────────────────────────────────────────
 const ServerNodeVisual = ({ health="healthy" }) => {
   const borderColor = health==="critical"?"#ef4444":health==="warning"?"#f59e0b":"#3b82f6";
@@ -434,6 +456,14 @@ export const mapRvToolsAnalysisToClusterViewModel = (rv) => {
     insights,
     osDistrib: rv.osDistrib || [],
     datastores: rv.datastores || [],
+    topMemoryConsumers: (rv.hosts||[]).flatMap(h=>(h.vms||[]).map(v=>({
+      id: v.name,
+      name: v.name,
+      hostName: h.shortName,
+      memoryGb: v.ramGo||0,
+      os: v.os||"N/A",
+      powerState: v.powerstate||"poweredOn",
+    }))).filter(v=>v.powerState==="poweredOn").sort((a,b)=>b.memoryGb-a.memoryGb).slice(0,8),
     vlans: rv.vlans || [],
     vSwitches: rv.vSwitches || [],
     dvSwitches: rv.dvSwitches || [],
@@ -453,7 +483,7 @@ const TABS = [
 
 export default function ClusterOverviewDashboard({
   platformContext={}, clusterSummary={}, hosts=[], insights=[],
-  osDistrib=[], datastores=[], vlans=[], vSwitches=[], dvSwitches=[], vmOffList=[], uniquePortGroups=[],
+  osDistrib=[], datastores=[], vlans=[], vSwitches=[], dvSwitches=[], vmOffList=[], uniquePortGroups=[], topMemoryConsumers=[],
 }) {
   const [activeTab, setActiveTab] = useState("overview");
   const sortedHosts = [...hosts].sort((a,b)=>
@@ -660,60 +690,105 @@ export default function ClusterOverviewDashboard({
 
       {activeTab==="memory"&&(
         <div className="space-y-4">
+          {/* KPIs Memory */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              {label:"RAM physique totale", val:formatRam(clusterSummary.totalRamGb),        sub:"cluster",              bg:"bg-gradient-to-br from-blue-500 to-blue-700"},
+              {label:"RAM allouee VMs",     val:clusterSummary.allocatedRamDisplay,           sub:"VMs poweredOn",        bg:"bg-gradient-to-br from-violet-500 to-violet-700"},
+              {label:"Oversubscription",    val:clusterSummary.ramOversubscription||"N/A",    sub:"ratio alloue/physique",bg:"bg-gradient-to-br from-slate-500 to-slate-700"},
+              {label:"Hosts en tension",    val:hosts.filter(h=>(h.ramUsagePercent||0)>=60).length, sub:"RAM >= 60%",   bg:hosts.filter(h=>(h.ramUsagePercent||0)>=60).length>0?"bg-gradient-to-br from-amber-500 to-amber-700":"bg-gradient-to-br from-emerald-500 to-emerald-700"},
+            ].map(k=>(
+              <div key={k.label} className={"rounded-2xl p-4 text-white "+k.bg}>
+                <div className="text-xs font-semibold uppercase tracking-widest opacity-70 mb-1">{k.label}</div>
+                <div className="text-2xl font-bold">{k.val}</div>
+                <div className="text-xs opacity-60 mt-1">{k.sub}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Hosts RAM */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <h3 className="text-sm font-bold text-gray-800 mb-4">Memory — Utilisation RAM par host</h3>
-            <div className="space-y-4">
-              {sortedHosts.map(h=>(
-                <div key={h.id} className="p-4 rounded-xl bg-gray-50">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 bg-orange-100 rounded-lg flex items-center justify-center">
-                        <Server size={12} className="text-orange-500"/>
-                      </div>
-                      <span className="text-sm font-semibold text-gray-800">{h.name}</span>
-                      <span className="text-xs text-gray-400">{formatRam(h.totalRamGb)} physique</span>
+            <div className="space-y-3">
+              {[...hosts].sort((a,b)=>(b.ramUsagePercent||0)-(a.ramUsagePercent||0)).map(h=>{
+                const tone   = getUsageTone(h.ramUsagePercent||0);
+                const usedGb = Math.round((h.ramUsagePercent||0)*h.totalRamGb/100);
+                const freeGb = h.totalRamGb - usedGb;
+                const health = (h.ramUsagePercent||0)>=80?"critical":(h.ramUsagePercent||0)>=60?"warning":"healthy";
+                return (
+                  <div key={h.id} className={"flex items-center gap-4 p-4 rounded-xl border transition-all hover:shadow-sm "+
+                    (health==="critical"?"border-red-200 bg-red-50/20":health==="warning"?"border-amber-200 bg-amber-50/10":"border-gray-100 bg-gray-50")}>
+                    <div className="w-14 h-14 flex-shrink-0">
+                      <MemoryNodeVisual health={health}/>
                     </div>
-                    <span className={getUsageTone(h.ramUsagePercent||0).color+" text-sm font-bold"}>{h.ramUsagePercent||0}%</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-bold text-gray-800 truncate">{h.name}</span>
+                          <span className="text-xs text-gray-400">{formatRam(h.totalRamGb)} total</span>
+                          {(h.ramUsagePercent||0)>=80&&<span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-semibold">Critique</span>}
+                        </div>
+                        <span className={tone.color+" text-base font-bold ml-4"}>{h.ramUsagePercent||0}%</span>
+                      </div>
+                      <div className="relative w-full h-3 bg-gray-100 rounded-full overflow-hidden mb-1.5">
+                        <div className={"h-full rounded-full transition-all "+((h.ramUsagePercent||0)>=80?"bg-red-400":(h.ramUsagePercent||0)>=60?"bg-amber-400":"bg-blue-400")} style={{width:Math.min(h.ramUsagePercent||0,100)+"%"}}/>
+                        <div className="absolute top-0 bottom-0 w-px bg-amber-400 opacity-60" style={{left:"60%"}}/>
+                        <div className="absolute top-0 bottom-0 w-px bg-red-400 opacity-60" style={{left:"80%"}}/>
+                      </div>
+                      <div className="flex justify-between text-xs text-gray-400">
+                        <span>Utilise : <strong className="text-gray-600">{formatRam(usedGb)}</strong></span>
+                        <span>Libre : <strong className="text-gray-600">{formatRam(freeGb)}</strong></span>
+                      </div>
+                      {h.warningMessage&&<div className="mt-1 text-xs text-red-500 font-medium">{h.warningMessage}</div>}
+                    </div>
                   </div>
-                  <UsageBar pct={h.ramUsagePercent||0} color="bg-orange-400"/>
-                  <div className="flex justify-between mt-1.5 text-xs text-gray-400">
-                    <span>Utilise : {formatRam(Math.round((h.ramUsagePercent||0)*h.totalRamGb/100))}</span>
-                    <span>Libre : {formatRam(Math.round((1-(h.ramUsagePercent||0)/100)*h.totalRamGb))}</span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
-          {vmOffList.length>0&&(
+
+          {/* Top Memory Consumers */}
+          {topMemoryConsumers.length>0&&(
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-              <h3 className="text-sm font-bold text-gray-800 mb-1">VMs eteintes ({vmOffList.length})</h3>
-              <p className="text-xs text-gray-400 mb-4">Ressources recuperables si decommissionnement</p>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-gray-100">
-                      {["Nom VM","Host","vCPU","RAM","Derniere MAJ","Statut"].map(col=>(
-                        <th key={col} className="text-left py-2 px-2 text-gray-400 font-semibold uppercase tracking-wide text-xs">{col}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {vmOffList.map((v,i)=>(
-                      <tr key={i} className={"border-b border-gray-50 "+(i%2===0?"":"bg-gray-50/50")}>
-                        <td className="py-2 px-2 font-semibold text-gray-800">{v.name}</td>
-                        <td className="py-2 px-2 text-gray-500">{v.host}</td>
-                        <td className="py-2 px-2 font-mono text-gray-600">{v.cpu}</td>
-                        <td className="py-2 px-2 font-mono text-gray-600">{v.ramGo} Go</td>
-                        <td className="py-2 px-2 text-gray-500">{v.powerOn?new Date(v.powerOn).toLocaleDateString("fr-FR"):v.creationDate?new Date(v.creationDate).toLocaleDateString("fr-FR"):"Jamais"}</td>
-                        <td className="py-2 px-2">
-                          {v.daysSince===null?<span className="bg-red-100 text-red-600 px-2 py-0.5 rounded-full text-xs font-medium">Jamais allumee</span>
-                          :v.daysSince>20?<span className="bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full text-xs font-medium">{v.daysSince}j</span>
-                          :<span className="bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full text-xs font-medium">{v.daysSince}j</span>}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <h3 className="text-sm font-bold text-gray-800 mb-1">Top Memory Consumers</h3>
+              <p className="text-xs text-gray-400 mb-4">VMs les plus consommatrices de RAM (poweredOn)</p>
+              <div className="space-y-2">
+                {topMemoryConsumers.map((v,i)=>{
+                  const maxMem = topMemoryConsumers[0]?.memoryGb||1;
+                  const pct    = Math.round(v.memoryGb/maxMem*100);
+                  const isWin  = (v.os||"").toLowerCase().includes("windows");
+                  const barColor = isWin?"bg-blue-400":"bg-orange-400";
+                  return (
+                    <div key={v.id||i} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-all">
+                      <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <Database size={14} className="text-orange-500"/>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <div>
+                            <span className="text-xs font-bold text-gray-800 truncate block">{v.name}</span>
+                            {v.hostName&&<span className="text-xs text-gray-400">{v.hostName}</span>}
+                          </div>
+                          <span className="text-sm font-bold text-orange-600 ml-2 whitespace-nowrap">{formatRam(v.memoryGb)}</span>
+                        </div>
+                        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                          <div className={"h-full rounded-full "+barColor} style={{width:pct+"%"}}/>
+                        </div>
+                      </div>
+                      <span className="text-xs text-gray-400 w-8 text-right">#{i+1}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Memory Insights */}
+          {insights.length>0&&(
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <h3 className="text-sm font-bold text-gray-800 mb-3">Memory Insights</h3>
+              <div className="space-y-2">
+                {insights.map(i=><OptimizationItem key={i.id} insight={i}/>)}
               </div>
             </div>
           )}
