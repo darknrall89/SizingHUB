@@ -374,6 +374,7 @@ Reponds UNIQUEMENT avec le JSON, sans markdown ni explication.`;
                 uniquePortGroups={vm.uniquePortGroups}
                 topMemoryConsumers={vm.topMemoryConsumers}
                 networkData={vm.networkData}
+                optimizationData={vm.optimizationData}
               />
             );
           })()}

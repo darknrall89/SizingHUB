@@ -2,7 +2,7 @@ import { useState } from "react";
 import {
   Server, Cpu, HardDrive, AlertTriangle,
   CheckCircle, AlertCircle, Info, TrendingDown,
-  Activity, Database, Network, Settings, MemoryStick
+  Activity, Database, Network, Settings, MemoryStick, Zap
 } from "lucide-react";
 
 const getUsageTone = (pct) => {
@@ -486,6 +486,104 @@ export const mapRvToolsAnalysisToClusterViewModel = (rv) => {
     })),
     insights,
     osDistrib: rv.osDistrib || [],
+    optimizationData: (()=>{
+      const vmOff20 = rv.vmOffList||[];
+      const criticalHosts = (rv.hosts||[]).filter(h=>(h.ramUsagePct||0)>=80||(h.cpuUsagePct||0)>=80);
+      const criticalDs = (rv.datastores||[]).filter(d=>Math.round(d.inUseMib/(d.capMib||1)*100)>=80);
+      const avgCpu = (rv.hosts||[]).length>0?Math.round((rv.hosts||[]).reduce((s,h)=>s+(h.cpuUsagePct||0),0)/(rv.hosts||[]).length):0;
+      const avgRam = (rv.hosts||[]).length>0?Math.round((rv.hosts||[]).reduce((s,h)=>s+(h.ramUsagePct||0),0)/(rv.hosts||[]).length):0;
+
+      // Score 0-100
+      let score = 100;
+      if (criticalHosts.length>0) score -= criticalHosts.length*15;
+      if (vmOff20.length>0) score -= Math.min(vmOff20.length*3, 20);
+      if (criticalDs.length>0) score -= criticalDs.length*10;
+      const maxCpu = Math.max(...(rv.hosts||[]).map(h=>h.cpuUsagePct||0),0);
+      const minCpu = Math.min(...(rv.hosts||[]).map(h=>h.cpuUsagePct||0),100);
+      if (maxCpu-minCpu>30) score -= 10;
+      score = Math.max(0, Math.min(100, score));
+
+      const reclaimCpu = vmOff20.reduce((s,v)=>s+(v.cpu||0),0);
+      const reclaimRam = vmOff20.reduce((s,v)=>s+(v.ramGo||0),0);
+      const reclaimStorage = vmOff20.reduce((s,v)=>s+(v.diskGo||0),0)/1024;
+
+      const recommendations = [];
+      if (vmOff20.length>0) recommendations.push({
+        id:"idle-vms", category:"cleanup", severity:"high",
+        title:"Supprimer les VMs inactives",
+        description:vmOff20.length+" VMs eteintes depuis plus de 20 jours consomment des ressources allouees.",
+        recommendation:"Auditer et decommissionner ces VMs pour liberer des ressources.",
+        estimatedGainCpu:reclaimCpu, estimatedGainRam:reclaimRam, estimatedGainStorage:parseFloat(reclaimStorage.toFixed(1)),
+        affectedObjectsCount:vmOff20.length,
+      });
+      if (criticalHosts.length>0) recommendations.push({
+        id:"host-pressure", category:"balancing", severity:"critical",
+        title:"Reequilibrer la charge des hosts",
+        description:criticalHosts.length+" host(s) depassent 80% d utilisation RAM ou CPU.",
+        recommendation:"Migrer des VMs vers les hosts moins charges via vMotion.",
+        estimatedGainCpu:0, estimatedGainRam:0, estimatedGainStorage:0,
+        affectedObjectsCount:criticalHosts.length,
+      });
+      if (criticalDs.length>0) recommendations.push({
+        id:"storage-critical", category:"risk", severity:"critical",
+        title:"Datastores en saturation",
+        description:criticalDs.length+" datastore(s) depassent 80% de capacite.",
+        recommendation:"Etendre la capacite ou migrer des VMs vers d autres datastores.",
+        estimatedGainCpu:0, estimatedGainRam:0, estimatedGainStorage:0,
+        affectedObjectsCount:criticalDs.length,
+      });
+      if (maxCpu-minCpu>30) recommendations.push({
+        id:"cpu-imbalance", category:"balancing", severity:"medium",
+        title:"Desequilibre CPU detecte",
+        description:"Ecart de "+Math.round(maxCpu-minCpu)+"% entre le host le plus et le moins charge.",
+        recommendation:"Redistribuer les VMs pour equilibrer la charge CPU.",
+        estimatedGainCpu:0, estimatedGainRam:0, estimatedGainStorage:0,
+        affectedObjectsCount:(rv.hosts||[]).length,
+      });
+
+      const quickWins = [];
+      if (vmOff20.length>0) quickWins.push({
+        id:"qw-vms", title:"Supprimer "+vmOff20.length+" VMs inactives",
+        description:"Liberation immediate de "+reclaimRam+" Go RAM et "+reclaimCpu+" vCPU.",
+        gain:reclaimRam+" Go RAM · "+reclaimCpu+" vCPU", effortLevel:"low",
+      });
+      if (criticalHosts.length>0) quickWins.push({
+        id:"qw-vmotion", title:"Reequilibrer via vMotion",
+        description:"Deplacer des VMs des hosts satures vers les hosts libres.",
+        gain:"Reduction pression RAM/CPU", effortLevel:"low",
+      });
+      if (criticalDs.length>0) quickWins.push({
+        id:"qw-storage", title:"Liberer de l espace sur "+criticalDs.length+" datastore(s)",
+        description:"Supprimer les snapshots anciens et les VMs orphelines.",
+        gain:"Liberer de l espace critique", effortLevel:"medium",
+      });
+
+      const risks = [];
+      criticalHosts.forEach(h=>risks.push({
+        id:"risk-"+h.shortName, severity:"critical",
+        title:"Host "+h.shortName+" en saturation",
+        description:"CPU "+(h.cpuUsagePct||0)+"% · RAM "+(h.ramUsagePct||0)+"% — risque de contention imminent.",
+      }));
+      criticalDs.forEach(d=>risks.push({
+        id:"risk-ds-"+d.name, severity:"critical",
+        title:"Datastore "+d.name.substring(0,30)+" critique",
+        description:"Utilisation a "+Math.round(d.inUseMib/(d.capMib||1)*100)+"% — risque de saturation.",
+      }));
+
+      return {
+        score, infraStatus:score>=80?"healthy":score>=60?"warning":"critical",
+        optimizationPotentialPercent:Math.round((1-score/100)*100),
+        totalVmCount:rv.vmsTotal||0,
+        idleVmCount:vmOff20.length,
+        recommendations, quickWins, risks,
+        savings:{
+          reclaimableCpu:reclaimCpu,
+          reclaimableRamGb:reclaimRam,
+          reclaimableStorageTb:parseFloat(reclaimStorage.toFixed(1)),
+          potentialHostReduction:criticalHosts.length===0&&(rv.hosts||[]).length>2?1:0,
+        },
+      };
+    })(),
     networkData: {
       vlans: rv.vlans || [],
       vSwitches: rv.vSwitches || [],
@@ -529,7 +627,7 @@ const TABS = [
 
 export default function ClusterOverviewDashboard({
   platformContext={}, clusterSummary={}, hosts=[], insights=[],
-  osDistrib=[], datastores=[], vlans=[], vSwitches=[], dvSwitches=[], vmOffList=[], uniquePortGroups=[], topMemoryConsumers=[], networkData={},
+  osDistrib=[], datastores=[], vlans=[], vSwitches=[], dvSwitches=[], vmOffList=[], uniquePortGroups=[], topMemoryConsumers=[], networkData={}, optimizationData={},
 }) {
   const [activeTab, setActiveTab] = useState("overview");
   const sortedHosts = [...hosts].sort((a,b)=>
@@ -1121,15 +1219,174 @@ export default function ClusterOverviewDashboard({
         );
       })()}
 
-      {activeTab==="optimization"&&(
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <h3 className="text-sm font-bold text-gray-800 mb-4">Optimization Insights</h3>
-          {insights.length===0
-            ?<div className="text-sm text-gray-400 text-center py-8">Aucune recommandation — infrastructure saine</div>
-            :<div className="space-y-3">{[...criticals,...warnings,...infos].map(i=><OptimizationItem key={i.id} insight={i}/>)}</div>
-          }
-        </div>
-      )}
+      {activeTab==="optimization"&&(()=>{
+        const od = optimizationData||{};
+        const score = od.score||0;
+        const scoreColor = score>=80?"text-emerald-500":score>=60?"text-amber-500":"text-red-500";
+        const scoreBg = score>=80?"bg-emerald-500":score>=60?"bg-amber-500":"bg-red-500";
+        const statusLabel = score>=80?"Sain":score>=60?"Warning":"Critique";
+        const recs = od.recommendations||[];
+        const qw = od.quickWins||[];
+        const risks = od.risks||[];
+        const savings = od.savings||{};
+        const catColors = {
+          cleanup:"bg-green-100 text-green-700",
+          balancing:"bg-blue-100 text-blue-700",
+          risk:"bg-red-100 text-red-700",
+          rightsizing:"bg-orange-100 text-orange-700",
+          consolidation:"bg-violet-100 text-violet-700",
+        };
+        const sevColors = {
+          critical:"border-red-200 bg-red-50/30",
+          high:"border-orange-200 bg-orange-50/20",
+          medium:"border-amber-200 bg-amber-50/10",
+          low:"border-gray-100 bg-gray-50",
+        };
+        const effortColors = {low:"bg-emerald-100 text-emerald-700",medium:"bg-amber-100 text-amber-700",high:"bg-red-100 text-red-700"};
+
+        return (
+          <div className="space-y-4">
+            {/* Score + KPIs */}
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+              {/* Score */}
+              <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col items-center justify-center">
+                <div className="text-sm font-semibold text-gray-500 mb-3">Optimization Score</div>
+                <div className="relative w-32 h-32 mb-3">
+                  <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+                    <circle cx="50" cy="50" r="40" fill="none" stroke="#f1f5f9" strokeWidth="10"/>
+                    <circle cx="50" cy="50" r="40" fill="none" stroke={score>=80?"#10b981":score>=60?"#f59e0b":"#ef4444"} strokeWidth="10"
+                      strokeDasharray={`${score*2.51} 251`} strokeLinecap="round"/>
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className={"text-3xl font-bold "+scoreColor}>{score}</span>
+                    <span className="text-xs text-gray-400">/ 100</span>
+                  </div>
+                </div>
+                <div className={"text-sm font-bold "+scoreColor}>{statusLabel}</div>
+                <div className="text-xs text-gray-400 mt-1">{od.optimizationPotentialPercent||0}% d optimisation possible</div>
+              </div>
+              {/* KPIs */}
+              <div className="lg:col-span-3 grid grid-cols-2 gap-3">
+                {[
+                  {label:"VMs inactives",     val:od.idleVmCount||0,    sub:"depuis +20 jours",      icon:"🔴", bg:"bg-red-50",   text:"text-red-600"},
+                  {label:"Total VMs",          val:od.totalVmCount||0,   sub:"inventaire complet",    icon:"🖥️", bg:"bg-blue-50",  text:"text-blue-600"},
+                  {label:"Hosts en tension",   val:risks.length,         sub:"RAM ou CPU critique",   icon:"⚠️", bg:"bg-amber-50", text:"text-amber-600"},
+                  {label:"Recommandations",    val:recs.length,          sub:"actions identifiees",   icon:"💡", bg:"bg-violet-50",text:"text-violet-600"},
+                ].map(k=>(
+                  <div key={k.label} className={"rounded-xl p-4 "+k.bg}>
+                    <div className="text-lg mb-1">{k.icon}</div>
+                    <div className={"text-2xl font-bold "+k.text}>{k.val}</div>
+                    <div className="text-xs font-semibold text-gray-700 mt-0.5">{k.label}</div>
+                    <div className="text-xs text-gray-400">{k.sub}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Quick Wins + Savings */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Quick Wins */}
+              {qw.length>0&&(
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                  <h3 className="text-sm font-bold text-gray-800 mb-3">Quick Wins</h3>
+                  <div className="space-y-3">
+                    {qw.map(q=>(
+                      <div key={q.id} className="flex items-start gap-3 p-3 rounded-xl bg-emerald-50 border border-emerald-100">
+                        <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <Zap size={14} className="text-emerald-600"/>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-bold text-gray-800">{q.title}</div>
+                          <div className="text-xs text-gray-500 mt-0.5">{q.description}</div>
+                          <div className="flex items-center gap-2 mt-1.5">
+                            <span className="text-xs font-semibold text-emerald-600">{q.gain}</span>
+                            <span className={"text-xs px-2 py-0.5 rounded-full font-medium "+(effortColors[q.effortLevel]||effortColors.medium)}>
+                              Effort {q.effortLevel}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Potential Savings */}
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                <h3 className="text-sm font-bold text-gray-800 mb-3">Potential Savings</h3>
+                <div className="space-y-3">
+                  {[
+                    {label:"CPU recuperable",     val:(savings.reclaimableCpu||0)+" vCPU",     color:"text-blue-600",   bg:"bg-blue-50"},
+                    {label:"RAM recuperable",      val:(savings.reclaimableRamGb||0)+" Go",      color:"text-orange-500", bg:"bg-orange-50"},
+                    {label:"Stockage recuperable", val:(savings.reclaimableStorageTb||0)+" To",  color:"text-emerald-600",bg:"bg-emerald-50"},
+                    {label:"Reduction hosts",      val:savings.potentialHostReduction>0?(savings.potentialHostReduction+" host(s)"):"Aucune",color:"text-violet-600",bg:"bg-violet-50"},
+                  ].map(k=>(
+                    <div key={k.label} className={"flex items-center justify-between p-3 rounded-xl "+k.bg}>
+                      <span className="text-sm text-gray-600">{k.label}</span>
+                      <span className={"text-lg font-bold "+k.color}>{k.val}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Recommendations */}
+            {recs.length>0&&(
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                <h3 className="text-sm font-bold text-gray-800 mb-3">Recommendations</h3>
+                <div className="space-y-3">
+                  {recs.map(r=>(
+                    <div key={r.id} className={"flex items-start gap-4 p-4 rounded-xl border "+( sevColors[r.severity]||sevColors.low)}>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <span className={"text-xs px-2 py-0.5 rounded-full font-semibold "+(catColors[r.category]||catColors.cleanup)}>{r.category}</span>
+                          <span className="text-sm font-bold text-gray-800">{r.title}</span>
+                        </div>
+                        <div className="text-xs text-gray-500 mb-2">{r.description}</div>
+                        <div className="text-xs text-gray-600 font-medium">{"→ "+r.recommendation}</div>
+                        {(r.estimatedGainCpu>0||r.estimatedGainRam>0||r.estimatedGainStorage>0)&&(
+                          <div className="flex gap-3 mt-2">
+                            {r.estimatedGainCpu>0&&<span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">{r.estimatedGainCpu} vCPU</span>}
+                            {r.estimatedGainRam>0&&<span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-medium">{r.estimatedGainRam} Go RAM</span>}
+                            {r.estimatedGainStorage>0&&<span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium">{r.estimatedGainStorage} To</span>}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-xs text-gray-400 whitespace-nowrap">{r.affectedObjectsCount} objet(s)</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Risks */}
+            {risks.length>0&&(
+              <div className="bg-white rounded-2xl border border-red-100 shadow-sm p-5">
+                <h3 className="text-sm font-bold text-gray-800 mb-3">Risks</h3>
+                <div className="space-y-2">
+                  {risks.map(r=>(
+                    <div key={r.id} className="flex items-start gap-3 p-3 rounded-xl bg-red-50 border border-red-100">
+                      <AlertTriangle size={15} className="text-red-500 flex-shrink-0 mt-0.5"/>
+                      <div>
+                        <div className="text-sm font-bold text-gray-800">{r.title}</div>
+                        <div className="text-xs text-gray-500 mt-0.5">{r.description}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {recs.length===0&&qw.length===0&&risks.length===0&&(
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 text-center py-12">
+                <div className="text-4xl mb-3">✅</div>
+                <div className="text-sm font-semibold text-gray-700">Infrastructure saine</div>
+                <div className="text-xs text-gray-400 mt-1">Aucune recommandation d optimisation identifiee</div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {activeTab==="vms"&&(
         <div className="space-y-4">
