@@ -461,6 +461,7 @@ export const mapRvToolsAnalysisToClusterViewModel = (rv) => {
       name: v.name,
       hostName: h.shortName,
       memoryGb: v.ramGo||0,
+      vcpu: v.vcpu||0,
       os: v.os||"N/A",
       powerState: v.powerstate||"poweredOn",
     }))).filter(v=>v.powerState==="poweredOn").sort((a,b)=>b.memoryGb-a.memoryGb).slice(0,8),
@@ -477,6 +478,7 @@ const TABS = [
   {id:"compute",      label:"Compute",      icon:Cpu},
   {id:"memory",       label:"Memory",       icon:MemoryStick},
   {id:"storage",      label:"Storage",      icon:HardDrive},
+  {id:"vms",          label:"VMs",          icon:Activity},
   {id:"network",      label:"Network",      icon:Network},
   {id:"optimization", label:"Optimization", icon:Settings},
 ];
@@ -653,32 +655,34 @@ export default function ClusterOverviewDashboard({
             </div>
           </div>
 
-          {/* Distribution OS */}
-          {osDistrib.length>0&&(
+          {/* Top CPU Consumers */}
+          {topMemoryConsumers.length>0&&(
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-              <h3 className="text-sm font-bold text-gray-800 mb-4">Distribution OS ({osDistrib.reduce((s,[,c])=>s+c,0)} VMs)</h3>
-              <div className="space-y-3">
-                {osDistrib.map(([os,count])=>{
-                  const total = osDistrib.reduce((s,[,c])=>s+c,0);
-                  const pct   = Math.round(count/total*100);
-                  const isWin = os.toLowerCase().includes("windows");
-                  const isUbu = os.toLowerCase().includes("ubuntu");
-                  const isDeb = os.toLowerCase().includes("debian");
-                  const isLin = os.toLowerCase().includes("linux")||os.toLowerCase().includes("centos")||os.toLowerCase().includes("rocky");
-                  const barColor = isWin?"bg-blue-500":isUbu?"bg-orange-400":isDeb?"bg-rose-500":isLin?"bg-orange-300":"bg-gray-400";
-                  const textColor = isWin?"text-blue-600":isUbu?"text-orange-500":isDeb?"text-rose-500":isLin?"text-orange-400":"text-gray-500";
+              <h3 className="text-sm font-bold text-gray-800 mb-1">Top CPU Consumers</h3>
+              <p className="text-xs text-gray-400 mb-4">VMs les plus consommatrices de vCPU (poweredOn)</p>
+              <div className="space-y-2">
+                {[...topMemoryConsumers].sort((a,b)=>(b.vcpu||0)-(a.vcpu||0)).filter(v=>v.vcpu>0).slice(0,8).map((v,i)=>{
+                  const maxVcpu = Math.max(...topMemoryConsumers.map(x=>x.vcpu||0),1);
+                  const pct = Math.round((v.vcpu||0)/maxVcpu*100);
+                  const isWin = (v.os||"").toLowerCase().includes("windows");
                   return (
-                    <div key={os} className="flex items-center gap-3">
-                      <div className="flex-shrink-0"><OsIcon os={os}/></div>
+                    <div key={v.id||i} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-all">
+                      <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <Cpu size={14} className="text-blue-500"/>
+                      </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex justify-between text-xs mb-1.5">
-                          <span className="text-gray-700 font-medium truncate">{os}</span>
-                          <span className={textColor+" font-semibold ml-2 whitespace-nowrap"}>{count} VM{count>1?"s":""} ({pct}%)</span>
+                        <div className="flex items-center justify-between mb-1">
+                          <div>
+                            <span className="text-xs font-bold text-gray-800 truncate block">{v.name}</span>
+                            {v.hostName&&<span className="text-xs text-gray-400">{v.hostName}</span>}
+                          </div>
+                          <span className="text-sm font-bold text-blue-600 ml-2 whitespace-nowrap">{v.vcpu||0} vCPU</span>
                         </div>
-                        <div className="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden">
-                          <div className={"h-full rounded-full "+barColor} style={{width:pct+"%"}}/>
+                        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                          <div className={"h-full rounded-full "+(isWin?"bg-blue-400":"bg-indigo-400")} style={{width:pct+"%"}}/>
                         </div>
                       </div>
+                      <span className="text-xs text-gray-400 w-8 text-right">#{i+1}</span>
                     </div>
                   );
                 })}
@@ -950,6 +954,80 @@ export default function ClusterOverviewDashboard({
             ?<div className="text-sm text-gray-400 text-center py-8">Aucune recommandation — infrastructure saine</div>
             :<div className="space-y-3">{[...criticals,...warnings,...infos].map(i=><OptimizationItem key={i.id} insight={i}/>)}</div>
           }
+        </div>
+      )}
+
+      {activeTab==="vms"&&(
+        <div className="space-y-4">
+          {osDistrib.length>0&&(
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <h3 className="text-sm font-bold text-gray-800 mb-4">Distribution OS ({osDistrib.reduce((s,[,c])=>s+c,0)} VMs)</h3>
+              <div className="space-y-3">
+                {osDistrib.map(([os,count])=>{
+                  const total=osDistrib.reduce((s,[,c])=>s+c,0);
+                  const pct=Math.round(count/total*100);
+                  const isWin=os.toLowerCase().includes("windows");
+                  const isUbu=os.toLowerCase().includes("ubuntu");
+                  const isDeb=os.toLowerCase().includes("debian");
+                  const isLin=os.toLowerCase().includes("linux")||os.toLowerCase().includes("centos")||os.toLowerCase().includes("rocky");
+                  const barColor=isWin?"bg-blue-500":isUbu?"bg-orange-400":isDeb?"bg-rose-500":isLin?"bg-orange-300":"bg-gray-400";
+                  const textColor=isWin?"text-blue-600":isUbu?"text-orange-500":isDeb?"text-rose-500":isLin?"text-orange-400":"text-gray-500";
+                  return (
+                    <div key={os} className="flex items-center gap-3">
+                      <div className="flex-shrink-0"><OsIcon os={os}/></div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between text-xs mb-1.5">
+                          <span className="text-gray-700 font-medium truncate">{os}</span>
+                          <span className={textColor+" font-semibold ml-2 whitespace-nowrap"}>{count} VM{count>1?"s":""} ({pct}%)</span>
+                        </div>
+                        <div className="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div className={"h-full rounded-full "+barColor} style={{width:pct+"%"}}/>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {vmOffList.length>0&&(
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <h3 className="text-sm font-bold text-gray-800 mb-1">VMs eteintes ({vmOffList.length})</h3>
+              <p className="text-xs text-gray-400 mb-4">Ressources recuperables si decommissionnement</p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-gray-100">
+                      {["Nom VM","Host","vCPU","RAM","Derniere MAJ","Statut"].map(col=>(
+                        <th key={col} className="text-left py-2 px-2 text-gray-400 font-semibold uppercase tracking-wide">{col}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {vmOffList.map((v,i)=>(
+                      <tr key={i} className={"border-b border-gray-50 "+(i%2===0?"":"bg-gray-50/50")}>
+                        <td className="py-2 px-2 font-semibold text-gray-800">{v.name}</td>
+                        <td className="py-2 px-2 text-gray-500">{v.host}</td>
+                        <td className="py-2 px-2 font-mono text-gray-600">{v.cpu}</td>
+                        <td className="py-2 px-2 font-mono text-gray-600">{v.ramGo} Go</td>
+                        <td className="py-2 px-2 text-gray-500">{v.powerOn?new Date(v.powerOn).toLocaleDateString("fr-FR"):v.creationDate?new Date(v.creationDate).toLocaleDateString("fr-FR"):"Jamais"}</td>
+                        <td className="py-2 px-2">
+                          {v.daysSince===null?<span className="bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-medium">Jamais</span>
+                          :v.daysSince>20?<span className="bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full font-medium">{v.daysSince}j</span>
+                          :<span className="bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-medium">{v.daysSince}j</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+          {vmOffList.length===0&&osDistrib.length===0&&(
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 text-center py-12">
+              <div className="text-gray-400 text-sm">Aucune donnee VM disponible</div>
+            </div>
+          )}
         </div>
       )}
     </div>
