@@ -28,7 +28,7 @@ const formatStorage = (tb) => {
 const fmt = (v,f="—") => (v!==undefined&&v!==null?v:f);
 
 const UsageBar = ({ pct=0, color }) => (
-  <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+  <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
     <div className={"h-full rounded-full transition-all duration-500 "+(color||getUsageTone(pct).bg)} style={{width:Math.min(pct,100)+"%"}}/>
   </div>
 );
