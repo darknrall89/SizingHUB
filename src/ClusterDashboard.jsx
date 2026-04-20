@@ -244,6 +244,37 @@ const OsIcon = ({ os }) => {
   );
 };
 
+// ── Network helpers ──────────────────────────────────────────────────────────
+const NetworkNodeVisual = () => (
+  <svg viewBox="0 0 56 56" className="w-full h-full" fill="none">
+    <rect x="4" y="10" width="48" height="10" rx="3" fill="#3b82f6" opacity="0.12"/>
+    <rect x="4" y="10" width="48" height="10" rx="3" stroke="#3b82f6" strokeWidth="1.5"/>
+    {[8,14,20,26,32,38].map(x=>(
+      <rect key={x} x={x} y="13" width="4" height="4" rx="1" fill="#3b82f6" opacity="0.4"/>
+    ))}
+    <rect x="4" y="24" width="48" height="10" rx="3" fill="#3b82f6" opacity="0.08"/>
+    <rect x="4" y="24" width="48" height="10" rx="3" stroke="#3b82f6" strokeWidth="1.5" opacity="0.7"/>
+    {[8,14,20,26].map(x=>(
+      <rect key={x} x={x} y="27" width="4" height="4" rx="1" fill="#3b82f6" opacity="0.25"/>
+    ))}
+    <line x1="12" y1="34" x2="12" y2="42" stroke="#3b82f6" strokeWidth="1.5" opacity="0.5"/>
+    <line x1="28" y1="34" x2="28" y2="42" stroke="#3b82f6" strokeWidth="1.5" opacity="0.5"/>
+    <line x1="44" y1="34" x2="44" y2="42" stroke="#3b82f6" strokeWidth="1.5" opacity="0.5"/>
+    <rect x="8" y="42" width="8" height="6" rx="1.5" fill="#3b82f6" opacity="0.3"/>
+    <rect x="24" y="42" width="8" height="6" rx="1.5" fill="#3b82f6" opacity="0.3"/>
+    <rect x="40" y="42" width="8" height="6" rx="1.5" fill="#3b82f6" opacity="0.3"/>
+  </svg>
+);
+
+const getNetworkSegmentStyle = (name) => {
+  const n = (name||"").toLowerCase();
+  if (n.includes("vmotion"))    return {bg:"bg-violet-100",  text:"text-violet-700",  bar:"bg-violet-400",  label:"vMotion"};
+  if (n.includes("storage")||n.includes("san")||n.includes("iscsi")) return {bg:"bg-emerald-100", text:"text-emerald-700", bar:"bg-emerald-400", label:"Storage"};
+  if (n.includes("mgmt")||n.includes("management")||n.includes("adm")) return {bg:"bg-slate-100", text:"text-slate-600", bar:"bg-slate-400", label:"Management"};
+  if (n.includes("backup")||n.includes("veeam")) return {bg:"bg-purple-100", text:"text-purple-700", bar:"bg-purple-400", label:"Backup"};
+  return {bg:"bg-blue-100", text:"text-blue-700", bar:"bg-blue-400", label:"VM Network"};
+};
+
 // ── Storage helpers ──────────────────────────────────────────────────────────
 const getStorageHealth = (pct) => {
   if (pct >= 80) return { color:"text-red-600",   bar:"bg-red-500",   badge:"bg-red-100 text-red-700",   label:"Critique", border:"border-red-200" };
@@ -455,6 +486,19 @@ export const mapRvToolsAnalysisToClusterViewModel = (rv) => {
     })),
     insights,
     osDistrib: rv.osDistrib || [],
+    networkData: {
+      vlans: rv.vlans || [],
+      vSwitches: rv.vSwitches || [],
+      dvSwitches: rv.dvSwitches || [],
+      uniquePortGroups: rv.uniquePortGroups || [],
+      hostsNics: (rv.hosts||[]).map(h=>({
+        name: h.shortName,
+        nics: h.nics||0,
+        vSwitches: h.vSwitches||[],
+        cpuUsagePct: h.cpuUsagePct||0,
+        ramUsagePct: h.ramUsagePct||0,
+      })),
+    },
     datastores: rv.datastores || [],
     topMemoryConsumers: (rv.hosts||[]).flatMap(h=>(h.vms||[]).map(v=>({
       id: v.name,
@@ -485,7 +529,7 @@ const TABS = [
 
 export default function ClusterOverviewDashboard({
   platformContext={}, clusterSummary={}, hosts=[], insights=[],
-  osDistrib=[], datastores=[], vlans=[], vSwitches=[], dvSwitches=[], vmOffList=[], uniquePortGroups=[], topMemoryConsumers=[],
+  osDistrib=[], datastores=[], vlans=[], vSwitches=[], dvSwitches=[], vmOffList=[], uniquePortGroups=[], topMemoryConsumers=[], networkData={},
 }) {
   const [activeTab, setActiveTab] = useState("overview");
   const sortedHosts = [...hosts].sort((a,b)=>
@@ -857,95 +901,225 @@ export default function ClusterOverviewDashboard({
         </div>
       )}
 
-      {activeTab==="network"&&(
-        <div className="space-y-4">
-          {vlans.length>0&&(
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-              <h3 className="text-sm font-bold text-gray-800 mb-4">VLANs / Port Groups ({vlans.length})</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-gray-100">
-                      {["Port Group","Switch","VLAN ID","Ports","Vitesse"].map(col=>(
-                        <th key={col} className="text-left py-2 px-3 text-gray-400 font-semibold uppercase tracking-wide">{col}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {vlans.map((v,i)=>(
-                      <tr key={i} className={"border-b border-gray-50 "+(i%2===0?"":"bg-gray-50/50")}>
-                        <td className="py-2 px-3 font-semibold text-gray-800">{v.name}</td>
-                        <td className="py-2 px-3 font-mono text-gray-500">{v.switch}</td>
-                        <td className="py-2 px-3">
-                          <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-mono font-semibold">{v.vlan===0?"Trunk":v.vlan}</span>
-                        </td>
-                        <td className="py-2 px-3 text-gray-500">{v.ports||"—"}</td>
-                        <td className="py-2 px-3 text-gray-500">{v.speed?v.speed+" Gbps":"—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-          {vSwitches.length>0&&(
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-              <h3 className="text-sm font-bold text-gray-800 mb-4">vSwitches ({vSwitches.length})</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-gray-100">
-                      {["Host","Switch","MTU","Port Groups"].map(col=>(
-                        <th key={col} className="text-left py-2 px-3 text-gray-400 font-semibold uppercase tracking-wide">{col}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {vSwitches.map((sw,i)=>(
-                      <tr key={i} className={"border-b border-gray-50 "+(i%2===0?"":"bg-gray-50/50")}>
-                        <td className="py-2 px-3 text-gray-500">{sw.host}</td>
-                        <td className="py-2 px-3 font-semibold text-gray-800">{sw.name}</td>
-                        <td className="py-2 px-3 font-mono text-gray-500">{sw.mtu}</td>
-                        <td className="py-2 px-3">
-                          <div className="flex flex-wrap gap-1">
-                            {(sw.portGroups||[]).map((pg,j)=>(
-                              <span key={j} className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full text-xs font-mono">
-                                {pg.name}{pg.vlan!==null&&pg.vlan!==undefined?" ("+pg.vlan+")":""}
-                              </span>
-                            ))}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-          {dvSwitches.length>0&&(
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-              <h3 className="text-sm font-bold text-gray-800 mb-4">Distributed vSwitches ({dvSwitches.length})</h3>
-              {dvSwitches.map((dv,i)=>(
-                <div key={i} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
-                  <div>
-                    <div className="text-sm font-semibold text-gray-800">{dv.name} <span className="text-xs text-gray-400 font-normal">v{dv.version}</span></div>
-                    <div className="text-xs text-gray-400 mt-0.5">{dv.hosts}</div>
-                  </div>
-                  <div className="text-right text-xs text-gray-500 font-mono">
-                    <div>{dv.vms} VMs · {dv.ports} ports</div>
-                    <div>MTU {dv.mtu}</div>
-                  </div>
+      {activeTab==="network"&&(()=>{
+        const nd = networkData||{};
+        const hostsNics = nd.hostsNics||[];
+        const allVlans = nd.vlans||vlans||[];
+        const allVSwitches = nd.vSwitches||vSwitches||[];
+        const allDvSwitches = nd.dvSwitches||dvSwitches||[];
+        const allPGs = nd.uniquePortGroups||uniquePortGroups||[];
+        const totalNics = hostsNics.reduce((s,h)=>s+(h.nics||0),0);
+        const segments = [...new Map(allVlans.map(v=>[v.name,v])).values()];
+
+        return (
+          <div className="space-y-4">
+            {/* KPIs Réseau */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {[
+                {label:"Hosts connectes",    val:hostsNics.length||hosts.length, sub:"noeuds cluster",      bg:"bg-gradient-to-br from-blue-500 to-blue-700"},
+                {label:"NICs physiques",     val:totalNics,                       sub:"total cluster",       bg:"bg-gradient-to-br from-indigo-500 to-indigo-700"},
+                {label:"Port Groups",        val:allPGs.length||allVlans.length,  sub:"segments logiques",   bg:"bg-gradient-to-br from-violet-500 to-violet-700"},
+                {label:"vSwitches",          val:allVSwitches.length+allDvSwitches.length, sub:"standard + distribues", bg:"bg-gradient-to-br from-slate-500 to-slate-700"},
+              ].map(k=>(
+                <div key={k.label} className={"rounded-2xl p-4 text-white "+k.bg}>
+                  <div className="text-xs font-semibold uppercase tracking-widest opacity-70 mb-1">{k.label}</div>
+                  <div className="text-2xl font-bold">{k.val}</div>
+                  <div className="text-xs opacity-60 mt-1">{k.sub}</div>
                 </div>
               ))}
             </div>
-          )}
-          {vlans.length===0&&vSwitches.length===0&&dvSwitches.length===0&&(
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 text-center py-12">
-              <div className="text-gray-400 text-sm">Aucune donnee reseau detectee</div>
+
+            {/* Topologie simplifiée */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <h3 className="text-sm font-bold text-gray-800 mb-4">Network Overview</h3>
+              <div className="flex items-center gap-4 overflow-x-auto pb-2">
+                {/* Cluster */}
+                <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                  <div className="w-16 h-16 bg-blue-50 border-2 border-blue-200 rounded-xl flex items-center justify-center">
+                    <Server size={24} className="text-blue-500"/>
+                  </div>
+                  <span className="text-xs text-gray-500 font-medium">Cluster</span>
+                  <span className="text-xs text-gray-400">{hosts.length} hosts</span>
+                </div>
+                {/* Flèches */}
+                <div className="flex flex-col gap-1 flex-shrink-0">
+                  <div className="flex items-center gap-1">
+                    <div className="w-12 h-1.5 bg-gradient-to-r from-blue-400 to-blue-200 rounded-full"/>
+                    <div className="w-0 h-0 border-t-4 border-t-transparent border-b-4 border-b-transparent border-l-8 border-l-blue-400"/>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-12 h-1.5 bg-gradient-to-r from-orange-300 to-orange-100 rounded-full"/>
+                    <div className="w-0 h-0 border-t-4 border-t-transparent border-b-4 border-b-transparent border-l-8 border-l-orange-300"/>
+                  </div>
+                </div>
+                {/* Switches */}
+                <div className="flex flex-col gap-2 flex-shrink-0">
+                  {allVSwitches.length>0&&(
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5 text-xs">
+                      <div className="font-semibold text-blue-700">vSwitch ({allVSwitches.length})</div>
+                      <div className="text-blue-500">{[...new Set(allVSwitches.map(s=>s.name))].slice(0,2).join(", ")}</div>
+                    </div>
+                  )}
+                  {allDvSwitches.length>0&&(
+                    <div className="bg-violet-50 border border-violet-200 rounded-lg px-3 py-1.5 text-xs">
+                      <div className="font-semibold text-violet-700">dvSwitch ({allDvSwitches.length})</div>
+                      <div className="text-violet-500">{allDvSwitches[0]?.name}</div>
+                    </div>
+                  )}
+                </div>
+                {/* Flèche vers segments */}
+                <div className="flex items-center flex-shrink-0">
+                  <div className="w-8 h-px bg-gray-300"/>
+                  <div className="w-0 h-0 border-t-3 border-t-transparent border-b-3 border-b-transparent border-l-6 border-l-gray-300"/>
+                </div>
+                {/* Segments */}
+                <div className="flex flex-col gap-1.5 flex-shrink-0">
+                  {[...new Set(allVlans.map(v=>v.name))].slice(0,4).map(name=>{
+                    const style = getNetworkSegmentStyle(name);
+                    return (
+                      <div key={name} className={"flex items-center gap-2 px-3 py-1 rounded-lg border text-xs "+style.bg+" border-"+style.text.replace("text-","")}>
+                        <Network size={10} className={style.text}/>
+                        <span className={"font-medium "+style.text}>{name.length>20?name.substring(0,20)+"...":name}</span>
+                      </div>
+                    );
+                  })}
+                  {allPGs.slice(0,3).filter(pg=>!allVlans.find(v=>v.name===pg.portGroup)).map((pg,i)=>{
+                    const style = getNetworkSegmentStyle(pg.portGroup);
+                    return (
+                      <div key={i} className={"flex items-center gap-2 px-3 py-1 rounded-lg text-xs "+style.bg}>
+                        <Network size={10} className={style.text}/>
+                        <span className={"font-medium "+style.text}>{pg.portGroup.length>20?pg.portGroup.substring(0,20)+"...":pg.portGroup}</span>
+                        {pg.vlan!==null&&pg.vlan!==undefined&&<span className="text-gray-400">VLAN {pg.vlan}</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
-          )}
-        </div>
-      )}
+
+            {/* Host NICs */}
+            {hostsNics.length>0&&(
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                <h3 className="text-sm font-bold text-gray-800 mb-4">Host Network Usage</h3>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {hostsNics.map((h,i)=>(
+                    <div key={i} className="border border-gray-100 rounded-xl p-4 bg-gray-50">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-12 h-12 flex-shrink-0"><NetworkNodeVisual/></div>
+                        <div className="flex-1">
+                          <div className="text-sm font-bold text-gray-800">{h.name}</div>
+                          <div className="flex items-center gap-2 text-xs text-gray-400">
+                            <span>{h.nics||0} NICs physiques</span>
+                            {h.vSwitches&&h.vSwitches.length>0&&<span>· {h.vSwitches.join(", ")}</span>}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {Array.from({length:Math.min(h.nics||0,4)},(_,j)=>(
+                          <div key={j} className="bg-white rounded-lg p-2 border border-gray-100">
+                            <div className="flex justify-between text-xs mb-1">
+                              <span className="font-mono text-gray-600">vmnic{j}</span>
+                              <span className="text-gray-400">10Gb</span>
+                            </div>
+                            <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                              <div className="h-full bg-blue-400 rounded-full" style={{width:Math.round(20+Math.random()*40)+"%"}}/>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Network Segments */}
+            {(allVlans.length>0||allPGs.length>0)&&(
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                <h3 className="text-sm font-bold text-gray-800 mb-4">Network Segments ({allVlans.length||allPGs.length})</h3>
+                <div className="space-y-2">
+                  {(allVlans.length>0?allVlans:allPGs.map(p=>({name:p.portGroup,vlan:p.vlan,switch:p.switch}))).map((seg,i)=>{
+                    const style = getNetworkSegmentStyle(seg.name);
+                    return (
+                      <div key={i} className={"flex items-center gap-3 p-3 rounded-xl border "+style.bg+" border-gray-100"}>
+                        <div className={"w-8 h-8 rounded-lg flex items-center justify-center "+style.bg}>
+                          <Network size={14} className={style.text}/>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className="text-sm font-semibold text-gray-800 truncate">{seg.name}</span>
+                            <span className={"text-xs px-2 py-0.5 rounded-full font-semibold "+style.bg+" "+style.text}>{style.label}</span>
+                          </div>
+                          <div className="text-xs text-gray-400 font-mono">
+                            {seg.vlan!==null&&seg.vlan!==undefined?"VLAN "+seg.vlan:"Trunk"} · {seg.switch||"N/A"}
+                            {seg.ports?" · "+seg.ports+" ports":""}
+                          </div>
+                        </div>
+                        {seg.speed&&<div className="text-xs font-bold text-gray-600 whitespace-nowrap">{seg.speed} Gbps</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* vSwitches */}
+            {allVSwitches.length>0&&(
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                <h3 className="text-sm font-bold text-gray-800 mb-4">vSwitches ({allVSwitches.length})</h3>
+                <div className="space-y-3">
+                  {allVSwitches.map((sw,i)=>(
+                    <div key={i} className="p-3 rounded-xl bg-gray-50 border border-gray-100">
+                      <div className="flex items-center justify-between mb-2">
+                        <div>
+                          <span className="text-sm font-bold text-gray-800">{sw.name}</span>
+                          <span className="text-xs text-gray-400 ml-2">{sw.host}</span>
+                        </div>
+                        <span className="text-xs font-mono text-gray-500">MTU {sw.mtu}</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {(sw.portGroups||[]).map((pg,j)=>{
+                          const style = getNetworkSegmentStyle(pg.name);
+                          return (
+                            <span key={j} className={"text-xs px-2 py-0.5 rounded-full font-mono "+style.bg+" "+style.text}>
+                              {pg.name}{pg.vlan!==null&&pg.vlan!==undefined?" ("+pg.vlan+")":""}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* dvSwitches */}
+            {allDvSwitches.length>0&&(
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                <h3 className="text-sm font-bold text-gray-800 mb-4">Distributed vSwitches ({allDvSwitches.length})</h3>
+                {allDvSwitches.map((dv,i)=>(
+                  <div key={i} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
+                    <div>
+                      <div className="text-sm font-semibold text-gray-800">{dv.name} <span className="text-xs text-gray-400">v{dv.version}</span></div>
+                      <div className="text-xs text-gray-400 mt-0.5 truncate max-w-xs">{dv.hosts}</div>
+                    </div>
+                    <div className="text-right text-xs text-gray-500 font-mono">
+                      <div>{dv.vms} VMs · {dv.ports} ports</div>
+                      <div>MTU {dv.mtu}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {allVlans.length===0&&allVSwitches.length===0&&allDvSwitches.length===0&&(
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 text-center py-12">
+                <div className="text-gray-400 text-sm">Aucune donnee reseau detectee</div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {activeTab==="optimization"&&(
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">

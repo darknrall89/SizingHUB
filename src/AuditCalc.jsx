@@ -373,6 +373,7 @@ Reponds UNIQUEMENT avec le JSON, sans markdown ni explication.`;
                 vmOffList={vm.vmOffList}
                 uniquePortGroups={vm.uniquePortGroups}
                 topMemoryConsumers={vm.topMemoryConsumers}
+                networkData={vm.networkData}
               />
             );
           })()}
