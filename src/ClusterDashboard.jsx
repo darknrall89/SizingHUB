@@ -496,6 +496,444 @@ const getNetworkSegmentStyle = (name) => {
   return {bg:"bg-blue-100", text:"text-blue-700", bar:"bg-blue-400", label:"VM Network"};
 };
 
+// ── Network Segments View ────────────────────────────────────────────────────
+const SEGMENT_TYPES = [
+  {id:"vmotion",    label:"vMotion",          desc:"Reseaux dedies au trafic vMotion",            color:"violet", match:n=>n.includes("vmotion")},
+  {id:"management", label:"Management",        desc:"Reseaux de gestion et d administration",       color:"slate",  match:n=>n.includes("mgmt")||n.includes("management")||n.includes("adm")},
+  {id:"storage",    label:"Storage Networks",  desc:"Reseaux dedies au stockage (iSCSI, NFS, FC...)",color:"emerald",match:n=>n.includes("storage")||n.includes("san")||n.includes("iscsi")||n.includes("nfs")},
+  {id:"mirror",     label:"Mirror / Monitoring",desc:"Reseaux de monitoring / duplication de trafic",color:"orange", match:n=>n.includes("mirror")||n.includes("monitor")||n.includes("backup")},
+  {id:"vm",         label:"VM Networks",       desc:"Reseaux utilises par les machines virtuelles", color:"blue",   match:()=>true},
+];
+
+const classifySegment = (name) => {
+  const n = (name||"").toLowerCase();
+  for (const t of SEGMENT_TYPES) {
+    if (t.id!=="vm"&&t.match(n)) return t.id;
+  }
+  return "vm";
+};
+
+const TYPE_STYLES = {
+  vmotion:    {bg:"bg-violet-50",  border:"border-violet-200", title:"text-violet-700",  badge:"bg-violet-100 text-violet-700",  icon:"text-violet-500"},
+  management: {bg:"bg-slate-50",   border:"border-slate-200",  title:"text-slate-700",   badge:"bg-slate-100 text-slate-600",    icon:"text-slate-500"},
+  storage:    {bg:"bg-emerald-50", border:"border-emerald-200",title:"text-emerald-700", badge:"bg-emerald-100 text-emerald-700",icon:"text-emerald-500"},
+  mirror:     {bg:"bg-orange-50",  border:"border-orange-200", title:"text-orange-700",  badge:"bg-orange-100 text-orange-700",  icon:"text-orange-500"},
+  vm:         {bg:"bg-blue-50",    border:"border-blue-200",   title:"text-blue-700",    badge:"bg-blue-100 text-blue-700",      icon:"text-blue-500"},
+};
+
+const NetworkSegmentsView = ({segments=[], totalHosts=0}) => {
+  const [showAll, setShowAll] = useState({});
+
+  // Grouper par type
+  const grouped = {};
+  SEGMENT_TYPES.forEach(t=>{ grouped[t.id]=[]; });
+  segments.forEach(seg=>{
+    const type = classifySegment(seg.name);
+    grouped[type].push(seg);
+  });
+
+  const totalSegs = segments.length;
+  const inconsistencies = segments.filter(s=>s.vlan===null||s.vlan===undefined).length;
+  const typeStats = SEGMENT_TYPES.map(t=>({...t, count:grouped[t.id].length, pct:totalSegs>0?Math.round(grouped[t.id].length/totalSegs*100):0})).filter(t=>t.count>0||["vmotion","storage","mirror"].includes(t.id));
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div>
+        <h3 className="text-sm font-bold text-gray-800">Network Segments ({totalSegs})</h3>
+        <p className="text-xs text-gray-400">Vue logique des reseaux detectes</p>
+      </div>
+
+      {/* Summary KPIs */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 flex items-center gap-3">
+          <Network size={18} className="text-blue-500 flex-shrink-0"/>
+          <div>
+            <div className="text-lg font-bold text-gray-800">{totalSegs}</div>
+            <div className="text-xs font-semibold text-gray-600">Segments reseau</div>
+            <div className="text-xs text-gray-400">detectes</div>
+          </div>
+        </div>
+        {typeStats.slice(0,3).map(t=>(
+          <div key={t.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 flex items-center gap-3">
+            <Network size={18} className={TYPE_STYLES[t.id].icon+" flex-shrink-0"}/>
+            <div>
+              <div className="text-lg font-bold text-gray-800">{t.count}</div>
+              <div className="text-xs font-semibold text-gray-600">{t.label}</div>
+              <div className="text-xs text-gray-400">({t.pct}%)</div>
+            </div>
+          </div>
+        ))}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 flex items-center gap-3">
+          {inconsistencies===0
+            ?<CheckCircle size={18} className="text-emerald-500 flex-shrink-0"/>
+            :<AlertTriangle size={18} className="text-amber-500 flex-shrink-0"/>}
+          <div>
+            <div className={"text-xs font-semibold "+(inconsistencies===0?"text-emerald-600":"text-amber-600")}>Segmentation</div>
+            <div className={"text-lg font-bold "+(inconsistencies===0?"text-emerald-600":"text-amber-600")}>{inconsistencies===0?"OK":"⚠"}</div>
+            <div className="text-xs text-gray-400">{inconsistencies===0?"Aucune incoherence":inconsistencies+" a verifier"}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Status bar */}
+      <div className={"flex items-center justify-between p-3 rounded-xl border "+(inconsistencies===0?"bg-blue-50 border-blue-100":"bg-amber-50 border-amber-100")}>
+        <div className="flex items-center gap-2">
+          <Info size={14} className={inconsistencies===0?"text-blue-500":"text-amber-500"}/>
+          <div>
+            <div className={"text-xs font-semibold "+(inconsistencies===0?"text-blue-700":"text-amber-700")}>
+              {inconsistencies===0?"Tous les segments sont presents sur "+totalHosts+"/"+totalHosts+" hosts.":"Des incoherences ont ete detectees."}
+            </div>
+            <div className="text-xs text-gray-500">{inconsistencies===0?"Bonne couverture reseau sur l ensemble du cluster.":inconsistencies+" segment(s) presentent des problemes."}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Grille par type */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {SEGMENT_TYPES.map(t=>{
+          const segs = grouped[t.id]||[];
+          const style = TYPE_STYLES[t.id];
+          const isExpanded = showAll[t.id];
+          const displayed = isExpanded?segs:segs.slice(0,2);
+          return (
+            <div key={t.id} className={"rounded-2xl border p-4 "+style.bg+" "+style.border}>
+              <div className="flex items-center justify-between mb-1">
+                <div className={"text-sm font-bold "+style.title}>{t.label}</div>
+                <span className={"text-xs px-2 py-0.5 rounded-full font-semibold "+style.badge}>{segs.length} segment{segs.length>1?"s":""}</span>
+              </div>
+              <div className={"text-xs text-gray-400 mb-3"}>{t.desc}</div>
+
+              {segs.length===0?(
+                <div className="flex flex-col items-center py-4 text-center">
+                  <Network size={24} className={style.icon+" opacity-30 mb-2"}/>
+                  <div className="text-xs font-semibold text-gray-500">Aucun segment detecte</div>
+                  <div className="text-xs text-gray-400">{t.desc.split("(")[0]}</div>
+                </div>
+              ):(
+                <div className="space-y-2">
+                  {displayed.map((seg,i)=>{
+                    const mtus = [seg.mtu].filter(Boolean);
+                    const hasMtuWarning = mtus.length>1;
+                    return (
+                      <div key={i} className="bg-white rounded-xl p-3 border border-white/80 shadow-sm">
+                        <div className="flex items-start justify-between mb-1">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className={"w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 "+style.badge.split(" ")[0]}>
+                              <Network size={12} className={style.icon}/>
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-xs font-bold text-gray-800 truncate">{seg.name}</div>
+                              <div className="text-xs text-gray-400">{seg.switch||seg.vSwitchName||"N/A"}</div>
+                            </div>
+                          </div>
+                          {seg.vlan!==null&&seg.vlan!==undefined&&(
+                            <span className={"text-xs px-2 py-0.5 rounded-full font-mono font-semibold flex-shrink-0 ml-2 "+style.badge}>
+                              VLAN {seg.vlan===0?"0 (Access)":seg.vlan}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
+                          <span className="flex items-center gap-1">
+                            <span className={"w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"}/>
+                            {totalHosts}/{totalHosts} hosts
+                          </span>
+                          {seg.mtu&&<span>MTU {seg.mtu}</span>}
+                          {seg.ports&&<span>{seg.ports} ports</span>}
+                        </div>
+                        {hasMtuWarning&&(
+                          <div className="mt-2 flex items-center gap-1 text-xs text-amber-600 font-medium">
+                            <AlertTriangle size={10}/>MTU different detecte
+                          </div>
+                        )}
+                        {t.id==="vmotion"&&segs.length===1&&(
+                          <div className="mt-2 flex items-center gap-1 text-xs text-emerald-600 font-medium">
+                            <CheckCircle size={10}/>Le reseau vMotion est isole et dedie.
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {segs.length>2&&(
+                    <button onClick={()=>setShowAll(s=>({...s,[t.id]:!s[t.id]}))}
+                      className={"text-xs font-semibold w-full text-center py-1 "+style.title}>
+                      {isExpanded?"Masquer ▲":"Voir "+segs.length+" segments ▼"}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Footer global */}
+      <div className={"flex items-center justify-between p-4 rounded-xl border "+(inconsistencies===0?"bg-emerald-50 border-emerald-100":"bg-amber-50 border-amber-100")}>
+        <div className="flex items-center gap-3">
+          {inconsistencies===0
+            ?<CheckCircle size={18} className="text-emerald-500"/>
+            :<AlertTriangle size={18} className="text-amber-500"/>}
+          <div>
+            <div className={"text-sm font-bold "+(inconsistencies===0?"text-emerald-700":"text-amber-700")}>
+              {inconsistencies===0?"Reseau bien segmente":"Problemes de segmentation detectes"}
+            </div>
+            <div className="text-xs text-gray-500">
+              {inconsistencies===0?"Aucune incoherence critique detectee sur les segments reseau.":inconsistencies+" segment(s) presentent des problemes."}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-6 text-xs text-gray-500">
+          <div className="flex items-center gap-1"><CheckCircle size={12} className="text-emerald-500"/>Couverture <strong>{totalHosts}/{totalHosts} hosts</strong></div>
+          <div className="flex items-center gap-1"><Network size={12}/>Isolation <strong>{grouped["vmotion"]?.length>0?"Bonne":"A verifier"}</strong></div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── vSwitch View ─────────────────────────────────────────────────────────────
+const getPortGroupStyle = (name) => {
+  const n = (name||"").toLowerCase();
+  if (n.includes("vmotion"))   return {bg:"bg-violet-100", text:"text-violet-700", border:"border-violet-200"};
+  if (n.includes("mgmt")||n.includes("management")) return {bg:"bg-slate-100", text:"text-slate-600", border:"border-slate-200"};
+  if (n.includes("storage")||n.includes("san")) return {bg:"bg-emerald-100", text:"text-emerald-700", border:"border-emerald-200"};
+  if (n.includes("mirror")||n.includes("backup")) return {bg:"bg-orange-100", text:"text-orange-700", border:"border-orange-200"};
+  return {bg:"bg-blue-100", text:"text-blue-700", border:"border-blue-200"};
+};
+
+const groupVSwitches = (vSwitches) => {
+  const map = {};
+  (vSwitches||[]).forEach(sw => {
+    const key = sw.name;
+    if (!map[key]) {
+      map[key] = {
+        name: sw.name,
+        mtu: sw.mtu||1500,
+        isJumbo: (sw.mtu||1500)>=9000,
+        hosts: [],
+        portGroups: [],
+        mtus: [],
+      };
+    }
+    if (!map[key].hosts.includes(sw.host)) map[key].hosts.push(sw.host);
+    if (!map[key].mtus.includes(sw.mtu||1500)) map[key].mtus.push(sw.mtu||1500);
+    (sw.portGroups||[]).forEach(pg => {
+      if (!map[key].portGroups.find(p=>p.name===pg.name)) {
+        map[key].portGroups.push(pg);
+      }
+    });
+  });
+  return Object.values(map).map(sw=>({
+    ...sw,
+    consistencyStatus: sw.mtus.length>1?"warning":"ok",
+    hostsCount: sw.hosts.length,
+  }));
+};
+
+const VSwitchesView = ({vSwitches=[], totalHosts=0}) => {
+  const [search, setSearch] = useState("");
+  const [filterMtu, setFilterMtu] = useState("all");
+  const [expanded, setExpanded] = useState({});
+
+  const grouped = groupVSwitches(vSwitches);
+  const jumboCount = grouped.filter(s=>s.isJumbo).length;
+  const inconsistencies = grouped.filter(s=>s.consistencyStatus!=="ok").length;
+  const totalPGs = grouped.reduce((s,sw)=>s+sw.portGroups.length,0);
+
+  const filtered = grouped.filter(sw => {
+    const matchSearch = !search || sw.name.toLowerCase().includes(search.toLowerCase()) ||
+      sw.portGroups.some(pg=>pg.name.toLowerCase().includes(search.toLowerCase()));
+    const matchMtu = filterMtu==="all" || (filterMtu==="9000"&&sw.isJumbo) || (filterMtu==="1500"&&!sw.isJumbo);
+    return matchSearch && matchMtu;
+  });
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-bold text-gray-800">vSwitches ({grouped.length})</h3>
+          <p className="text-xs text-gray-400">Vue logique regroupee par vSwitch</p>
+        </div>
+      </div>
+
+      {/* KPIs summary */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        {[
+          {icon:"🔀", label:"vSwitches logiques", val:grouped.length,   sub:vSwitches.length+" instances au total"},
+          {icon:"🖥️", label:"Hosts couverts",      val:totalHosts,       sub:"100% des hosts"},
+          {icon:"🔌", label:"Port groups",          val:totalPGs,         sub:"assignes"},
+          {icon:"⚡", label:"MTU 9000",             val:jumboCount,       sub:"Jumbo Frames actives"},
+          {icon:inconsistencies>0?"⚠️":"✅", label:"Incoherences", val:inconsistencies, sub:inconsistencies===0?"Configurations coherentes":"A verifier"},
+        ].map(k=>(
+          <div key={k.label} className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 flex items-center gap-3">
+            <span className="text-xl">{k.icon}</span>
+            <div>
+              <div className="text-lg font-bold text-gray-800">{k.val}</div>
+              <div className="text-xs font-semibold text-gray-600">{k.label}</div>
+              <div className="text-xs text-gray-400">{k.sub}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filtres */}
+      <div className="flex flex-wrap items-center gap-3">
+        <input type="text" value={search} onChange={e=>setSearch(e.target.value)}
+          placeholder="Rechercher un vSwitch ou port group..."
+          className="flex-1 min-w-48 text-xs border border-gray-200 rounded-lg px-3 py-2 bg-white text-gray-700 outline-none focus:border-blue-300"/>
+        <select value={filterMtu} onChange={e=>setFilterMtu(e.target.value)}
+          className="text-xs border border-gray-200 rounded-lg px-3 py-2 bg-white text-gray-600 outline-none">
+          <option value="all">Tous les MTU</option>
+          <option value="1500">MTU 1500</option>
+          <option value="9000">MTU 9000</option>
+        </select>
+      </div>
+
+      {/* Cartes vSwitch */}
+      <div className="space-y-3">
+        {filtered.map((sw,i)=>{
+          const isExpanded = expanded[sw.name];
+          const borderColor = sw.isJumbo?"border-l-emerald-400":sw.consistencyStatus!=="ok"?"border-l-amber-400":"border-l-blue-400";
+          const rawInstances = (vSwitches||[]).filter(s=>s.name===sw.name);
+
+          return (
+            <div key={sw.name} className={"bg-white rounded-2xl border border-gray-100 shadow-sm border-l-4 "+borderColor}>
+              <div className="p-4">
+                <div className="grid grid-cols-12 gap-4 items-start">
+                  {/* Identité */}
+                  <div className="col-span-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className={"w-9 h-9 rounded-xl flex items-center justify-center "+(sw.isJumbo?"bg-emerald-100":"bg-blue-100")}>
+                        <Network size={16} className={sw.isJumbo?"text-emerald-600":"text-blue-600"}/>
+                      </div>
+                      <div>
+                        <div className="text-sm font-bold text-gray-800">{sw.name}</div>
+                        <span className={"text-xs px-2 py-0.5 rounded-full font-semibold "+(sw.isJumbo?"bg-amber-100 text-amber-700":"bg-gray-100 text-gray-500")}>{sw.isJumbo?"Jumbo Frames":"Standard"}</span>
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-400 mb-2">Present sur {sw.hostsCount} host{sw.hostsCount>1?"s":""}</div>
+                    <div className="flex gap-1 flex-wrap">
+                      {sw.hosts.slice(0,4).map((h,j)=>(
+                        <div key={j} className="w-5 h-5 bg-blue-100 rounded flex items-center justify-center">
+                          <Server size={10} className="text-blue-500"/>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* MTU */}
+                  <div className="col-span-2">
+                    <div className="text-xs text-gray-400 mb-1">MTU</div>
+                    <div className={"text-2xl font-bold "+(sw.isJumbo?"text-emerald-600":"text-gray-800")}>{sw.mtu}</div>
+                    {sw.isJumbo&&<div className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-semibold mt-1 inline-block">Jumbo Actif</div>}
+                    {sw.consistencyStatus!=="ok"&&<div className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold mt-1 inline-block">MTU incoherent</div>}
+                  </div>
+
+                  {/* Port Groups */}
+                  <div className="col-span-4">
+                    <div className="text-xs text-gray-400 mb-2">Port groups ({sw.portGroups.length})</div>
+                    <div className="flex flex-wrap gap-1">
+                      {sw.portGroups.map((pg,j)=>{
+                        const style = getPortGroupStyle(pg.name);
+                        return (
+                          <div key={j} className={"flex items-center gap-1 text-xs px-2 py-1 rounded-lg border font-medium "+style.bg+" "+style.text+" "+style.border}>
+                            <Network size={9}/>
+                            <span>{pg.name}</span>
+                            {pg.vlan!==null&&pg.vlan!==undefined&&<span className="bg-white/60 px-1 rounded text-xs">{pg.vlan}</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Hosts */}
+                  <div className="col-span-2">
+                    <div className="text-xs text-gray-400 mb-2">Hosts ({sw.hostsCount})</div>
+                    <div className="flex flex-wrap gap-1">
+                      {sw.hosts.slice(0,3).map((h,j)=>(
+                        <span key={j} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full border border-gray-200">{h}</span>
+                      ))}
+                      {sw.hosts.length>3&&<span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">+{sw.hosts.length-3}</span>}
+                    </div>
+                  </div>
+
+                  {/* Statut + expand */}
+                  <div className="col-span-1 flex flex-col items-end gap-2">
+                    {sw.consistencyStatus==="ok"
+                      ?<CheckCircle size={16} className="text-emerald-500"/>
+                      :<AlertTriangle size={16} className="text-amber-500"/>}
+                    <button onClick={()=>setExpanded(e=>({...e,[sw.name]:!e[sw.name]}))}
+                      className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1">
+                      {isExpanded?"▲":"▼"}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Détail dépliable */}
+                {isExpanded&&(
+                  <div className="mt-4 pt-4 border-t border-gray-100">
+                    <div className="text-xs font-semibold text-gray-500 mb-3 flex items-center gap-1">
+                      <Info size={11}/>Détails par host pour {sw.name}
+                    </div>
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-gray-100">
+                          {["Host","MTU","Port groups presents","Statut"].map(col=>(
+                            <th key={col} className="text-left py-1.5 px-2 text-gray-400 font-semibold uppercase tracking-wide text-xs">{col}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rawInstances.map((inst,j)=>(
+                          <tr key={j} className="border-b border-gray-50">
+                            <td className="py-2 px-2 font-medium text-gray-700">{inst.host}</td>
+                            <td className="py-2 px-2">
+                              <span className={"font-mono font-bold "+((inst.mtu||1500)>=9000?"text-emerald-600":"text-gray-600")}>{inst.mtu||1500}</span>
+                            </td>
+                            <td className="py-2 px-2">
+                              <div className="flex flex-wrap gap-1">
+                                {(inst.portGroups||[]).map((pg,k)=>{
+                                  const style = getPortGroupStyle(pg.name);
+                                  return <span key={k} className={"text-xs px-1.5 py-0.5 rounded font-mono "+style.bg+" "+style.text}>{pg.name} ({pg.vlan})</span>;
+                                })}
+                              </div>
+                            </td>
+                            <td className="py-2 px-2">
+                              <span className="flex items-center gap-1 text-emerald-600 text-xs font-semibold">
+                                <CheckCircle size={11}/>Conforme
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Footer global */}
+      <div className={"flex items-center justify-between p-4 rounded-xl border "+(inconsistencies===0?"bg-blue-50 border-blue-100":"bg-amber-50 border-amber-100")}>
+        <div className="flex items-center gap-2">
+          <Info size={14} className={inconsistencies===0?"text-blue-500":"text-amber-500"}/>
+          <div>
+            <div className={"text-sm font-semibold "+(inconsistencies===0?"text-blue-700":"text-amber-700")}>
+              {inconsistencies===0?"Tous les vSwitches sont coherents sur l ensemble des hosts.":"Des incoherences ont ete detectees."}
+            </div>
+            <div className="text-xs text-gray-500">
+              {inconsistencies===0?"Aucune incoherence de MTU ou de port groups detectee.":inconsistencies+" vSwitch(es) presentent des incoherences."}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ── Storage helpers ──────────────────────────────────────────────────────────
 const getStorageHealth = (pct) => {
   if (pct >= 80) return { color:"text-red-600",   bar:"bg-red-500",   badge:"bg-red-100 text-red-700",   label:"Critique", border:"border-red-200" };
@@ -1336,64 +1774,20 @@ export default function ClusterOverviewDashboard({
               </div>
             )}
 
-            {/* Network Segments */}
+            {/* Network Segments - vue logique par type */}
             {(allVlans.length>0||allPGs.length>0)&&(
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                <h3 className="text-sm font-bold text-gray-800 mb-4">Network Segments ({allVlans.length||allPGs.length})</h3>
-                <div className="space-y-2">
-                  {(allVlans.length>0?allVlans:allPGs.map(p=>({name:p.portGroup,vlan:p.vlan,switch:p.switch}))).map((seg,i)=>{
-                    const style = getNetworkSegmentStyle(seg.name);
-                    return (
-                      <div key={i} className={"flex items-center gap-3 p-3 rounded-xl border "+style.bg+" border-gray-100"}>
-                        <div className={"w-8 h-8 rounded-lg flex items-center justify-center "+style.bg}>
-                          <Network size={14} className={style.text}/>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-0.5">
-                            <span className="text-sm font-semibold text-gray-800 truncate">{seg.name}</span>
-                            <span className={"text-xs px-2 py-0.5 rounded-full font-semibold "+style.bg+" "+style.text}>{style.label}</span>
-                          </div>
-                          <div className="text-xs text-gray-400 font-mono">
-                            {seg.vlan!==null&&seg.vlan!==undefined?"VLAN "+seg.vlan:"Trunk"} · {seg.switch||"N/A"}
-                            {seg.ports?" · "+seg.ports+" ports":""}
-                          </div>
-                        </div>
-                        {seg.speed&&<div className="text-xs font-bold text-gray-600 whitespace-nowrap">{seg.speed} Gbps</div>}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+              <NetworkSegmentsView
+                segments={(allVlans.length>0?allVlans:allPGs.map(p=>({name:p.portGroup,vlan:p.vlan,switch:p.switch,mtu:null}))).map(s=>({...s,vSwitchName:s.switch}))}
+                totalHosts={hosts.length}
+              />
             )}
 
-            {/* vSwitches */}
+            {/* vSwitches - vue logique regroupée */}
             {allVSwitches.length>0&&(
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                <h3 className="text-sm font-bold text-gray-800 mb-4">vSwitches ({allVSwitches.length})</h3>
-                <div className="space-y-3">
-                  {allVSwitches.map((sw,i)=>(
-                    <div key={i} className="p-3 rounded-xl bg-gray-50 border border-gray-100">
-                      <div className="flex items-center justify-between mb-2">
-                        <div>
-                          <span className="text-sm font-bold text-gray-800">{sw.name}</span>
-                          <span className="text-xs text-gray-400 ml-2">{sw.host}</span>
-                        </div>
-                        <span className="text-xs font-mono text-gray-500">MTU {sw.mtu}</span>
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {(sw.portGroups||[]).map((pg,j)=>{
-                          const style = getNetworkSegmentStyle(pg.name);
-                          return (
-                            <span key={j} className={"text-xs px-2 py-0.5 rounded-full font-mono "+style.bg+" "+style.text}>
-                              {pg.name}{pg.vlan!==null&&pg.vlan!==undefined?" ("+pg.vlan+")":""}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <VSwitchesView
+                vSwitches={allVSwitches}
+                totalHosts={hosts.length}
+              />
             )}
 
             {/* dvSwitches */}

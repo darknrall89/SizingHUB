@@ -367,7 +367,7 @@ Reponds UNIQUEMENT avec le JSON, sans markdown ni explication.`;
         </label>
         {files.length>0&&(
           <button onClick={analyse} disabled={loading} style={{...s.btn,width:"100%",marginTop:12,padding:"10px"}}>
-            {loading?"Analyse en cours...":"Analyser avec Claude"}
+            {loading?"Analyse en cours...":"Analyser le fichier"}
           </button>
         )}
         {error&&<div style={{marginTop:10,color:"#cc3333",fontSize:12,fontFamily:"monospace"}}>{error}</div>}
