@@ -2156,7 +2156,7 @@ export default function SizingHub() {
       )}
 
       {/* Sidebar */}
-      <div style={{width:isMobile?210:210,minWidth:isMobile?210:210,background:th.bg1,borderRight:`1px solid ${th.border}`,display:"flex",flexDirection:"column",padding:"16px 0",transition:"all 0.3s",position:isMobile?"fixed":"relative",top:0,left:0,height:"100vh",zIndex:999,transform:isMobile&&!menuOpen?"translateX(-100%)":"translateX(0)"}}>
+      <div style={{width:isMobile?210:210,minWidth:isMobile?210:210,background:th.bg1,borderRight:`1px solid ${th.border}`,display:"flex",flexDirection:"column",padding:"16px 0",transition:"all 0.3s",position:isMobile?"fixed":"sticky",top:0,left:0,height:"100vh",zIndex:999,transform:isMobile&&!menuOpen?"translateX(-100%)":"translateX(0)",overflowY:"auto"}}>
         <div style={{padding:"0 16px 16px",borderBottom:`1px solid ${th.border}`,marginBottom:12}}>
           <div style={{fontSize:15,fontWeight:700,color:th.accent,letterSpacing:"0.08em",textTransform:"uppercase"}}>SizingHub</div>
           <div style={{fontSize:10,color:th.t3,fontFamily:"monospace",marginTop:2}}>v2.0 · Infrastructure Sizing</div>
