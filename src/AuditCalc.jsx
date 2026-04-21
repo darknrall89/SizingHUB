@@ -51,6 +51,14 @@ export default function AuditCalc({ th, isMobile=false }) {
     const vInfo      = getJson("vInfo");
     const vHost      = getJson("vHost");
     const vDatastore = getJson("vDatastore");
+    const vMemoryData = getJson("vMemory");
+    const vmMemMap = {};
+    vMemoryData.forEach(r => {
+      if (r["VM"]) vmMemMap[r["VM"]] = {
+        consumed: Math.round((r["Consumed"]||0)/1024),
+        active:   Math.round((r["Active"]||0)/1024),
+      };
+    });
 
     const vms   = vInfo.filter(r => r["Template"] !== "True" && r["Template"] !== true);
     const vmOn  = vms.filter(r => r["Powerstate"] === "poweredOn");
@@ -93,6 +101,8 @@ export default function AuditCalc({ th, isMobile=false }) {
           name: v["VM"],
           vcpu: v["CPUs"]||0,
           ramGo: Math.round((v["Memory"]||0)/1024),
+          usedRamGo: vmMemMap[v["VM"]]?.consumed||0,
+          activeRamGo: vmMemMap[v["VM"]]?.active||0,
           os: v["OS according to the VMware Tools"]||"N/A",
           diskGo: Math.round((v["Total disk capacity MiB"]||0)/1024),
           powerstate: v["Powerstate"],

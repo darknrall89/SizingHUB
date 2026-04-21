@@ -153,6 +153,121 @@ const OptimizationItem = ({ insight }) => {
   );
 };
 
+// ── Top Memory Consumers ─────────────────────────────────────────────────────
+const getMemInsight = (pct, isOversized, wasteGb, avgPct) => {
+  const diff = avgPct>0 ? Math.round(pct-avgPct) : 0;
+  if (isOversized && wasteGb>4) return {label:"Surdimensionnee", sub:wasteGb+" Go non utilises", color:"text-blue-500", dot:"bg-blue-500"};
+  if (pct>=90) return {label:"Tres eleve",  sub:"Au-dessus de la moyenne ("+(diff>0?"+":"")+diff+"%)", color:"text-red-600",    dot:"bg-red-500"};
+  if (pct>=80) return {label:"Eleve",       sub:"Au-dessus de la moyenne ("+(diff>0?"+":"")+diff+"%)", color:"text-orange-500", dot:"bg-orange-400"};
+  if (pct>=60) return {label:"Moyen",       sub:diff>0?"Au-dessus de la moyenne":"Sous la moyenne ("+(diff>0?"+":"")+diff+"%)", color:"text-amber-500", dot:"bg-amber-400"};
+  return              {label:"Correct",     sub:"Utilisation correcte", color:"text-emerald-600", dot:"bg-emerald-500"};
+};
+
+const RankBadge = ({rank}) => {
+  const colors = ["bg-yellow-400 text-yellow-900","bg-gray-300 text-gray-700","bg-orange-400 text-orange-900"];
+  const cls = colors[rank-1]||"bg-gray-100 text-gray-500";
+  return <div className={"w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 "+cls}>{rank}</div>;
+};
+
+const UsageCircle = ({pct}) => {
+  const r=16, circ=2*Math.PI*r;
+  const fill=Math.min(pct,100)/100*circ;
+  const color=pct>=80?"#ef4444":pct>=60?"#f97316":"#10b981";
+  return (
+    <div className="relative w-12 h-12 flex-shrink-0">
+      <svg viewBox="0 0 40 40" className="w-full h-full -rotate-90">
+        <circle cx="20" cy="20" r={r} fill="none" stroke="#f1f5f9" strokeWidth="4"/>
+        <circle cx="20" cy="20" r={r} fill="none" stroke={color} strokeWidth="4"
+          strokeDasharray={`${fill} ${circ}`} strokeLinecap="round"/>
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center">
+        <span className="text-xs font-bold" style={{color}}>{pct}%</span>
+      </div>
+    </div>
+  );
+};
+
+const TopMemoryConsumersBlock = ({consumers=[], totalAllocatedRam=0}) => {
+  if (consumers.length===0) return null;
+  const avgPct = consumers.length>0?Math.round(consumers.reduce((s,v)=>s+(v.usagePercent||0),0)/consumers.length):0;
+  const topRamSum = consumers.reduce((s,v)=>s+(v.allocatedRamGb||0),0);
+  const topPct = totalAllocatedRam>0?Math.round(topRamSum/totalAllocatedRam*100):0;
+  const oversized = consumers.filter(v=>v.isOversized).length;
+  const criticalHosts = [...new Set(consumers.filter(v=>(v.usagePercent||0)>=80).map(v=>v.hostName))];
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      {/* Bandeau contexte */}
+      <div className="bg-violet-50 border-b border-violet-100 px-5 py-3 flex items-center gap-2">
+        <span className="text-violet-500">✦</span>
+        <span className="text-sm text-violet-700">
+          Les <strong>{consumers.length} VMs</strong> ci-dessous représentent{" "}
+          <strong>{topPct}%</strong> de la RAM allouée aux VMs{" "}
+          <span className="text-violet-400">({topRamSum} GB / {totalAllocatedRam} GB)</span>
+        </span>
+      </div>
+
+      {/* Header tableau */}
+      <div className="grid grid-cols-12 gap-2 px-5 py-2 border-b border-gray-100 text-xs font-semibold text-gray-400 uppercase tracking-wide">
+        <div className="col-span-1">Rang</div>
+        <div className="col-span-3">VM / OS</div>
+        <div className="col-span-2">Host</div>
+        <div className="col-span-2">RAM allouee</div>
+        <div className="col-span-2">RAM utilisee</div>
+        <div className="col-span-1 text-center">%</div>
+        <div className="col-span-1">Statut</div>
+      </div>
+
+      {/* Lignes */}
+      <div className="divide-y divide-gray-50">
+        {consumers.map((v,i)=>{
+          const insight = getMemInsight(v.usagePercent||0, v.isOversized, v.wasteGb||0, avgPct);
+          const isWin = (v.os||"").toLowerCase().includes("windows");
+          const barColor = (v.usagePercent||0)>=80?"bg-red-400":(v.usagePercent||0)>=60?"bg-orange-400":"bg-emerald-400";
+          return (
+            <div key={v.id||i} className={"grid grid-cols-12 gap-2 px-5 py-3 items-center hover:bg-gray-50/60 transition-all "+((v.usagePercent||0)>=80?"bg-red-50/20":"")}>
+              <div className="col-span-1"><RankBadge rank={i+1}/></div>
+              <div className="col-span-3 flex items-center gap-2 min-w-0">
+                <div className={"w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 "+(isWin?"bg-blue-100":"bg-gray-100")}>
+                  <OsIcon os={v.os}/>
+                </div>
+                <div className="min-w-0">
+                  <div className="text-sm font-bold text-gray-800 truncate">{v.name}</div>
+                  <div className="text-xs text-gray-400 truncate">{v.os}</div>
+                </div>
+              </div>
+              <div className="col-span-2 text-xs text-blue-500 font-medium truncate">{v.hostName}</div>
+              <div className="col-span-2 text-sm font-semibold text-gray-700">{v.allocatedRamGb} GB</div>
+              <div className="col-span-2">
+                <div className="text-xs font-semibold text-gray-700 mb-1">{v.usedRamGb||"N/A"}{v.usedRamGb?" GB":""}</div>
+                <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div className={"h-full rounded-full "+barColor} style={{width:Math.min(v.usagePercent||0,100)+"%"}}/>
+                </div>
+              </div>
+              <div className="col-span-1 flex justify-center">
+                <UsageCircle pct={v.usagePercent||0}/>
+              </div>
+              <div className="col-span-1 min-w-0">
+                <div className={"text-xs font-bold "+insight.color}><span className={"inline-block w-2 h-2 rounded-full mr-1 "+insight.dot}/>  {insight.label}</div>
+                <div className="text-xs text-gray-400 mt-0.5 truncate">{insight.sub}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Footer insights */}
+      <div className="border-t border-gray-100 bg-gray-50 px-5 py-3 flex flex-wrap items-center gap-4 text-xs text-gray-500">
+        <span className="text-yellow-500">💡</span>
+        <strong className="text-gray-600">Insights RVTools</strong>
+        <span className="flex items-center gap-1"><span className="text-violet-500">✦</span>{consumers.length} VMs utilisent {topPct}% de la RAM allouee</span>
+        {oversized>0&&<span className="flex items-center gap-1"><span className="text-orange-400">○</span>{oversized} VM{oversized>1?"s":""} potentiellement surdimensionnee{oversized>1?"s":""}</span>}
+        {criticalHosts.length>0&&<span className="flex items-center gap-1"><AlertTriangle size={11} className="text-red-400"/>{criticalHosts.length} host{criticalHosts.length>1?"s":""} en tension memoire ({criticalHosts.join(", ")})</span>}
+      </div>
+    </div>
+  );
+};
+
 // ── Memory helpers ───────────────────────────────────────────────────────────
 const MemoryNodeVisual = ({ health="healthy" }) => {
   const c = health==="critical"?"#f87171":health==="warning"?"#fbbf24":"#60a5fa";
@@ -602,11 +717,16 @@ export const mapRvToolsAnalysisToClusterViewModel = (rv) => {
       id: v.name,
       name: v.name,
       hostName: h.shortName,
-      memoryGb: v.ramGo||0,
+      allocatedRamGb: v.ramGo||0,
+      usedRamGb: v.usedRamGo||0,
+      activeRamGb: v.activeRamGo||0,
+      usagePercent: v.ramGo>0?Math.round((v.usedRamGo||0)/v.ramGo*100):0,
+      wasteGb: Math.max(0,(v.ramGo||0)-(v.usedRamGo||0)),
       vcpu: v.vcpu||0,
       os: v.os||"N/A",
       powerState: v.powerstate||"poweredOn",
-    }))).filter(v=>v.powerState==="poweredOn").sort((a,b)=>b.memoryGb-a.memoryGb).slice(0,8),
+      isOversized: v.ramGo>0&&(v.usedRamGo||0)/v.ramGo<0.5,
+    }))).filter(v=>v.powerState==="poweredOn").sort((a,b)=>b.allocatedRamGb-a.allocatedRamGb).slice(0,8),
     vlans: rv.vlans || [],
     vSwitches: rv.vSwitches || [],
     dvSwitches: rv.dvSwitches || [],
@@ -664,19 +784,41 @@ export default function ClusterOverviewDashboard({
         })}
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-        <KpiCard label="VMs actives"   value={clusterSummary.activeVms}          sub={(clusterSummary.poweredOffVms||0)+" eteintes"}   icon={Server}      gradient="bg-gradient-to-br from-blue-500 to-blue-700"/>
-        <KpiCard label="vCPU alloues"  value={clusterSummary.allocatedVcpu}      sub="VMs poweredOn"                                    icon={Cpu}         gradient="bg-gradient-to-br from-orange-400 to-orange-600"/>
-        <KpiCard label="RAM allouee"   value={clusterSummary.allocatedRamDisplay} sub="VMs poweredOn"                                   icon={MemoryStick} gradient="bg-gradient-to-br from-violet-500 to-violet-700"/>
-        <KpiCard label="Stockage"      value={clusterSummary.usedStorageDisplay}  sub="VMs poweredOn"                                   icon={HardDrive}   gradient="bg-gradient-to-br from-emerald-500 to-emerald-700"/>
-      </div>
+      {/* Ligne de contexte compacte — visible sur tous les onglets sauf Overview */}
+      {activeTab!=="overview"&&(
+        <div className="mb-4 px-1 flex items-center gap-2 text-xs text-gray-400 font-mono flex-wrap">
+          <span className="text-gray-600 font-semibold">Cluster</span>
+          <span>·</span>
+          <span>{clusterSummary.activeVms||0} VMs</span>
+          <span>·</span>
+          <span>{clusterSummary.allocatedVcpu||0} vCPU</span>
+          <span>·</span>
+          <span>{clusterSummary.allocatedRamDisplay||"N/A"} RAM</span>
+          <span>·</span>
+          <span>{clusterSummary.usedStorageDisplay||"N/A"} Stockage</span>
+          {(clusterSummary.alertsCount||0)>0&&(
+            <span className="ml-2 flex items-center gap-1 text-red-500">
+              <AlertTriangle size={11}/>
+              {clusterSummary.alertsCount} alerte{clusterSummary.alertsCount>1?"s":""}
+            </span>
+          )}
+        </div>
+      )}
 
       <div className="mb-5">
         <InsightBar clusterSummary={clusterSummary} insights={insights}/>
       </div>
 
       {activeTab==="overview"&&(
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+        <div className="space-y-4">
+          {/* KPIs globaux — Overview uniquement */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <KpiCard label="VMs actives"  value={clusterSummary.activeVms}           sub={(clusterSummary.poweredOffVms||0)+" eteintes"}  icon={Server}      gradient="bg-gradient-to-br from-blue-500 to-blue-700"/>
+            <KpiCard label="vCPU alloues" value={clusterSummary.allocatedVcpu}       sub="VMs poweredOn"                                   icon={Cpu}         gradient="bg-gradient-to-br from-orange-400 to-orange-600"/>
+            <KpiCard label="RAM allouee"  value={clusterSummary.allocatedRamDisplay}  sub="VMs poweredOn"                                  icon={MemoryStick} gradient="bg-gradient-to-br from-violet-500 to-violet-700"/>
+            <KpiCard label="Stockage"     value={clusterSummary.usedStorageDisplay}   sub="VMs poweredOn"                                  icon={HardDrive}   gradient="bg-gradient-to-br from-emerald-500 to-emerald-700"/>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
           <div className="lg:col-span-2 space-y-4">
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
               <h3 className="text-sm font-bold text-gray-800 mb-3">Cluster Overview</h3>
@@ -735,6 +877,7 @@ export default function ClusterOverviewDashboard({
                 </div>
               )}
             </div>
+          </div>
           </div>
         </div>
       )}
@@ -894,40 +1037,10 @@ export default function ClusterOverviewDashboard({
           </div>
 
           {/* Top Memory Consumers */}
-          {topMemoryConsumers.length>0&&(
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-              <h3 className="text-sm font-bold text-gray-800 mb-1">Top Memory Consumers</h3>
-              <p className="text-xs text-gray-400 mb-4">VMs les plus consommatrices de RAM (poweredOn)</p>
-              <div className="space-y-2">
-                {topMemoryConsumers.map((v,i)=>{
-                  const maxMem = topMemoryConsumers[0]?.memoryGb||1;
-                  const pct    = Math.round(v.memoryGb/maxMem*100);
-                  const isWin  = (v.os||"").toLowerCase().includes("windows");
-                  const barColor = isWin?"bg-blue-400":"bg-orange-400";
-                  return (
-                    <div key={v.id||i} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-all">
-                      <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <Database size={14} className="text-orange-500"/>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <div>
-                            <span className="text-xs font-bold text-gray-800 truncate block">{v.name}</span>
-                            {v.hostName&&<span className="text-xs text-gray-400">{v.hostName}</span>}
-                          </div>
-                          <span className="text-sm font-bold text-orange-600 ml-2 whitespace-nowrap">{formatRam(v.memoryGb)}</span>
-                        </div>
-                        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div className={"h-full rounded-full "+barColor} style={{width:pct+"%"}}/>
-                        </div>
-                      </div>
-                      <span className="text-xs text-gray-400 w-8 text-right">#{i+1}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          <TopMemoryConsumersBlock
+            consumers={topMemoryConsumers}
+            totalAllocatedRam={clusterSummary.allocatedRamGb||0}
+          />
 
           {/* Memory Insights */}
           {insights.length>0&&(
