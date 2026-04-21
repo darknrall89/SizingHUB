@@ -1319,12 +1319,13 @@ export default function ClusterOverviewDashboard({
                       <div className="grid grid-cols-2 gap-2">
                         {Array.from({length:Math.min(h.nics||0,4)},(_,j)=>(
                           <div key={j} className="bg-white rounded-lg p-2 border border-gray-100">
-                            <div className="flex justify-between text-xs mb-1">
+                            <div className="flex justify-between text-xs">
                               <span className="font-mono text-gray-600">vmnic{j}</span>
                               <span className="text-gray-400">10Gb</span>
                             </div>
-                            <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                              <div className="h-full bg-blue-400 rounded-full" style={{width:Math.round(20+Math.random()*40)+"%"}}/>
+                            <div className="text-xs text-gray-300 mt-1 italic">debit N/A - monitoring requis</div>
+                            <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden" style={{display:"none"}}>
+                              <div className="h-full bg-blue-200 rounded-full" style={{width:"25%"}}/>
                             </div>
                           </div>
                         ))}
