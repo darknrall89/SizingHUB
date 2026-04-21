@@ -52,6 +52,15 @@ export default function AuditCalc({ th, isMobile=false }) {
     const vHost      = getJson("vHost");
     const vDatastore = getJson("vDatastore");
     const vMemoryData = getJson("vMemory");
+    const vCpuData = getJson("vCPU");
+    const vmCpuMap = {};
+    vCpuData.forEach(r => {
+      if (r["VM"]) vmCpuMap[r["VM"]] = {
+        cpus: r["CPUs"]||0,
+        overall: r["Overall"]||0,
+        entitlement: r["Entitlement"]||0,
+      };
+    });
     const vmMemMap = {};
     vMemoryData.forEach(r => {
       if (r["VM"]) vmMemMap[r["VM"]] = {
@@ -103,6 +112,8 @@ export default function AuditCalc({ th, isMobile=false }) {
           ramGo: Math.round((v["Memory"]||0)/1024),
           usedRamGo: vmMemMap[v["VM"]]?.consumed||0,
           activeRamGo: vmMemMap[v["VM"]]?.active||0,
+          cpuOverallMhz: vmCpuMap[v["VM"]]?.overall||0,
+          cpuReadinessPct: vmCpuMap[v["VM"]]?.readiness||0,
           os: v["OS according to the VMware Tools"]||"N/A",
           diskGo: Math.round((v["Total disk capacity MiB"]||0)/1024),
           powerstate: v["Powerstate"],
@@ -383,6 +394,7 @@ Reponds UNIQUEMENT avec le JSON, sans markdown ni explication.`;
                 vmOffList={vm.vmOffList}
                 uniquePortGroups={vm.uniquePortGroups}
                 topMemoryConsumers={vm.topMemoryConsumers}
+                topCpuConsumers={vm.topCpuConsumers}
                 networkData={vm.networkData}
                 optimizationData={vm.optimizationData}
               />

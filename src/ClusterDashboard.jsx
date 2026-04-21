@@ -153,6 +153,112 @@ const OptimizationItem = ({ insight }) => {
   );
 };
 
+// ── Top CPU Consumers ────────────────────────────────────────────────────────
+const getCpuInsight = (vcpu, readinessPct, isOverprovisioned, avgVcpu) => {
+  if (isOverprovisioned) return {label:"Surprovisionnee", sub:"vCPU eleve / usage faible", color:"text-blue-500", dot:"bg-blue-400"};
+  if (readinessPct>10)   return {label:"Contention CPU",  sub:"Readiness "+readinessPct+"% — attente CPU", color:"text-red-600",    dot:"bg-red-500"};
+  if (readinessPct>5)    return {label:"Sous pression",   sub:"Readiness "+readinessPct+"% — a surveiller", color:"text-orange-500", dot:"bg-orange-400"};
+  if (vcpu>avgVcpu*1.5)  return {label:"Eleve",           sub:"Au-dessus de la moyenne",  color:"text-amber-500",  dot:"bg-amber-400"};
+  return                        {label:"Normal",           sub:"Utilisation normale",       color:"text-emerald-600", dot:"bg-emerald-500"};
+};
+
+const TopCpuConsumersBlock = ({consumers=[], totalVcpu=0}) => {
+  if (consumers.length===0) return null;
+  const avgVcpu = consumers.length>0?Math.round(consumers.reduce((s,v)=>s+(v.vcpu||0),0)/consumers.length):0;
+  const topVcpuSum = consumers.reduce((s,v)=>s+(v.vcpu||0),0);
+  const topPct = totalVcpu>0?Math.round(topVcpuSum/totalVcpu*100):0;
+  const overProv = consumers.filter(v=>v.isOverprovisioned).length;
+  const contention = consumers.filter(v=>(v.cpuReadinessPct||0)>5).length;
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      {/* Bandeau contexte */}
+      <div className="bg-blue-50 border-b border-blue-100 px-5 py-3 flex items-center gap-2">
+        <span className="text-blue-500">⚡</span>
+        <span className="text-sm text-blue-700">
+          Les <strong>{consumers.length} VMs</strong> ci-dessous représentent{" "}
+          <strong>{topPct}%</strong> des vCPU alloués{" "}
+          <span className="text-blue-400">({topVcpuSum} vCPU / {totalVcpu} vCPU)</span>
+        </span>
+      </div>
+
+      {/* Header tableau */}
+      <div className="grid grid-cols-12 gap-2 px-5 py-2 border-b border-gray-100 text-xs font-semibold text-gray-400 uppercase tracking-wide">
+        <div className="col-span-1">Rang</div>
+        <div className="col-span-3">VM / OS</div>
+        <div className="col-span-2">Host</div>
+        <div className="col-span-2">vCPU</div>
+        <div className="col-span-2">CPU Readiness</div>
+        <div className="col-span-1 text-center">Score</div>
+        <div className="col-span-1">Statut</div>
+      </div>
+
+      {/* Lignes */}
+      <div className="divide-y divide-gray-50">
+        {consumers.map((v,i)=>{
+          const insight = getCpuInsight(v.vcpu||0, v.cpuReadinessPct||0, v.isOverprovisioned, avgVcpu);
+          const readPct = Math.min(v.cpuReadinessPct||0, 100);
+          const barColor = readPct>10?"bg-red-400":readPct>5?"bg-orange-400":"bg-emerald-400";
+          const maxVcpu = consumers[0]?.vcpu||1;
+          const vcpuPct = Math.round((v.vcpu||0)/maxVcpu*100);
+          return (
+            <div key={v.id||i} className={"grid grid-cols-12 gap-2 px-5 py-3 items-center hover:bg-gray-50/60 transition-all "+((v.cpuReadinessPct||0)>10?"bg-red-50/20":"")}>
+              <div className="col-span-1"><RankBadge rank={i+1}/></div>
+              <div className="col-span-3 flex items-center gap-2 min-w-0">
+                <div className={"w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-blue-100"}>
+                  <OsIcon os={v.os}/>
+                </div>
+                <div className="min-w-0">
+                  <div className="text-sm font-bold text-gray-800 truncate">{v.name}</div>
+                  <div className="text-xs text-gray-400 truncate">{v.os}</div>
+                </div>
+              </div>
+              <div className="col-span-2 text-xs text-blue-500 font-medium truncate">{v.hostName}</div>
+              <div className="col-span-2">
+                <div className="text-sm font-bold text-gray-700 mb-1">{v.vcpu} vCPU</div>
+                <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-full rounded-full bg-blue-400" style={{width:vcpuPct+"%"}}/>
+                </div>
+              </div>
+              <div className="col-span-2">
+                {v.cpuReadinessPct>0?(
+                  <>
+                    <div className="text-xs font-semibold text-gray-700 mb-1">{v.cpuReadinessPct}%</div>
+                    <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div className={"h-full rounded-full "+barColor} style={{width:Math.min(readPct*5,100)+"%"}}/>
+                    </div>
+                  </>
+                ):(
+                  <span className="text-xs text-gray-400">N/A</span>
+                )}
+              </div>
+              <div className="col-span-1 flex justify-center">
+                <UsageCircle pct={vcpuPct}/>
+              </div>
+              <div className="col-span-1 min-w-0">
+                <div className={"text-xs font-bold "+insight.color}>
+                  <span className={"inline-block w-2 h-2 rounded-full mr-1 "+insight.dot}/>
+                  {insight.label}
+                </div>
+                <div className="text-xs text-gray-400 mt-0.5 truncate">{insight.sub}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Footer insights */}
+      <div className="border-t border-gray-100 bg-gray-50 px-5 py-3 flex flex-wrap items-center gap-4 text-xs text-gray-500">
+        <span className="text-yellow-500">💡</span>
+        <strong className="text-gray-600">Insights CPU</strong>
+        <span className="flex items-center gap-1"><span className="text-blue-500">⚡</span>{consumers.length} VMs utilisent {topPct}% des vCPU alloues</span>
+        {overProv>0&&<span className="flex items-center gap-1"><span className="text-blue-400">○</span>{overProv} VM{overProv>1?"s":""} potentiellement surprovisionnee{overProv>1?"s":""}</span>}
+        {contention>0&&<span className="flex items-center gap-1"><AlertTriangle size={11} className="text-orange-400"/>{contention} VM{contention>1?"s":""} en contention CPU (readiness {">"} 5%)</span>}
+      </div>
+    </div>
+  );
+};
+
 // ── Top Memory Consumers ─────────────────────────────────────────────────────
 const getMemInsight = (pct, isOversized, wasteGb, avgPct) => {
   const diff = avgPct>0 ? Math.round(pct-avgPct) : 0;
@@ -723,10 +829,24 @@ export const mapRvToolsAnalysisToClusterViewModel = (rv) => {
       usagePercent: v.ramGo>0?Math.round((v.usedRamGo||0)/v.ramGo*100):0,
       wasteGb: Math.max(0,(v.ramGo||0)-(v.usedRamGo||0)),
       vcpu: v.vcpu||0,
+      cpuOverallMhz: v.cpuOverallMhz||0,
+      cpuReadinessPct: v.cpuReadinessPct||0,
       os: v.os||"N/A",
       powerState: v.powerstate||"poweredOn",
       isOversized: v.ramGo>0&&(v.usedRamGo||0)/v.ramGo<0.5,
     }))).filter(v=>v.powerState==="poweredOn").sort((a,b)=>b.allocatedRamGb-a.allocatedRamGb).slice(0,8),
+    topCpuConsumers: (rv.hosts||[]).flatMap(h=>(h.vms||[]).map(v=>({
+      id: v.name,
+      name: v.name,
+      hostName: h.shortName,
+      vcpu: v.vcpu||0,
+      cpuOverallMhz: v.cpuOverallMhz||0,
+      cpuReadinessPct: v.cpuReadinessPct||0,
+      ramGb: v.ramGo||0,
+      os: v.os||"N/A",
+      powerState: v.powerstate||"poweredOn",
+      isOverprovisioned: v.vcpu>8&&(v.cpuOverallMhz||0)<1000,
+    }))).filter(v=>v.powerState==="poweredOn").sort((a,b)=>b.vcpu-a.vcpu).slice(0,8),
     vlans: rv.vlans || [],
     vSwitches: rv.vSwitches || [],
     dvSwitches: rv.dvSwitches || [],
@@ -747,7 +867,7 @@ const TABS = [
 
 export default function ClusterOverviewDashboard({
   platformContext={}, clusterSummary={}, hosts=[], insights=[],
-  osDistrib=[], datastores=[], vlans=[], vSwitches=[], dvSwitches=[], vmOffList=[], uniquePortGroups=[], topMemoryConsumers=[], networkData={}, optimizationData={},
+  osDistrib=[], datastores=[], vlans=[], vSwitches=[], dvSwitches=[], vmOffList=[], uniquePortGroups=[], topMemoryConsumers=[], topCpuConsumers=[], networkData={}, optimizationData={},
 }) {
   const [activeTab, setActiveTab] = useState("overview");
   const sortedHosts = [...hosts].sort((a,b)=>
@@ -941,39 +1061,10 @@ export default function ClusterOverviewDashboard({
           </div>
 
           {/* Top CPU Consumers */}
-          {topMemoryConsumers.length>0&&(
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-              <h3 className="text-sm font-bold text-gray-800 mb-1">Top CPU Consumers</h3>
-              <p className="text-xs text-gray-400 mb-4">VMs les plus consommatrices de vCPU (poweredOn)</p>
-              <div className="space-y-2">
-                {[...topMemoryConsumers].sort((a,b)=>(b.vcpu||0)-(a.vcpu||0)).filter(v=>v.vcpu>0).slice(0,8).map((v,i)=>{
-                  const maxVcpu = Math.max(...topMemoryConsumers.map(x=>x.vcpu||0),1);
-                  const pct = Math.round((v.vcpu||0)/maxVcpu*100);
-                  const isWin = (v.os||"").toLowerCase().includes("windows");
-                  return (
-                    <div key={v.id||i} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-all">
-                      <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <Cpu size={14} className="text-blue-500"/>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <div>
-                            <span className="text-xs font-bold text-gray-800 truncate block">{v.name}</span>
-                            {v.hostName&&<span className="text-xs text-gray-400">{v.hostName}</span>}
-                          </div>
-                          <span className="text-sm font-bold text-blue-600 ml-2 whitespace-nowrap">{v.vcpu||0} vCPU</span>
-                        </div>
-                        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div className={"h-full rounded-full "+(isWin?"bg-blue-400":"bg-indigo-400")} style={{width:pct+"%"}}/>
-                        </div>
-                      </div>
-                      <span className="text-xs text-gray-400 w-8 text-right">#{i+1}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          <TopCpuConsumersBlock
+            consumers={topCpuConsumers}
+            totalVcpu={clusterSummary.allocatedVcpu||0}
+          />
         </div>
       )}
 
