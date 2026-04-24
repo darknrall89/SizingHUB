@@ -48,6 +48,25 @@ export default function AuditCalc({ th, isMobile=false }) {
       const ws = wb.Sheets[name];
       return ws ? XLSX.utils.sheet_to_json(ws, {defval:null}) : [];
     };
+    // Detection des onglets disponibles
+    const REQUIRED_SHEETS = [
+      {id:"vInfo",      label:"vInfo",      desc:"Inventaire VMs",        required:true},
+      {id:"vHost",      label:"vHost",      desc:"Hyperviseurs / hosts",  required:true},
+      {id:"vMemory",    label:"vMemory",    desc:"RAM consommee par VM",  required:false},
+      {id:"vCPU",       label:"vCPU",       desc:"CPU Readiness",         required:false},
+      {id:"vDatastore", label:"vDatastore", desc:"Datastores / stockage", required:false},
+      {id:"vPort",      label:"vPort",      desc:"Port groups reseau",    required:false},
+      {id:"dvPort",     label:"dvPort",     desc:"VLANs distribues",      required:false},
+      {id:"vSwitch",    label:"vSwitch",    desc:"vSwitches",             required:false},
+      {id:"dvSwitch",   label:"dvSwitch",   desc:"Distributed vSwitches", required:false},
+    ];
+    const sheetQuality = REQUIRED_SHEETS.map(s=>({
+      ...s,
+      available: wb.SheetNames.includes(s.id),
+      rowCount: wb.SheetNames.includes(s.id)?XLSX.utils.sheet_to_json(wb.Sheets[s.id]).length:0,
+    }));
+    const qualityScore = Math.round(sheetQuality.filter(s=>s.available).length/REQUIRED_SHEETS.length*100);
+
     const vInfo      = getJson("vInfo");
     const vHost      = getJson("vHost");
     const vDatastore = getJson("vDatastore");
@@ -198,6 +217,7 @@ export default function AuditCalc({ th, isMobile=false }) {
       totalCores: vHost.reduce((s,h)=>s+(h["# Cores"]||0),0),
       totalRamPhysGo: Math.round(vHost.reduce((s,h)=>s+(h["# Memory"]||0),0)/1024),
       vmOffList, vlans, uniquePortGroups, vmNics, vSwitches, dvSwitches,
+      sheetQuality, qualityScore,
     };
   };
 
@@ -376,6 +396,41 @@ Reponds UNIQUEMENT avec le JSON, sans markdown ni explication.`;
       {r&&!r.error&&(
         <>
 
+
+          {/* Qualite du fichier RVTools */}
+          {r.sheetQuality&&(
+            <div style={{background:th.cardBg,border:"1px solid "+th.border,borderRadius:8,padding:16,marginBottom:14}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+                <div style={{fontSize:11,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.08em",fontFamily:"monospace"}}>
+                  Qualite du fichier RVTools
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <div style={{fontSize:11,fontFamily:"monospace",color:r.qualityScore>=80?"#00a884":r.qualityScore>=50?"#d97706":"#cc3333"}}>
+                    {r.qualityScore}% complet
+                  </div>
+                  <div style={{width:80,height:6,background:th.bg2,borderRadius:3,overflow:"hidden"}}>
+                    <div style={{width:r.qualityScore+"%",height:"100%",background:r.qualityScore>=80?"#00a884":r.qualityScore>=50?"#d97706":"#cc3333",borderRadius:3}}/>
+                  </div>
+                </div>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}}>
+                {r.sheetQuality.map(s=>(
+                  <div key={s.id} style={{display:"flex",alignItems:"center",gap:6,padding:"5px 8px",background:th.bg2,borderRadius:6,border:"1px solid "+(s.available?"rgba(0,168,132,0.2)":s.required?"rgba(204,51,51,0.2)":"rgba(150,150,150,0.15)")}}>
+                    <span style={{fontSize:11}}>{s.available?"✅":s.required?"❌":"⚠️"}</span>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:10,fontWeight:600,fontFamily:"monospace",color:s.available?th.t1:s.required?"#cc3333":th.t3}}>{s.label}</div>
+                      <div style={{fontSize:9,color:th.t3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{s.available?s.rowCount+" lignes":s.desc}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {r.qualityScore<100&&(
+                <div style={{marginTop:10,padding:"6px 10px",background:"rgba(255,181,71,0.08)",border:"1px solid rgba(255,181,71,0.25)",borderRadius:6,fontSize:10,color:"#d97706",fontFamily:"monospace"}}>
+                  ⚠ Analyse partielle — certaines metriques ne seront pas disponibles
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Cluster Dashboard */}
           {(()=>{
