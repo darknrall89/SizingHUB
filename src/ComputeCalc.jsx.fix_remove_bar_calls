@@ -391,38 +391,11 @@ export default function ComputeCalc({ th, isMobile=false }) {
         </Card>
 
         <Card>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,marginBottom:16}}>
-            <div>
-              <div style={{fontSize:16,fontWeight:950,color:th.t1}}>Comparaison & gains</div>
-              <div style={{fontSize:12,color:th.t2,marginTop:3}}>Existant vs cible vs capacité en N-1</div>
-            </div>
-
-            <select value={chartView} onChange={e=>setChartView(e.target.value)} style={{
-              padding:"9px 10px",
-              borderRadius:9,
-              border:`1px solid ${th.border}`,
-              background:th.bg1,
-              color:th.t1,
-              fontSize:12,
-              fontWeight:800
-            }}>
-              <option value="all">Tous</option>
-              <option value="cores">Cœurs CPU</option>
-              <option value="ghz">GHz agrégés</option>
-              <option value="ram">RAM totale</option>
-              <option value="nodes">Nœuds</option>
-            </select>
-          </div>
-
-          <div style={{
-            display:"grid",
-            gridTemplateColumns:chartView==="all" ? "1fr 1fr" : "1fr",
-            gap:12
-          }}>
-            {chartItems.map(([label,oldv,newv,n1v,unit])=>(
-              <VerticalChart key={label} label={label} oldv={oldv} newv={newv} n1v={n1v} unit={unit}/>
-            ))}
-          </div>
+          <div style={{fontSize:16,fontWeight:950,color:th.t1,marginBottom:16}}>Comparaison & gains</div>
+          <Bar label="Cœurs CPU" oldv={existingCores} newv={targetCores} n1v={n1Cores} unit=""/>
+                    <Bar label="GHz agrégés" oldv={Math.round(existingGhz)} newv={Math.round(targetGhz)} n1v={n1Ghz} unit="GHz"/>
+          <Bar label="RAM totale" oldv={existing.ram} newv={target.ram} n1v={n1Ram} unit="Go"/>
+          <Bar label="Nœuds" oldv={existing.servers} newv={target.servers} n1v={n1Servers} unit=""/>
         </Card>
       </div>
 
