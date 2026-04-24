@@ -2309,35 +2309,35 @@ function StorageCalc({ th, isMobile=false }) {
 
                 {[
                   {
-                    icon:<Database size={18}/>,
+                    icon:"◉",
                     title:"Brut total",
                     sub:"Capacité brute de tous les disques",
                     val:fmt(rawTB,2)+" TB",
                     color:"#2563eb"
                   },
                   {
-                    icon:<Cpu size={18}/>,
+                    icon:"◆",
                     title:"Après overhead système",
                     sub:"Réservé au système / métadonnées",
                     val:fmt(rawTB*(1-overheadF),2)+" TB",
                     color:"#7c3aed"
                   },
                   {
-                    icon:<Shield size={18}/>,
+                    icon:"⬟",
                     title:"Après "+pipelineRaidLabel,
                     sub:"Capacité après protection RAID",
                     val:fmt(usable,2)+" TB",
                     color:th.accent2
                   },
                   {
-                    icon:<HardDrive size={18}/>,
+                    icon:"●",
                     title:model?.hasDedup&&vVendorDedup ? "Effective ×"+vDedupRatio : "Effective",
                     sub:"Capacité disponible après réduction",
                     val:fmt(effective,2)+" TB",
                     color:th.accent
                   },
                   {
-                    icon:<CheckCircle size={18}/>,
+                    icon:"✓",
                     title:"Cible nette",
                     sub:"Objectif de capacité utile",
                     val:fmt(vTarget,0)+" TB",
@@ -2431,6 +2431,42 @@ function StorageCalc({ th, isMobile=false }) {
                 </div>
               </div>
 
+              <div style={{background:th.cardBg,border:`1px solid ${th.border}`,borderLeft:`3px solid #7c3aed`,borderRadius:14,padding:"18px 20px",boxShadow:SHADOW.card}}>
+                <div style={{fontSize:13,fontWeight:900,color:"#7c3aed",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:12}}>
+                  B. Résultats — pipeline capacité
+                </div>
+
+                <ResultLine label="Brut total" sub="Capacité brute de tous les disques" value={fmt(rawTB,2)+" TB"} />
+                <ResultLine label={"Après overhead système ("+vOverhead+"%)"} sub="Réservé au système / métadonnées" value={fmt(rawTB*(1-overheadF),2)+" TB"} />
+                <ResultLine label={"Après "+pipelineRaidLabel} sub="Capacité après protection RAID" value={fmt(usable,2)+" TB"} color={th.accent2}/>
+                <ResultLine label={model?.hasDedup&&vVendorDedup ? "Effective (×"+vDedupRatio+" dédup)" : "Effective"} sub="Capacité disponible après réduction" value={fmt(effective,2)+" TB"} color={th.accent}/>
+                <ResultLine label="Cible nette" sub="Objectif de capacité utile" value={fmt(vTarget,0)+" TB"} />
+
+                <div style={{
+                  marginTop:14,
+                  padding:"12px 14px",
+                  borderRadius:10,
+                  background:ok?"rgba(0,212,170,0.08)":"rgba(255,85,85,0.08)",
+                  border:`1px solid ${ok?"rgba(0,212,170,0.22)":"rgba(255,85,85,0.22)"}`,
+                  display:"flex",
+                  justifyContent:"space-between",
+                  gap:12
+                }}>
+                  <div>
+                    <div style={{fontSize:12,fontWeight:900,color:ok?th.accent:th.danger}}>
+                      {ok ? "Marge vs cible" : "Déficit vs cible"}
+                    </div>
+                    <div style={{fontSize:11,color:th.t2,marginTop:3}}>
+                      Capacité disponible par rapport à l’objectif
+                    </div>
+                  </div>
+                  <strong style={{fontSize:16,color:ok?th.accent:th.danger,fontFamily:"Inter, sans-serif"}}>
+                    {fmt(Math.abs(margin),2)} TB
+                  </strong>
+                </div>
+              </div>
+
+              {/* Analyse constructeur */}
               <div style={{background:th.cardBg,border:`1px solid ${th.border}`,borderLeft:`3px solid ${th.warn}`,borderRadius:14,padding:"18px 20px",boxShadow:SHADOW.card}}>
                 <div style={{fontSize:13,fontWeight:900,color:th.warn,textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:14}}>
                   C. Analyse constructeur
