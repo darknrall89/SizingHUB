@@ -305,10 +305,9 @@ function VMwareCalc({th, isMobile=false}) {
     const efficiencyTone  = efficiencyPct >= 90 ? "default" : efficiencyPct >= 75 ? "warn" : "danger";
 
     // Comparaison avant-vente : VMware vs Proxmox
-    const proxmoxPremiumPerSocket = 1100; // Proxmox VE Premium : €/an/socket
-    const proxmoxAnnualCost = totalSockets * proxmoxPremiumPerSocket;
-    const proxmoxProjectCost = proxmoxAnnualCost * yearsTotal;
-    const savingsVsProxmoxAnnual = totalAnnual - proxmoxAnnualCost;
+    const proxmoxAnnualCost = 0;
+    const proxmoxProjectCost = 0;
+    const savingsVsProxmoxAnnual = totalProject > 0 ? totalAnnual - proxmoxAnnualCost : 0;
     const savingsVsProxmoxProject = totalProject - proxmoxProjectCost;
 
     return {
@@ -318,7 +317,7 @@ function VMwareCalc({th, isMobile=false}) {
       annualCostEur,totalAnnualEur,totalProjectEur,
       optBilled,optAnnual,savingsVsOpt,showOpt,
       wastedCores,efficiencyPct,wastedAnnual,wastedProject,extraPerfPct,efficiencyTone,
-      proxmoxPremiumPerSocket,proxmoxAnnualCost,proxmoxProjectCost,savingsVsProxmoxAnnual,savingsVsProxmoxProject,
+      proxmoxAnnualCost,proxmoxProjectCost,savingsVsProxmoxAnnual,savingsVsProxmoxProject,
     };
   },[nodes,sockets,cores,ram,overcommit,pricePerCore,maintenancePct,yearsTotal,fxRate]);
 
@@ -657,9 +656,9 @@ function VMwareCalc({th, isMobile=false}) {
               background: "rgba(0,212,170,0.06)",
               border: "1px solid rgba(0,212,170,0.22)"
             }}>
-              <span style={{fontSize: 12, color: th.t2}}>Proxmox VE Premium</span>
+              <span style={{fontSize: 12, color: th.t2}}>Proxmox VE</span>
               <strong style={{fontSize: 13, color: th.accent, fontFamily: "monospace"}}>
-                ~ {fmt(r.proxmoxProjectCost)} €
+                0 € licence
               </strong>
             </div>
           </div>
@@ -674,11 +673,9 @@ function VMwareCalc({th, isMobile=false}) {
             fontSize: 12,
             lineHeight: 1.5
           }}>
-            Proxmox Premium : {fmt(r.totalSockets)} socket(s) × {fmt(r.proxmoxPremiumPerSocket)} €/an × {yearsTotal} ans.
+            Écart licence estimé sur {yearsTotal} ans : <strong>~ {fmt(r.savingsVsProxmoxProject)} €</strong>.
             <br />
-            Écart estimé sur {yearsTotal} ans : <strong>{r.savingsVsProxmoxProject >= 0 ? "~ " + fmt(r.savingsVsProxmoxProject) + " € d'économie" : "~ " + fmt(Math.abs(r.savingsVsProxmoxProject)) + " € de surcoût"}</strong>.
-            <br />
-            Calcul par socket physique utilisé, indépendamment du nombre de cœurs.
+            À pondérer avec support, intégration, exploitation et criticité client.
           </div>
         </div>
       </div>
