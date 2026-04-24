@@ -104,20 +104,6 @@ function PageHeader({ title, subtitle, badge, th }) {
 }
 
 
-
-function FieldHint({ children, th }) {
-  return (
-    <div style={{
-      fontSize: 11,
-      color: th.t3,
-      marginTop: 6,
-      lineHeight: 1.45
-    }}>
-      <span style={{color: th.accent, fontWeight: 800}}>ℹ</span> {children}
-    </div>
-  );
-}
-
 // ─── UI primitives ────────────────────────────────────────────────────────────
 
 function MetricCard({label,value,sub,tone="default",th}){
@@ -2891,6 +2877,17 @@ const TOOLS=[
 ];
 
 export default 
+const FieldHint = ({ children, th }) => (
+  <div style={{
+    fontSize:10,
+    color:th.t3,
+    marginTop:4,
+    fontFamily:"monospace",
+    lineHeight:"1.4"
+  }}>
+    <span style={{color:th.accent}}>ℹ️</span> {children}
+  </div>
+);
 
 function SizingHub() {
   const [active,setActive]=useState("vmware");
