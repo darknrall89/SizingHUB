@@ -1633,6 +1633,9 @@ function StorageCalc({ th, isMobile=false }) {
                           onChange={e=>setIopsTarget(Number(e.target.value))}
                           style={s.input}
                         />
+                        <FieldHint th={th}>
+                          À renseigner depuis un audit RVTools, LiveOptics, des métriques baie ou une hypothèse validée client.
+                        </FieldHint>
                       </div>
 
                       <div>
@@ -1653,20 +1656,19 @@ function StorageCalc({ th, isMobile=false }) {
                           onChange={e=>setCapacityTarget(Number(e.target.value))}
                           style={s.input}
                         />
+                        <FieldHint th={th}>
+                          Capacité utile attendue après RAID, marge projet et croissance prévisionnelle.
+                        </FieldHint>
                       </div>
                     </div>
 
                     <div style={{
-                      marginTop:12,
-                      padding:"9px 11px",
-                      borderRadius:10,
-                      background:"rgba(0,153,255,0.06)",
-                      border:"1px solid rgba(0,153,255,0.18)",
+                      marginTop:10,
                       fontSize:11,
-                      color:th.t2,
-                      lineHeight:1.45
+                      color:th.t3,
+                      lineHeight:1.5
                     }}>
-                      <strong style={{color:th.accent2}}>Note avant-vente :</strong> les IOPS et la capacité cible doivent idéalement provenir d’un audit RVTools, LiveOptics, de métriques baie ou d’une hypothèse validée avec le client.
+                      Ces paramètres sont appliqués à l’ensemble du design et alimentent les KPI de capacité, IOPS et recommandations.
                     </div>
                   </div>
                   {chassisList.map((chassis,ci)=>{
