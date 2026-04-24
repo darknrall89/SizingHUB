@@ -295,22 +295,12 @@ function VMwareCalc({th, isMobile=false}) {
     const optAnnual       = optBilled*pricePerCore;
     const savingsVsOpt    = annualCost-optAnnual;
     const showOpt         = cores < 16; // Surcoût réel seulement si CPU < 16 cœurs/socket
-
-    // Avant-vente : efficacité licensing / perte financière
-    const wastedCores     = Math.max(0, totalBilled - totalPhys);
-    const efficiencyPct   = totalBilled > 0 ? Math.round((totalPhys / totalBilled) * 100) : 100;
-    const wastedAnnual    = wastedCores * pricePerCore;
-    const wastedProject   = wastedAnnual * yearsTotal;
-    const extraPerfPct    = totalPhys > 0 ? Math.round((wastedCores / totalPhys) * 100) : 0;
-    const efficiencyTone  = efficiencyPct >= 90 ? "default" : efficiencyPct >= 75 ? "warn" : "danger";
-
     return {
       totalSockets,totalPhys,billedPerSocket,totalBilled,totalRamTo,
       vcpuTotal,haRam,haCores,haVcpu,haPct,packs,surcharge,surPct,
       annualCost,annualCostEur,maintenanceCost,totalAnnual,totalProject,totalAnnualEur,totalProjectEur,
       annualCostEur,totalAnnualEur,totalProjectEur,
       optBilled,optAnnual,savingsVsOpt,showOpt,
-      wastedCores,efficiencyPct,wastedAnnual,wastedProject,extraPerfPct,efficiencyTone,
     };
   },[nodes,sockets,cores,ram,overcommit,pricePerCore,maintenancePct,yearsTotal,fxRate]);
 
@@ -362,124 +352,10 @@ function VMwareCalc({th, isMobile=false}) {
   return (
     <div>
       {/* KPIs */}
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)",
-        gap: 12,
-        marginBottom: 22
-      }}>
-        <MetricCard
-          label="Cœurs physiques"
-          value={fmt(r.totalPhys) + " cœurs"}
-          sub={nodes + " nœud(s) · " + sockets + " socket(s) · " + cores + " cœurs/socket"}
-          tone="blue"
-          th={th}
-        />
-        <MetricCard
-          label="Cœurs facturés"
-          value={fmt(r.totalBilled) + " cœurs"}
-          sub={licType.toUpperCase() + " · minimum 16 cœurs/socket"}
-          tone={r.surcharge ? "warn" : "default"}
-          th={th}
-        />
-        <MetricCard
-          label="Coût annuel"
-          value={"~ " + fmt(r.annualCost) + " €"}
-          sub={fmt(r.totalBilled) + " cœurs × " + pricePerCore + " €/cœur"}
-          tone="orange"
-          th={th}
-        />
-        <MetricCard
-          label={"Projet " + yearsTotal + " ans"}
-          value={"~ " + fmt(r.totalProject) + " €"}
-          sub={"Licences + maintenance " + maintenancePct + "%"}
-          tone="default"
-          th={th}
-        />
-      </div>
-
-      {/* Bloc avant-vente */}
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: isMobile ? "1fr" : "1.2fr 1fr",
-        gap: 12,
-        marginBottom: 18
-      }}>
-        <div style={{
-          background: r.efficiencyPct < 75 ? "rgba(255,85,85,0.06)" : r.efficiencyPct < 90 ? "rgba(255,181,71,0.08)" : "rgba(0,212,170,0.06)",
-          border: `1px solid ${r.efficiencyPct < 75 ? "rgba(255,85,85,0.22)" : r.efficiencyPct < 90 ? "rgba(255,181,71,0.25)" : "rgba(0,212,170,0.22)"}`,
-          borderRadius: 14,
-          padding: "16px 18px"
-        }}>
-          <div style={{
-            fontSize: 11,
-            color: th.t3,
-            textTransform: "uppercase",
-            letterSpacing: "0.08em",
-            fontFamily: "monospace",
-            marginBottom: 10
-          }}>
-            Analyse avant-vente
-          </div>
-
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)",
-            gap: 10
-          }}>
-            <div>
-              <div style={{fontSize: 11, color: th.t3, marginBottom: 4}}>Efficacité licensing</div>
-              <div style={{
-                fontSize: 26,
-                fontWeight: 800,
-                fontFamily: "monospace",
-                color: r.efficiencyPct < 75 ? th.danger : r.efficiencyPct < 90 ? th.warn : th.accent
-              }}>
-                {r.efficiencyPct}%
-              </div>
-            </div>
-
-            <div>
-              <div style={{fontSize: 11, color: th.t3, marginBottom: 4}}>Cœurs non exploités</div>
-              <div style={{fontSize: 26, fontWeight: 800, fontFamily: "monospace", color: r.wastedCores > 0 ? th.warn : th.accent}}>
-                {fmt(r.wastedCores)}
-              </div>
-            </div>
-
-            <div>
-              <div style={{fontSize: 11, color: th.t3, marginBottom: 4}}>Coût perdu / projet</div>
-              <div style={{fontSize: 26, fontWeight: 800, fontFamily: "monospace", color: r.wastedProject > 0 ? th.warn : th.accent}}>
-                ~ {fmt(r.wastedProject)} €
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div style={{
-          background: th.cardBg,
-          border: `1px solid ${th.border}`,
-          borderRadius: 14,
-          padding: "16px 18px",
-          boxShadow: SHADOW.card
-        }}>
-          <div style={{
-            fontSize: 11,
-            color: th.t3,
-            textTransform: "uppercase",
-            letterSpacing: "0.08em",
-            fontFamily: "monospace",
-            marginBottom: 10
-          }}>
-            Message commercial
-          </div>
-
-          <div style={{fontSize: 13, color: th.t2, lineHeight: 1.65}}>
-            {r.wastedCores > 0
-              ? <>La configuration actuelle génère une inefficience licensing : vous payez <strong style={{color: th.t1}}>{fmt(r.totalBilled)} cœurs</strong> pour seulement <strong style={{color: th.t1}}>{fmt(r.totalPhys)} cœurs physiques</strong>. En alignant les CPU sur le minimum Broadcom de 16 cœurs/socket, le client peut obtenir jusqu’à <strong style={{color: th.accent}}>+{r.extraPerfPct}% de puissance CPU</strong> sans augmenter le coût de licence.</>
-              : <>La configuration est cohérente côté licensing : les cœurs physiques sont bien alignés avec le modèle de facturation. Le dimensionnement peut être défendu comme optimisé et sans surcoût Broadcom caché.</>
-            }
-          </div>
-        </div>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(3,1fr)",gap:10,marginBottom:20}}>
+        <KpiC label="Cœurs facturés" value={fmt(r.totalBilled)+" cœurs"} sub={licType.toUpperCase()+" · min 16/socket"} bg="linear-gradient(135deg,#e05a20,#b84510)"/>
+        <KpiC label="Coût annuel licences" value={"~ "+fmt(r.annualCost)+" €"} sub={licType.toUpperCase()+" · "+fmt(r.totalBilled)+" cœurs × "+pricePerCore+" €"} bg="linear-gradient(135deg,#5a4fcf,#3d35a0)"/>
+        <KpiC label={"Coût total "+yearsTotal+" ans"} value={"~ "+fmt(r.totalProject)+" €"} sub={"Licences + maintenance "+maintenancePct+"%"} bg="linear-gradient(135deg,#2d7a4f,#1a5c38)"/>
       </div>
 
       {/* 3 cards */}

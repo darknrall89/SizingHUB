@@ -14,8 +14,7 @@ export default function ComputeCalc({ th, isMobile=false }) {
   const [tgtFreq,    setTgtFreq]    = useState(3.0);
   const [tgtRam,     setTgtRam]     = useState(512);
   const [haPolicy,   setHaPolicy]   = useState(1);
-
-
+  const [showDetail, setShowDetail] = useState(false);
 
   const r = useMemo(()=>{
     const srcTotalCores = srcNodes*srcSockets*srcCores;
@@ -31,6 +30,14 @@ export default function ComputeCalc({ th, isMobile=false }) {
     const gainCoresPct = srcTotalCores>0?Math.round(((tgtTotalCores-srcTotalCores)/srcTotalCores)*100):0;
     const gainRamPct   = srcTotalRam>0?Math.round(((tgtTotalRam-srcTotalRam)/srcTotalRam)*100):0;
     const gainFreqPct  = srcTotalFreq>0?Math.round(((tgtTotalFreq-srcTotalFreq)/srcTotalFreq)*100):0;
+
+    // Projection +20% : utilisation en N-1
+    const growthFactor = 1.20;
+    // On suppose utilisation actuelle = srcTotal / tgtTotal (ratio de charge existant sur cible)
+    // Projection CPU N-1 : (srcTotalCores * 1.20) / haCores * 100
+    const projCpuHa   = haCores>0 ? Math.round((srcTotalCores*growthFactor/haCores)*100) : 0;
+    const projRamHa   = haRam>0   ? Math.round((srcTotalRam*growthFactor/haRam)*100)     : 0;
+
     return {
       srcTotalCores,srcTotalFreq,srcTotalRam,
       tgtTotalCores,tgtTotalFreq,tgtTotalRam,
@@ -38,6 +45,7 @@ export default function ComputeCalc({ th, isMobile=false }) {
       gainCoresPct,gainRamPct,gainFreqPct,
       gainCores:tgtTotalCores-srcTotalCores,
       gainRam:tgtTotalRam-srcTotalRam,
+      projCpuHa, projRamHa,
     };
   },[srcNodes,srcSockets,srcCores,srcFreq,srcRam,
      tgtNodes,tgtSockets,tgtCores,tgtFreq,tgtRam,
@@ -90,18 +98,6 @@ export default function ComputeCalc({ th, isMobile=false }) {
     );
   }
 
-  // KPI coloré avec fond
-  function KpiColored({label,value,sub,bg,textColor}) {
-    return (
-      <div style={{background:bg,borderRadius:8,padding:"14px 16px",display:"flex",flexDirection:"column",gap:4}}>
-        <div style={{fontSize:24,fontWeight:700,fontFamily:"monospace",color:textColor||"#fff"}}>{value}</div>
-        {sub && <div style={{fontSize:12,color:textColor||"rgba(255,255,255,0.8)",fontFamily:"monospace"}}>{sub}</div>}
-        <div style={{fontSize:10,color:textColor||"rgba(255,255,255,0.6)",textTransform:"uppercase",letterSpacing:"0.08em",marginTop:2}}>{label}</div>
-      </div>
-    );
-  }
-
-  // Ligne comparaison avec flèche et delta
   function CompRow({label,srcVal,tgtVal,unit,gainPct}) {
     const positive = gainPct >= 0;
     return (
@@ -126,14 +122,12 @@ export default function ComputeCalc({ th, isMobile=false }) {
     );
   }
 
-  // Graphe barres verticales avec label intégré
   function BarChart3({data,unit,height=180}) {
     const maxVal = Math.max(...data.map(d=>d.val))||1;
     const gainPct = data[0].val>0?Math.round(((data[1].val-data[0].val)/data[0].val)*100):0;
     return (
       <div>
         <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-around",height,padding:"0 8px",gap:12,position:"relative"}}>
-          {/* Annotation gain */}
           {gainPct!==0 && (
             <div style={{position:"absolute",top:0,left:"50%",transform:"translateX(-50%)",
               fontSize:12,fontWeight:700,fontFamily:"monospace",
@@ -168,26 +162,154 @@ export default function ComputeCalc({ th, isMobile=false }) {
     );
   }
 
-  const kpiHaPct = r.haPct<=25?"ok":"warn";
+  // ─── Score global (anneau SVG) ───────────────────────────────────────────────
+  const score = 82;
+  const scoreColor = score>=75?"#1D9E75":score>=50?"#d97706":"#dc2626";
+  const circumference = 2*Math.PI*26; // r=26
+  const dashOffset = circumference*(1-score/100);
+
+  // ─── Helpers projection badge ────────────────────────────────────────────────
+  function ProjBadge({value,threshold,label}) {
+    const ok = value < threshold;
+    return (
+      <span style={{
+        fontSize:10,padding:"2px 7px",borderRadius:3,fontFamily:"monospace",fontWeight:600,
+        background:ok?"rgba(29,158,117,0.13)":"rgba(217,119,6,0.13)",
+        color:ok?"#0f6e56":"#854F0B",
+        border:`1px solid ${ok?"rgba(29,158,117,0.25)":"rgba(217,119,6,0.25)"}`,
+      }}>
+        {ok?`Sous le seuil ${threshold}%`:`Proche seuil ${threshold}%`}
+      </span>
+    );
+  }
+
+  // ─── Bandeau supérieur ───────────────────────────────────────────────────────
+  function TopBanner() {
+    const synthItems = [
+      { ok: r.projCpuHa < 70,  label: `Capacité CPU suffisante en N-${haPolicy}` },
+      { ok: r.projRamHa < 75,  label: `RAM en N-${haPolicy} ${r.projRamHa>=75?"proche du seuil recommandé (75%)":"sous le seuil (75%)"}` },
+      { ok: true,               label: "Infrastructure HA conforme (N+1)" },
+    ];
+    const riskLevel = r.projCpuHa < 70 && r.projRamHa < 85 ? "Faible" : r.projCpuHa < 85 && r.projRamHa < 90 ? "Modéré" : "Élevé";
+    const riskColor = riskLevel==="Faible"?"#1D9E75":riskLevel==="Modéré"?"#d97706":"#dc2626";
+
+    const projItems = [
+      { icon:"cpu", label:`CPU en N-${haPolicy}`, val:r.projCpuHa, threshold:70 },
+      { icon:"ram", label:`RAM en N-${haPolicy}`, val:r.projRamHa, threshold:75 },
+      { icon:"trend", label:"Croissance", val:20, threshold:999, staticLabel:"Capacité absorbée" },
+    ];
+
+    return (
+      <div style={{
+        display:"grid",
+        gridTemplateColumns:"auto 1fr auto auto",
+        border:`1px solid ${th.border}`,
+        borderRadius:8,
+        overflow:"hidden",
+        marginBottom:20,
+        background:th.cardBg,
+      }}>
+        {/* Colonne 1 — Score */}
+        <div style={{
+          padding:"16px 20px",
+          borderRight:`1px solid ${th.border}`,
+          display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4,
+          minWidth:130,
+        }}>
+          <div style={{position:"relative",width:64,height:64}}>
+            <svg width="64" height="64" viewBox="0 0 64 64">
+              <circle cx="32" cy="32" r="26" fill="none" stroke={th.border} strokeWidth="5"/>
+              <circle cx="32" cy="32" r="26" fill="none" stroke={scoreColor} strokeWidth="5"
+                strokeDasharray={circumference} strokeDashoffset={dashOffset}
+                strokeLinecap="round" transform="rotate(-90 32 32)"/>
+            </svg>
+            <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
+              <span style={{fontSize:18,fontWeight:600,fontFamily:"monospace",lineHeight:1,color:scoreColor}}>{score}</span>
+              <span style={{fontSize:10,color:th.t3}}>/100</span>
+            </div>
+          </div>
+          <span style={{fontSize:13,fontWeight:600,color:scoreColor,marginTop:2}}>Optimisé</span>
+          <span style={{fontSize:10,color:th.t3,textAlign:"center",maxWidth:120,lineHeight:1.4}}>
+            Infrastructure cible bien dimensionnée
+          </span>
+          <button
+            onClick={()=>setShowDetail(v=>!v)}
+            style={{marginTop:4,fontSize:11,color:th.accent2,background:"none",border:"none",cursor:"pointer",padding:0,fontFamily:"monospace"}}>
+            {showDetail?"Masquer le détail ↑":"Voir le détail →"}
+          </button>
+        </div>
+
+        {/* Colonne 2 — Synthèse */}
+        <div style={{padding:"16px 20px",borderRight:`1px solid ${th.border}`,display:"flex",flexDirection:"column",justifyContent:"center",gap:4}}>
+          <div style={{fontSize:10,color:th.t3,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6,fontFamily:"monospace"}}>Synthèse</div>
+          {synthItems.map((item,i)=>(
+            <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"3px 0",fontSize:12,color:th.t2}}>
+              <span style={{
+                width:7,height:7,borderRadius:"50%",flexShrink:0,
+                background:item.ok?"#1D9E75":"#d97706",
+              }}/>
+              {item.label}
+            </div>
+          ))}
+        </div>
+
+        {/* Colonne 3 — Risque */}
+        <div style={{padding:"16px 20px",borderRight:`1px solid ${th.border}`,display:"flex",flexDirection:"column",justifyContent:"center",gap:8,minWidth:140}}>
+          <div style={{fontSize:10,color:th.t3,textTransform:"uppercase",letterSpacing:"0.08em",fontFamily:"monospace"}}>Niveau de risque</div>
+          <span style={{
+            display:"inline-flex",alignItems:"center",gap:6,
+            background:riskLevel==="Faible"?"rgba(29,158,117,0.12)":riskLevel==="Modéré"?"rgba(217,119,6,0.12)":"rgba(220,38,38,0.12)",
+            color:riskColor,fontSize:13,fontWeight:600,
+            padding:"5px 10px",borderRadius:4,fontFamily:"monospace",width:"fit-content",
+          }}>
+            {riskLevel==="Faible"?"▲":riskLevel==="Modéré"?"⚠":"✕"} {riskLevel}
+          </span>
+          <div style={{fontSize:11,color:th.t3}}>
+            {riskLevel==="Faible"?"Aucun risque critique détecté":riskLevel==="Modéré"?"Surveiller RAM en N-1":"Risque de saturation"}
+          </div>
+        </div>
+
+        {/* Colonne 4 — Projection 12 mois */}
+        <div style={{padding:"16px 20px",display:"flex",flexDirection:"column",justifyContent:"center",gap:8,minWidth:310}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:2}}>
+            <div style={{fontSize:10,color:th.t3,textTransform:"uppercase",letterSpacing:"0.08em",fontFamily:"monospace"}}>Projection à 12 mois (+20%)</div>
+            <div style={{fontSize:10,color:th.t3,fontFamily:"monospace"}}>Horizon analysé</div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+            {/* CPU N-1 */}
+            <div style={{background:th.bg2,borderRadius:6,padding:"9px 11px"}}>
+              <div style={{fontSize:10,color:th.t3,fontFamily:"monospace",marginBottom:4}}>CPU en N-{haPolicy}</div>
+              <div style={{fontSize:14,fontWeight:600,fontFamily:"monospace",color:th.t1}}>{r.projCpuHa}%</div>
+              <div style={{fontSize:10,color:th.t3,marginBottom:4}}>Charge prévue</div>
+              <ProjBadge value={r.projCpuHa} threshold={70}/>
+            </div>
+            {/* RAM N-1 */}
+            <div style={{background:th.bg2,borderRadius:6,padding:"9px 11px"}}>
+              <div style={{fontSize:10,color:th.t3,fontFamily:"monospace",marginBottom:4}}>RAM en N-{haPolicy}</div>
+              <div style={{fontSize:14,fontWeight:600,fontFamily:"monospace",color:th.t1}}>{r.projRamHa}%</div>
+              <div style={{fontSize:10,color:th.t3,marginBottom:4}}>Charge prévue</div>
+              <ProjBadge value={r.projRamHa} threshold={75}/>
+            </div>
+            {/* Croissance */}
+            <div style={{background:th.bg2,borderRadius:6,padding:"9px 11px"}}>
+              <div style={{fontSize:10,color:th.t3,fontFamily:"monospace",marginBottom:4}}>Croissance</div>
+              <div style={{fontSize:14,fontWeight:600,fontFamily:"monospace",color:th.t1}}>+20%</div>
+              <div style={{fontSize:10,color:th.t3,marginBottom:4}}>Charge projetée</div>
+              <span style={{fontSize:10,padding:"2px 7px",borderRadius:3,fontFamily:"monospace",fontWeight:600,
+                background:"rgba(29,158,117,0.13)",color:"#0f6e56",border:"1px solid rgba(29,158,117,0.25)"}}>
+                Capacité absorbée
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
-      {/* KPIs colorés */}
-      <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(5,1fr)",gap:10,marginBottom:20}}>
-        <KpiColored label="Nœuds cible" value={tgtNodes} sub={`${tgtSockets}S/${tgtCores}c/${tgtFreq}GHz`}
-          bg="linear-gradient(135deg,#00a884,#007a60)" />
-        <KpiColored label="Cœurs cible" value={fmt(r.tgtTotalCores)}
-          sub={r.gainCoresPct!==0?(r.gainCoresPct>0?"+":"")+r.gainCoresPct+"% vs existant":undefined}
-          bg="linear-gradient(135deg,#0077cc,#005599)" />
-        <KpiColored label="GHz agrégés" value={fmt(r.tgtTotalFreq,0)} sub="GHz total cluster"
-          bg="linear-gradient(135deg,#0099ff,#0066cc)" />
-        <KpiColored label="RAM cible" value={fmt(r.tgtTotalRam)} sub="Go total cluster"
-          bg="linear-gradient(135deg,#5a4fcf,#3d35a0)" />
-        <KpiColored label="Capacité HA" value={fmt(r.haPct,0)+"% perdu"}
-          sub={`N-${haPolicy} — ${fmt(r.haCores)} cœurs dispo`}
-          bg={kpiHaPct==="ok"?"linear-gradient(135deg,#00a884,#007a60)":"linear-gradient(135deg,#d97706,#b45309)"}
-          textColor={kpiHaPct==="ok"?"#fff":"#fff"} />
-      </div>
+      {/* Bandeau supérieur */}
+      <TopBanner/>
 
       {/* Saisie + Comparaison */}
       <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:14,marginBottom:14,alignItems:"start"}}>
