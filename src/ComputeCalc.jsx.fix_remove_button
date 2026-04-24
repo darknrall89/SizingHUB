@@ -346,7 +346,17 @@ export default function ComputeCalc({ th, isMobile=false }) {
           </div>
         </div>
 
-        
+        <button onClick={()=>setCompared(false)} style={{
+          padding:"10px 12px",
+          borderRadius:10,
+          border:`1px solid ${th.border}`,
+          background:th.bg2,
+          color:th.t2,
+          fontWeight:850,
+          cursor:"pointer"
+        }}>
+          Modifier les hypothèses
+        </button>
       </div>
 
       <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(5,1fr)",gap:14,marginBottom:18}}>
