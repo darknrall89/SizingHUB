@@ -1251,7 +1251,11 @@ function StorageCalc({ th, isMobile=false }) {
   const [vDiskCap,       setVDiskCap]       = useState(3.84);
   const [vTarget,        setVTarget]        = useState(50);
   const [vVendorDedup,   setVVendorDedup]   = useState(true);
-  const [vDedupRatio,    setVDedupRatio]    = useState(2.5);
+  const [dreMode,setDreMode] = useState(false);
+const [dreEfficiency,setDreEfficiency] = useState(0.8);
+const [systemReserveRatio,setSystemReserveRatio] = useState(0.1);
+
+const [vDedupRatio,    setVDedupRatio]    = useState(2.5);
 
   const addChassis = () => setChassisList(p=>[...p, newChassis("3.5-12")]);
   const removeChassis = (cid) => setChassisList(p=>p.filter(c=>c.id!==cid));
@@ -1326,6 +1330,7 @@ function StorageCalc({ th, isMobile=false }) {
       });
     });
     const effective = usable * dedup;
+
     let totalSlots=0, usedSlots=0;
     chassisList.forEach(c=>{totalSlots+=c.slots;usedSlots+=c.groups.reduce((s,g)=>s+g.count,0);});
     const freeSlots=totalSlots-usedSlots;
@@ -1921,249 +1926,600 @@ function StorageCalc({ th, isMobile=false }) {
       })()}
 
       {storageTab==="vendor"&&(()=>{
-          const VENDORS = {
-            dell: {
-              label:"Dell", color:"#0076CE",
-              models: {
-                powerstore: {
-                  label:"PowerStore", protection:"DRE (Dynamic Resilience Engine)",
-                  overheadMin:10, overheadMax:15, overheadDefault:12,
-                  hasDedup:true, dedupDefault:2.5, useDreCalc:true,
-                  raids:[
-                    {id:"dre_sp_8_1",label:"DRE SP — 8+1",dataDisks:8,parityDisks:1,spareDisks:1},
-                    {id:"dre_dp_8_2",label:"DRE DP — 8+2",dataDisks:8,parityDisks:2,spareDisks:1},
-                    {id:"dre_dp_16_2",label:"DRE DP — 16+2",dataDisks:16,parityDisks:2,spareDisks:1},
-                  ],
-                  note:"Formule Dell officielle KB000188491."
-                },
-                powervault: {
-                  label:"PowerVault", protection:"RAID Adapt",
-                  overheadMin:15, overheadMax:20, overheadDefault:17,
-                  hasDedup:false, dedupDefault:1.0,
-                  raids:[{id:"adapt",label:"RAID Adapt (dynamique)",factor:0.17}],
-                  note:"RAID Adapt : overhead diminue avec le nombre de disques. Pas de dédup natif."
-                },
-              }
-            },
-            hpe: {
-              label:"HPE", color:"#01A982",
-              models: {
-                alletra: {
-                  label:"Alletra / Primera", protection:"RAID 6 double parité",
-                  overheadMin:25, overheadMax:30, overheadDefault:27,
-                  hasDedup:true, dedupDefault:3.0,
-                  raids:[{id:"r6",label:"RAID 6 (6+2)",factor:2/8},{id:"r6_4",label:"RAID 6 (4+2)",factor:2/6}],
-                  note:"Dédup/compression inline. RAID 6 optimisé NVMe."
-                },
-                nimble: {
-                  label:"Nimble", protection:"RAID triple parité",
-                  overheadMin:25, overheadMax:30, overheadDefault:27,
-                  hasDedup:true, dedupDefault:3.5,
-                  raids:[{id:"r6tp",label:"RAID 6 triple parité",factor:3/9}],
-                  note:"Dédup/compression inline très efficace. CASL architecture."
-                },
-                msa: {
-                  label:"MSA", protection:"RAID DP+",
-                  overheadMin:25, overheadMax:25, overheadDefault:25,
-                  hasDedup:false, dedupDefault:1.0,
-                  raids:[{id:"rdp",label:"RAID DP+ (double parité)",factor:2/8}],
-                  note:"Pas de dédup natif. Overhead fixe 25%. Solution entrée de gamme."
-                },
-              }
-            },
-            huawei: {
-              label:"Huawei", color:"#CF0A2C",
-              models: {
-                dorado: {
-                  label:"OceanStor Dorado", protection:"RAID-TP triple parité",
-                  overheadMin:25, overheadMax:30, overheadDefault:20,
-                  hasDedup:true, dedupDefault:3.0,
-                  useHuaweiCalc:true,
-                  raids:[{id:"raidtp",label:"RAID-TP (triple parité)",factor:0}],
-                  note:"RAID-TP : overhead systeme inclut la protection. Resistance a 3 pannes simultanees. Dedup inline toujours actif."
-                },
-                pacific: {
-                  label:"OceanStor Pacific", protection:"Erasure Coding",
-                  overheadMin:20, overheadMax:33, overheadDefault:25,
-                  hasDedup:true, dedupDefault:2.0,
-                  raids:[
-                    {id:"ec42",label:"EC 4+2 (overhead 33%)",factor:2/6},
-                    {id:"ec82",label:"EC 8+2 (overhead 20%)",factor:2/10},
-                    {id:"ec122",label:"EC 12+2 (overhead 14%)",factor:2/14},
-                  ],
-                  note:"Erasure Coding configurable. Idéal pour gros volumes objets/fichiers."
-                },
-              }
-            },
-          };
+        const VENDORS = {
+          dell: {
+            label:"Dell", color:"#2563eb",
+            models: {
+              powerstore: {
+                label:"PowerStore",
+                protection:"DRE (Dynamic Resilience Engine)",
+                overheadMin:10, overheadMax:15, overheadDefault:12,
+                hasDedup:true, dedupDefault:2.5,
+                raids:[
+                  {id:"dre_sp_8_1",label:"DRE SP — 8+1",dataDisks:8,parityDisks:1,spareDisks:1},
+                  {id:"dre_dp_8_2",label:"DRE DP — 8+2",dataDisks:8,parityDisks:2,spareDisks:1},
+                  {id:"dre_dp_16_2",label:"DRE DP — 16+2",dataDisks:16,parityDisks:2,spareDisks:1},
+                ],
+                note:"Formule Dell officielle KB000188491."
+              },
+              powervault: {
+                label:"PowerVault",
+                protection:"RAID Adapt",
+                overheadMin:15, overheadMax:20, overheadDefault:17,
+                hasDedup:false, dedupDefault:1.0,
+                raids:[{id:"adapt",label:"RAID Adapt",factor:0.17}],
+                note:"RAID Adapt dynamique. Pas de déduplication native."
+              },
+            }
+          },
+          hpe: {
+            label:"HPE", color:"#059669",
+            models: {
+              alletra: {
+                label:"Alletra / Primera",
+                protection:"RAID 6 double parité",
+                overheadMin:25, overheadMax:30, overheadDefault:27,
+                hasDedup:true, dedupDefault:3.0,
+                raids:[{id:"r6",label:"RAID 6 (6+2)",factor:2/8},{id:"r6_4",label:"RAID 6 (4+2)",factor:2/6}],
+                note:"Déduplication / compression inline."
+              },
+              nimble: {
+                label:"Nimble",
+                protection:"RAID triple parité",
+                overheadMin:25, overheadMax:30, overheadDefault:27,
+                hasDedup:true, dedupDefault:3.5,
+                raids:[{id:"r6tp",label:"RAID triple parité",factor:3/9}],
+                note:"Architecture CASL, réduction de données efficace."
+              },
+              msa: {
+                label:"MSA",
+                protection:"RAID DP+",
+                overheadMin:25, overheadMax:25, overheadDefault:25,
+                hasDedup:false, dedupDefault:1.0,
+                raids:[{id:"rdp",label:"RAID DP+",factor:2/8}],
+                note:"Solution entrée de gamme. Pas de déduplication native."
+              },
+            }
+          },
+          huawei: {
+            label:"Huawei", color:"#dc2626",
+            models: {
+              dorado: {
+                label:"OceanStor Dorado",
+                protection:"RAID-TP triple parité",
+                overheadMin:20, overheadMax:30, overheadDefault:20,
+                hasDedup:true, dedupDefault:3.0,
+                raids:[{id:"raidtp",label:"RAID-TP",factor:0}],
+                note:"RAID-TP : résistance à 3 pannes simultanées."
+              },
+              pacific: {
+                label:"OceanStor Pacific",
+                protection:"Erasure Coding",
+                overheadMin:20, overheadMax:33, overheadDefault:25,
+                hasDedup:true, dedupDefault:2.0,
+                raids:[
+                  {id:"ec42",label:"EC 4+2",factor:2/6},
+                  {id:"ec82",label:"EC 8+2",factor:2/10},
+                  {id:"ec122",label:"EC 12+2",factor:2/14},
+                ],
+                note:"Erasure Coding configurable pour gros volumes."
+              },
+            }
+          },
+        };
 
-          const vendor = VENDORS[vVendor];
-          const model  = vendor?.models[vModel];
-          const raid   = model?.raids.find(r=>r.id===vRaid)||model?.raids[0];
+        const vendor = VENDORS[vVendor];
+        const model = vendor?.models[vModel];
+        const raid = model?.raids.find(r=>r.id===vRaid) || model?.raids[0];
 
-          const rawTB     = vDisks * vDiskCap;
-          const overheadF = vOverhead/100;
-          let usable; let dreInfo=null;
-          if(model?.useHuaweiCalc) {
-            // Calcul Huawei : overhead systeme inclut RAID-TP, pas de facteur RAID séparé
-            usable = rawTB * (1 - overheadF);
-          } else if(raid?.dataDisks && raid?.parityDisks) {
-            const groupSize = raid.dataDisks + raid.parityDisks;
-            const nbGroups  = Math.floor(vDisks / groupSize);
-            const dreRaw    = nbGroups * raid.dataDisks * vDiskCap;
-            usable          = dreRaw * (1 - overheadF);
-            dreInfo = {nb:nbGroups, used:nbGroups*groupSize, unused:vDisks-nbGroups*groupSize, dreRaw};
-          } else {
-            usable = rawTB*(1-overheadF)*(1-(raid?.factor||0));
-          }
-          const effective = (model?.hasDedup && vVendorDedup) ? usable * vDedupRatio : usable;
-          const savedDedup= (model?.hasDedup && vVendorDedup) ? effective - usable : 0;
-          const pctUsed   = vTarget > 0 ? Math.round((vTarget/effective)*100) : 0;
-          const ok        = effective >= vTarget;
+        const rawTB = vDisks * vDiskCap;
+        const overheadF = vOverhead / 100;
 
-          // KPIs constructeur
-          const vendorKpis = [
-            {label:"Capacité physique",sub:`${vDisks} disques × ${vDiskCap} TB`,val:rawTB.toFixed(1)+" TB",bg:"linear-gradient(135deg,#0077cc,#005599)"},
-            {label:"Capacité utile",sub:`Après overhead ${vOverhead}%`,val:usable.toFixed(1)+" TB",bg:"linear-gradient(135deg,#5a4fcf,#3d35a0)"},
-            {label:"Capacité effective",sub:(model?.hasDedup&&vVendorDedup)?`Dédup ×${vDedupRatio}`:"Sans dédup",val:effective.toFixed(1)+" TB",bg:effective>=vTarget?"linear-gradient(135deg,#00a884,#007a60)":"linear-gradient(135deg,#cc3333,#991111)"},
-            {label:"Objectif atteint",sub:`Cible : ${vTarget} TB`,val:effective>=vTarget?"✓ Oui":"✗ Non",bg:effective>=vTarget?"linear-gradient(135deg,#00a884,#007a60)":"linear-gradient(135deg,#d97706,#b45309)"},
-          ];
-          return (
+        let usable = 0;
+
+if (dreMode && vVendor === "dell" && model?.label === "PowerStore") {
+  const dreCapacity = rawTB * dreEfficiency
+  const systemReserve = dreCapacity * systemReserveRatio
+  usable = dreCapacity - systemReserve
+} else {
+        let pipelineRaidLabel = raid?.label || "Protection";
+
+        if(raid?.dataDisks && raid?.parityDisks) {
+          const groupSize = raid.dataDisks + raid.parityDisks;
+          const nbGroups = Math.floor(vDisks / groupSize);
+          const dreRaw = nbGroups * raid.dataDisks * vDiskCap;
+          usable = dreRaw * (1 - overheadF);
+        } else {
+          usable = rawTB * (1 - overheadF) * (1 - (raid?.factor || 0));
+        }
+
+        if(model?.label === "OceanStor Dorado") {
+          usable = rawTB * (1 - overheadF);
+
+        const effective = (model?.hasDedup && vVendorDedup) ? usable * vDedupRatio : usable;
+        const margin = effective - vTarget;
+        const marginPct = vTarget > 0 ? Math.round((margin / vTarget) * 100) : 0;
+        const usedPct = effective > 0 ? Math.round((vTarget / effective) * 100) : 0;
+        const ok = effective >= vTarget;
+
+        const statusTitle = ok ? "Design validé constructeur" : "Dimensionnement insuffisant";
+        const statusText = ok
+          ? "Le dimensionnement couvre les objectifs de capacité."
+          : "La capacité effective ne couvre pas la cible définie.";
+
+        const recommendation = ok
+          ? marginPct > 50
+            ? "Le design couvre largement la cible. Une optimisation peut réduire le surdimensionnement."
+            : "Le design est cohérent. Conserver la configuration et valider la croissance."
+          : "Augmenter le nombre de disques, la capacité unitaire ou le ratio de réduction.";
+
+        const vendorColor = vendor?.color || th.accent;
+
+        const Kpi = ({label,value,sub,color,extra}) => (
+          <div style={{
+            background:`${color}10`,
+            border:`1px solid ${color}30`,
+            borderRadius:14,
+            padding:"16px 18px",
+            boxShadow:SHADOW.card
+          }}>
+            <div style={{fontSize:11,color,textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:800,marginBottom:6}}>
+              {label}
+            </div>
+            <div style={{fontSize:26,fontWeight:900,color,fontFamily:"Inter, sans-serif"}}>
+              {value}
+            </div>
+            <div style={{fontSize:12,color:th.t2,marginTop:4}}>
+              {sub}
+            </div>
+            {extra}
+          </div>
+        );
+
+        const ResultLine = ({label,value,color=th.t1,sub}) => (
+          <div style={{display:"flex",justifyContent:"space-between",gap:14,padding:"10px 0",borderBottom:`1px solid ${th.border}`}}>
             <div>
-              {/* KPIs */}
-              <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(5,1fr)",gap:10,marginBottom:14}}>
-                {vendorKpis.map(k=>(
-                  <div key={k.label} style={{background:k.bg,borderRadius:8,padding:"14px 16px"}}>
-                    <div style={{fontSize:10,color:"rgba(255,255,255,0.6)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>{k.label}</div>
-                    <div style={{fontSize:10,color:"rgba(255,255,255,0.5)",marginBottom:4}}>{k.sub}</div>
-                    <div style={{fontSize:20,fontWeight:700,fontFamily:"Inter, sans-serif",color:"#fff"}}>{k.val}</div>
-                  </div>
-                ))}
-              </div>
-            <div style={{background:th.cardBg,border:`1px solid ${th.border}`,borderRadius:6,padding:16}}>
-              {/* Sélecteur constructeur */}
-              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr 1fr",gap:10,marginBottom:16}}>
+              <div style={{fontSize:12,color:th.t2}}>{label}</div>
+              {sub && <div style={{fontSize:11,color:th.t3,marginTop:2}}>{sub}</div>}
+            </div>
+            <strong style={{fontSize:13,color,fontFamily:"Inter, sans-serif",whiteSpace:"nowrap"}}>{value}</strong>
+          </div>
+        );
+
+        return (
+          <div>
+            {/* Hero constructeur */}
+            <div style={{
+              display:"grid",
+              gridTemplateColumns:isMobile?"1fr":"1.4fr 1fr",
+              gap:16,
+              alignItems:"center",
+              background:ok?"rgba(0,212,170,0.06)":"rgba(255,181,71,0.08)",
+              border:`1px solid ${ok?"rgba(0,212,170,0.22)":"rgba(255,181,71,0.25)"}`,
+              borderRadius:16,
+              padding:"18px 22px",
+              marginBottom:18,
+              boxShadow:SHADOW.card
+            }}>
+              <div style={{display:"flex",gap:18,alignItems:"center"}}>
+                <div style={{
+                  width:72,height:72,borderRadius:999,
+                  background:ok?"linear-gradient(135deg,#10b981,#059669)":"linear-gradient(135deg,#f59e0b,#d97706)",
+                  color:"#fff",
+                  display:"flex",alignItems:"center",justifyContent:"center",
+                  fontSize:36,fontWeight:900
+                }}>
+                  {ok ? "✓" : "!"}
+                </div>
                 <div>
-                  <label style={{display:"block",fontSize:10,color:th.t3,fontFamily:"Inter, sans-serif",textTransform:"uppercase",marginBottom:5}}>Constructeur</label>
-                  <select value={vVendor} onChange={e=>{setVVendor(e.target.value);const first=Object.keys(VENDORS[e.target.value].models)[0];setVModel(first);const m=VENDORS[e.target.value].models[first];setVRaid(m.raids[0].id);setVOverhead(m.overheadDefault);setVDedupRatio(m.dedupDefault);setVVendorDedup(m.hasDedup);}} style={{width:"100%",background:th.bg2,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"Inter, sans-serif",fontSize:12,boxSizing:"border-box"}}>
+                  <div style={{fontSize:24,fontWeight:900,color:ok?th.accent:th.warn,letterSpacing:"-0.03em"}}>
+                    {statusTitle}
+                  </div>
+                  <div style={{fontSize:13,color:th.t2,marginTop:6,lineHeight:1.5}}>
+                    {statusText}
+                  </div>
+                  <div style={{fontSize:13,color:ok?th.accent:th.warn,marginTop:10,fontWeight:800}}>
+                    {ok ? "Marge disponible : +" + fmt(margin,2) + " TB (" + marginPct + "% au-dessus de la cible)" : "Déficit : " + fmt(Math.abs(margin),2) + " TB"}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{background:th.cardBg,border:`1px solid ${th.border}`,borderRadius:14,padding:"16px 18px",boxShadow:"0 10px 24px rgba(15,23,42,0.06)"}}>
+                <div style={{fontSize:11,color:th.t3,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>
+                  Recommandation
+                </div>
+                <div style={{fontSize:13,color:th.t1,lineHeight:1.55,fontWeight:700}}>
+                  {recommendation}
+                </div>
+                <button
+                  onClick={()=>{
+                    const targetRaw = vTarget / ((model?.hasDedup && vVendorDedup) ? vDedupRatio : 1);
+                    const required = Math.ceil((targetRaw / Math.max(0.1, vDiskCap)) * 1.35);
+                    setVDisks(Math.max(4, required));
+                  }}
+                  style={{
+                    marginTop:12,
+                    cursor:"pointer",
+                    border:`1px solid ${th.border2}`,
+                    background:`${th.accent}12`,
+                    color:th.accent,
+                    borderRadius:10,
+                    padding:"9px 12px",
+                    fontSize:12,
+                    fontWeight:800
+                  }}
+                >
+                  Optimiser le design
+                </button>
+              </div>
+            </div>
+
+            {/* KPIs */}
+            <div style={{
+              display:"grid",
+              gridTemplateColumns:isMobile?"1fr":"repeat(4,1fr)",
+              gap:12,
+              marginBottom:16
+            }}>
+              <Kpi label="Capacité physique" value={fmt(rawTB,1)+" TB"} sub={vDisks+" disques × "+vDiskCap+" TB"} color={th.accent2}/>
+              <Kpi label="Capacité utile" value={fmt(usable,1)+" TB"} sub={"Après overhead "+vOverhead+"% + RAID"} color="#6d4fc2"/>
+              <Kpi label="Capacité effective" value={fmt(effective,1)+" TB"} sub={(model?.hasDedup&&vVendorDedup)?"Dédup ×"+vDedupRatio:"Sans dédup"} color={th.accent}/>
+              <Kpi
+                label="Objectif atteint"
+                value={ok?"✓ Oui":"✗ Non"}
+                sub={"Cible : "+fmt(vTarget,0)+" TB"}
+                color={ok?th.accent:th.danger}
+                extra={ok && <div style={{marginTop:10,fontSize:12,fontWeight:900,color:th.accent}}>+{fmt(margin,1)} TB de marge</div>}
+              />
+            </div>
+
+            {/* Sélecteurs constructeur */}
+            <div style={{
+              background:th.cardBg,
+              border:`1px solid ${th.border}`,
+              borderRadius:16,
+              padding:"18px 20px",
+              boxShadow:SHADOW.card,
+              marginBottom:16
+            }}>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(4,1fr)",gap:14}}>
+                <div>
+                  <label style={s.label}>Constructeur</label>
+                  <select value={vVendor} onChange={e=>{
+                    setVVendor(e.target.value);
+                    const first=Object.keys(VENDORS[e.target.value].models)[0];
+                    const m=VENDORS[e.target.value].models[first];
+                    setVModel(first); setVRaid(m.raids[0].id); setVOverhead(m.overheadDefault);
+                    setVDedupRatio(m.dedupDefault); setVVendorDedup(m.hasDedup);
+                  }} style={s.select}>
                     {Object.entries(VENDORS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
                   </select>
                 </div>
+
                 <div>
-                  <label style={{display:"block",fontSize:10,color:th.t3,fontFamily:"Inter, sans-serif",textTransform:"uppercase",marginBottom:5}}>Modèle de baie</label>
-                  <select value={vModel} onChange={e=>{setVModel(e.target.value);const m=vendor.models[e.target.value];setVRaid(m.raids[0].id);setVOverhead(m.overheadDefault);setVDedupRatio(m.dedupDefault);setVVendorDedup(m.hasDedup);}} style={{width:"100%",background:th.bg2,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"Inter, sans-serif",fontSize:12,boxSizing:"border-box"}}>
+                  <label style={s.label}>Modèle de baie</label>
+                  <select value={vModel} onChange={e=>{
+                    const m=vendor.models[e.target.value];
+                    setVModel(e.target.value); setVRaid(m.raids[0].id); setVOverhead(m.overheadDefault);
+                    setVDedupRatio(m.dedupDefault); setVVendorDedup(m.hasDedup);
+                  }} style={s.select}>
                     {Object.entries(vendor.models).map(([k,m])=><option key={k} value={k}>{m.label}</option>)}
                   </select>
                 </div>
+
                 <div>
-                  <label style={{display:"block",fontSize:10,color:th.t3,fontFamily:"Inter, sans-serif",textTransform:"uppercase",marginBottom:5}}>Protection RAID</label>
-                  <select value={vRaid} onChange={e=>setVRaid(e.target.value)} style={{width:"100%",background:th.bg2,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"Inter, sans-serif",fontSize:12,boxSizing:"border-box"}}>
+                  <label style={s.label}>Protection RAID</label>
+                  <select value={vRaid} onChange={e=>setVRaid(e.target.value)} style={s.select}>
                     {model?.raids.map(r=><option key={r.id} value={r.id}>{r.label}</option>)}
                   </select>
                 </div>
+
                 <div>
-                  <label style={{display:"block",fontSize:10,color:th.t3,fontFamily:"Inter, sans-serif",textTransform:"uppercase",marginBottom:5}}>Overhead système (%)</label>
-                  <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                    <input type="number" min={model?.overheadMin||10} max={model?.overheadMax||35} value={vOverhead} onChange={e=>setVOverhead(Number(e.target.value))} style={{width:"100%",background:th.bg2,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"Inter, sans-serif",fontSize:13,boxSizing:"border-box"}}/>
-                    <span style={{fontSize:11,color:th.t3}}>%</span>
-                  </div>
-                  <div style={{fontSize:10,color:th.t3,marginTop:2}}>Min {model?.overheadMin}% — Max {model?.overheadMax}%</div>
+                  <label style={s.label}>Overhead système (%)</label>
+                  <input type="number" min={model?.overheadMin||0} max={model?.overheadMax||40} value={vOverhead} onChange={e=>setVOverhead(Number(e.target.value))} style={s.input}/>
+                  <div style={{fontSize:10,color:th.t3,marginTop:4}}>Min {model?.overheadMin}% — Max {model?.overheadMax}%</div>
                 </div>
               </div>
+            </div>
 
-              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:14}}>
+            {/* 3 colonnes principales */}
+            <div style={{
+              display:"grid",
+              gridTemplateColumns:isMobile?"1fr":"1fr 1.25fr 1fr",
+              gap:16,
+              marginBottom:16
+            }}>
+              {/* Configuration */}
+              <div style={{background:th.cardBg,border:`1px solid ${th.border}`,borderTop:`4px solid ${vendorColor}`,borderRadius:16,padding:"20px 22px",boxShadow:SHADOW.card}}>
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:18}}>
+                  <div style={{
+                    width:34,
+                    height:34,
+                    borderRadius:10,
+                    background:`${vendorColor}14`,
+                    border:`1px solid ${vendorColor}30`,
+                    color:vendorColor,
+                    display:"flex",
+                    alignItems:"center",
+                    justifyContent:"center",
+                    fontWeight:900
+                  }}>
+                    A
+                  </div>
+                  <div>
+                    <div style={{fontSize:13,fontWeight:900,color:vendorColor,textTransform:"uppercase",letterSpacing:"0.04em"}}>
+                      Configuration
+                    </div>
+                    <div style={{fontSize:11,color:th.t3,marginTop:2}}>
+                      Paramètres d’entrée constructeur
+                    </div>
+                  </div>
+                </div>
 
-                {/* Config disques */}
-                <div style={{background:th.bg2,borderLeft:`2px solid ${VENDORS[vVendor].color}`,borderRadius:4,padding:14}}>
-                  <div style={{fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:12,fontFamily:"Inter, sans-serif"}}>Configuration disques</div>
-                  <div style={{marginBottom:12}}>
-                    <label style={{display:"block",fontSize:10,color:th.t3,fontFamily:"Inter, sans-serif",textTransform:"uppercase",marginBottom:5}}>Nombre de disques</label>
-                    <input type="number" min={1} max={500} value={vDisks} onChange={e=>setVDisks(Number(e.target.value))} style={{width:"100%",background:th.bg1,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"Inter, sans-serif",fontSize:13,boxSizing:"border-box"}}/>
+                <div style={{display:"grid",gap:14}}>
+                  <div>
+                    <label style={s.label}>Nombre de disques</label>
+                    <input type="number" min={1} max={500} value={vDisks} onChange={e=>setVDisks(Number(e.target.value))} style={s.input}/>
                   </div>
-                  <div style={{marginBottom:12}}>
-                    <label style={{display:"block",fontSize:10,color:th.t3,fontFamily:"Inter, sans-serif",textTransform:"uppercase",marginBottom:5}}>Capacité / disque (TB)</label>
-                    <input type="number" min={0.5} max={32} step={0.5} value={vDiskCap} onChange={e=>setVDiskCap(Number(e.target.value))} style={{width:"100%",background:th.bg1,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"Inter, sans-serif",fontSize:13,boxSizing:"border-box"}}/>
+
+                  <div>
+                    <label style={s.label}>Capacité / disque (TB)</label>
+                    <input type="number" min={0.5} max={64} step={0.1} value={vDiskCap} onChange={e=>setVDiskCap(Number(e.target.value))} style={s.input}/>
                   </div>
-                  <div style={{marginBottom:12}}>
-                    <label style={{display:"block",fontSize:10,color:th.t3,fontFamily:"Inter, sans-serif",textTransform:"uppercase",marginBottom:5}}>Cible capacité nette (TB)</label>
-                    <input type="number" min={1} step={5} value={vTarget} onChange={e=>setVTarget(Number(e.target.value))} style={{width:"100%",background:th.bg1,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"Inter, sans-serif",fontSize:13,boxSizing:"border-box"}}/>
+
+                  <div>
+                    <label style={s.label}>Cible capacité nette (TB)</label>
+                    <input type="number" min={1} step={5} value={vTarget} onChange={e=>setVTarget(Number(e.target.value))} style={s.input}/>
                   </div>
-                  {model?.hasDedup&&(
+
+                  {model?.hasDedup && (
                     <div>
-                      <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:12,color:vVendorDedup?th.accent:th.t2,fontFamily:"Inter, sans-serif",marginBottom:6}}>
+                      <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:12,color:vVendorDedup?th.accent:th.t2,fontWeight:700}}>
                         <input type="checkbox" checked={vVendorDedup} onChange={e=>setVVendorDedup(e.target.checked)} style={{accentColor:th.accent}}/>
-                        {vVendorDedup?`Dédup/compression actif (×${vDedupRatio})`:"Dédup/compression désactivé"}
+                        Dédup / compression actif
                       </label>
-                      {vVendorDedup&&(
-                        <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      {vVendorDedup && (
+                        <div style={{display:"flex",alignItems:"center",gap:8,marginTop:10}}>
                           <input type="range" min={1} max={8} step={0.5} value={vDedupRatio} onChange={e=>setVDedupRatio(Number(e.target.value))} style={{flex:1,accentColor:th.accent}}/>
-                          <span style={{fontFamily:"Inter, sans-serif",fontSize:12,color:th.accent,minWidth:36}}>{vDedupRatio}:1</span>
+                          <strong style={{fontSize:12,color:th.accent}}>{vDedupRatio}:1</strong>
                         </div>
                       )}
                     </div>
                   )}
-                  {!model?.hasDedup&&(
-                    <div style={{padding:"6px 10px",background:"rgba(255,181,71,0.08)",border:"1px solid rgba(255,181,71,0.2)",borderRadius:4,fontSize:11,color:"#ffb347"}}>
-                      ⚠ {model?.label} : pas de dédup/compression natif
-                    </div>
-                  )}
-                </div>
 
-                {/* Résultats */}
-                <div style={{background:th.bg2,borderLeft:`2px solid ${th.accent}`,borderRadius:4,padding:14}}>
-                  <div style={{fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:12,fontFamily:"Inter, sans-serif"}}>Résultats {model?.label}</div>
-                  <div style={{marginBottom:10,padding:"6px 10px",borderRadius:4,fontSize:11,fontFamily:"Inter, sans-serif",background:`${VENDORS[vVendor].color}15`,color:VENDORS[vVendor].color,border:`1px solid ${VENDORS[vVendor].color}33`}}>
-                    {model?.protection} · Overhead {vOverhead}%
-                  </div>
-                  {[
-                    {label:"Brut total",          val:fmt(rawTB,2)+" TB"},
-                    {label:"Après overhead système", val:fmt(rawTB*(1-vOverhead/100),2)+" TB", color:th.t2},
-                    {label:"Après "+raid?.label,   val:fmt(usable,2)+" TB", color:th.accent2},
-                    ...(model?.hasDedup&&vVendorDedup?[{label:`Effective (×${vDedupRatio} dédup)`, val:fmt(effective,2)+" TB", color:th.accent}]:[]),
-                    {label:"Cible nette",           val:fmt(vTarget,0)+" TB"},
-                    {label:"Taux d'utilisation",    val:pctUsed+" %", color:ok?th.accent:th.danger},
-                  ].map((row,i)=>(
-                    <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:`1px solid ${th.border}`}}>
-                      <span style={{fontSize:12,color:th.t2}}>{row.label}</span>
-                      <span style={{fontFamily:"Inter, sans-serif",fontWeight:600,fontSize:13,color:row.color||th.t1}}>{row.val}</span>
-                    </div>
-                  ))}
-                  <div style={{marginTop:10,padding:"8px 10px",borderRadius:4,fontSize:11,
-                    background:ok?"rgba(0,212,170,0.07)":"rgba(255,85,85,0.08)",
-                    border:`1px solid ${ok?"rgba(0,212,170,0.2)":"rgba(255,85,85,0.2)"}`,
-                    color:ok?th.accent:th.danger}}>
-                    {ok?`✓ Objectif atteint — marge ${fmt(effective-vTarget,2)} TB`:`⚠ Capacité insuffisante — déficit ${fmt(vTarget-effective,2)} TB`}
+                  <div style={{marginTop:8,padding:"10px 12px",background:"rgba(0,153,255,0.06)",border:"1px solid rgba(0,153,255,0.18)",borderRadius:10,fontSize:12,color:th.t2,lineHeight:1.5}}>
+                    Ajustez les paramètres : les résultats se mettent à jour automatiquement.
                   </div>
                 </div>
+              </div>
 
-                {/* Fiche modèle */}
-                <div style={{background:th.bg2,borderLeft:`2px solid ${th.warn}`,borderRadius:4,padding:14}}>
-                  <div style={{fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:12,fontFamily:"Inter, sans-serif"}}>Caractéristiques {model?.label}</div>
-                  {[
-                    {label:"Constructeur",    val:VENDORS[vVendor].label},
-                    {label:"Protection",      val:model?.protection},
-                    {label:"Overhead min",    val:model?.overheadMin+"%"},
-                    {label:"Overhead max",    val:model?.overheadMax+"%"},
-                    {label:"Dédup natif",     val:model?.hasDedup?"✓ Oui":"✗ Non", color:model?.hasDedup?th.accent:th.danger},
-                    {label:"Ratio dédup typ.",val:model?.hasDedup?model?.dedupDefault+":1":"N/A"},
-                  ].map((row,i)=>(
-                    <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:`1px solid ${th.border}`}}>
-                      <span style={{fontSize:12,color:th.t2}}>{row.label}</span>
-                      <span style={{fontFamily:"Inter, sans-serif",fontWeight:600,fontSize:12,color:row.color||th.t1}}>{row.val}</span>
+              {/* Pipeline résultats */}
+              <div style={{
+                background:th.cardBg,
+                border:`1px solid ${th.border}`,
+                borderLeft:`3px solid #7c3aed`,
+                borderRadius:16,
+                padding:"20px 22px",
+                boxShadow:SHADOW.card
+              }}>
+                <div style={{
+                  fontSize:13,
+                  fontWeight:900,
+                  color:"#7c3aed",
+                  textTransform:"uppercase",
+                  letterSpacing:"0.04em",
+                  marginBottom:18
+                }}>
+                  B. Résultats — pipeline capacité
+                </div>
+
+                {[
+                  {
+                    title:"Brut total",
+                    sub:"Capacité brute de tous les disques",
+                    val:fmt(rawTB,2)+" TB",
+                    color:"#2563eb"
+                  },
+                  {
+                    title:"Après overhead système",
+                    sub:"Réservé au système / métadonnées",
+                    val:fmt(rawTB*(1-overheadF),2)+" TB",
+                    color:"#7c3aed"
+                  },
+                  {
+                    title:"Après "+pipelineRaidLabel,
+                    sub:"Capacité après protection RAID",
+                    val:fmt(usable,2)+" TB",
+                    color:th.accent2
+                  },
+                  {
+                    title:model?.hasDedup&&vVendorDedup ? "Effective ×"+vDedupRatio : "Effective",
+                    sub:"Capacité disponible après réduction",
+                    val:fmt(effective,2)+" TB",
+                    color:th.accent
+                  },
+                  {
+                    title:"Cible nette",
+                    sub:"Objectif de capacité utile",
+                    val:fmt(vTarget,0)+" TB",
+                    color:ok?th.accent:th.danger
+                  },
+                ].map((step,i,arr)=>(
+                  <div key={step.title} style={{
+                    display:"grid",
+                    gridTemplateColumns:"40px 1fr auto",
+                    gap:12,
+                    alignItems:"start",
+                    position:"relative",
+                    paddingBottom:i<arr.length-1?18:0,
+                    marginBottom:i<arr.length-1?2:0
+                  }}>
+                    {i<arr.length-1 && (
+                      <div style={{
+                        position:"absolute",
+                        left:19,
+                        top:38,
+                        bottom:0,
+                        width:2,
+                        background:`linear-gradient(${step.color}, ${arr[i+1].color})`,
+                        opacity:.35
+                      }}/>
+                    )}
+
+                    <div style={{
+                      width:40,
+                      height:40,
+                      borderRadius:999,
+                      background:`${step.color}16`,
+                      border:`1px solid ${step.color}35`,
+                      color:step.color,
+                      display:"flex",
+                      alignItems:"center",
+                      justifyContent:"center",
+                      fontWeight:900,
+                      zIndex:1
+                    }}>
+                      {i+1}
                     </div>
-                  ))}
-                  <div style={{marginTop:12,padding:"8px 10px",background:th.bg1,borderRadius:4,fontSize:11,color:th.t2,lineHeight:1.6}}>
-                    💡 {model?.note}
+
+                    <div>
+                      <div style={{fontSize:13,fontWeight:850,color:th.t1}}>
+                        {step.title}
+                      </div>
+                      <div style={{fontSize:11,color:th.t3,marginTop:3,lineHeight:1.35}}>
+                        {step.sub}
+                      </div>
+                    </div>
+
+                    <div style={{
+                      fontSize:14,
+                      fontWeight:900,
+                      color:step.color,
+                      fontFamily:"Inter, sans-serif",
+                      whiteSpace:"nowrap",
+                      background:`${step.color}10`,
+                      border:`1px solid ${step.color}24`,
+                      borderRadius:10,
+                      padding:"7px 10px"
+                    }}>
+                      {step.val}
+                    </div>
+                  </div>
+                ))}
+
+                <div style={{
+                  marginTop:18,
+                  padding:"13px 14px",
+                  borderRadius:12,
+                  background:ok?"rgba(0,212,170,0.08)":"rgba(255,85,85,0.08)",
+                  border:`1px solid ${ok?"rgba(0,212,170,0.22)":"rgba(255,85,85,0.22)"}`,
+                  display:"flex",
+                  justifyContent:"space-between",
+                  alignItems:"center",
+                  gap:12
+                }}>
+                  <div>
+                    <div style={{fontSize:12,fontWeight:900,color:ok?th.accent:th.danger}}>
+                      {ok ? "Marge vs cible" : "Déficit vs cible"}
+                    </div>
+                    <div style={{fontSize:11,color:th.t2,marginTop:3}}>
+                      Capacité disponible par rapport à l’objectif
+                    </div>
+                  </div>
+                  <strong style={{fontSize:18,color:ok?th.accent:th.danger,fontFamily:"Inter, sans-serif"}}>
+                    {fmt(Math.abs(margin),2)} TB
+                  </strong>
+                </div>
+              </div>
+
+              {/* Analyse constructeur */}
+              <div style={{background:th.cardBg,border:`1px solid ${th.border}`,borderLeft:`3px solid ${th.warn}`,borderRadius:14,padding:"18px 20px",boxShadow:SHADOW.card}}>
+                <div style={{fontSize:13,fontWeight:900,color:th.warn,textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:14}}>
+                  C. Analyse constructeur
+                </div>
+
+                {[
+                  ["Overhead système", vOverhead+" %"],
+                  ["Protection RAID", model?.protection],
+                  ["Overhead min / max", model?.overheadMin+" % / "+model?.overheadMax+" %"],
+                  ["Déduplication", model?.hasDedup ? (vVendorDedup ? "Activée" : "Désactivée") : "Non disponible"],
+                  ["Ratio dédup typique", model?.hasDedup ? model?.dedupDefault+":1" : "N/A"],
+                  ["Utilisation effective", usedPct+" %"],
+                ].map(([label,val])=>(
+                  <div key={label} style={{display:"flex",justifyContent:"space-between",gap:12,padding:"9px 0",borderBottom:`1px solid ${th.border}`}}>
+                    <span style={{fontSize:12,color:th.t2}}>{label}</span>
+                    <strong style={{fontSize:12,color:th.t1,textAlign:"right"}}>{val}</strong>
+                  </div>
+                ))}
+
+                <div style={{
+                  marginTop:14,
+                  padding:"10px 12px",
+                  borderRadius:10,
+                  background:usedPct < 50 ? "rgba(255,181,71,0.08)" : "rgba(0,212,170,0.06)",
+                  border:`1px solid ${usedPct < 50 ? "rgba(255,181,71,0.24)" : "rgba(0,212,170,0.18)"}`,
+                  fontSize:12,
+                  color:th.t2,
+                  lineHeight:1.5
+                }}>
+                  {usedPct < 50
+                    ? "Utilisation actuelle faible : optimisation possible pour réduire le surdimensionnement."
+                    : "Utilisation cohérente : le design est aligné avec la cible définie."
+                  }
+                </div>
+
+                <div style={{marginTop:12,padding:"10px 12px",background:th.bg2,border:`1px solid ${th.border}`,borderRadius:10,fontSize:12,color:th.t2,lineHeight:1.5}}>
+                  {model?.note}
+                </div>
+              </div>
+            </div>
+
+            {/* Recommandations */}
+            <div style={{background:th.cardBg,border:`1px solid ${th.border}`,borderRadius:14,padding:"18px 20px",boxShadow:SHADOW.card}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,marginBottom:14}}>
+                <div>
+                  <div style={{fontSize:13,fontWeight:900,color:th.t1,textTransform:"uppercase",letterSpacing:"0.04em"}}>
+                    Recommandations
+                  </div>
+                  <div style={{fontSize:12,color:th.t2,marginTop:4}}>
+                    Synthèse avant-vente basée sur la cible et la marge disponible.
+                  </div>
+                </div>
+                <button style={{cursor:"pointer",border:`1px solid ${th.border}`,background:th.bg2,color:th.t2,borderRadius:10,padding:"9px 12px",fontSize:12,fontWeight:800}}>
+                  Générer le rapport
+                </button>
+              </div>
+
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",gap:12}}>
+                <div style={{padding:"12px 14px",border:`1px solid ${ok?"rgba(0,212,170,0.22)":"rgba(255,85,85,0.22)"}`,background:ok?"rgba(0,212,170,0.06)":"rgba(255,85,85,0.06)",borderRadius:12}}>
+                  <strong style={{color:ok?th.accent:th.danger,fontSize:13}}>
+                    {ok ? "Le design couvre la cible" : "Le design ne couvre pas la cible"}
+                  </strong>
+                  <div style={{fontSize:12,color:th.t2,marginTop:6,lineHeight:1.5}}>
+                    {ok ? "Vous disposez d’une marge confortable." : "Augmenter capacité ou nombre de disques."}
+                  </div>
+                </div>
+
+                <div style={{padding:"12px 14px",border:"1px solid rgba(255,181,71,0.22)",background:"rgba(255,181,71,0.07)",borderRadius:12}}>
+                  <strong style={{color:th.warn,fontSize:13}}>Optimisation possible</strong>
+                  <div style={{fontSize:12,color:th.t2,marginTop:6,lineHeight:1.5}}>
+                    {marginPct > 50 ? "Réduire le nombre de disques ou la taille disque peut limiter le surdimensionnement." : "La marge est raisonnable pour absorber la croissance."}
+                  </div>
+                </div>
+
+                <div style={{padding:"12px 14px",border:"1px solid rgba(0,153,255,0.22)",background:"rgba(0,153,255,0.06)",borderRadius:12}}>
+                  <strong style={{color:th.accent2,fontSize:13}}>Surveillez la croissance</strong>
+                  <div style={{fontSize:12,color:th.t2,marginTop:6,lineHeight:1.5}}>
+                    Revalidez le projet à 6 / 12 mois ou lors d’une évolution applicative.
                   </div>
                 </div>
               </div>
             </div>
           </div>
-          );
-
+        );
       })()}
 
-     {storageTab==="hci"&&(()=>{
+      {storageTab==="hci"&&(()=>{
         const hciProfile  = HCI_PROFILES[hciSolution];
         const hciResilOpt = hciProfile.resiliency.find(r=>r.id===hciResil)||hciProfile.resiliency[0];
         const hciDisk     = HCI_DISKS.find(d=>d.id===hciDiskId)||HCI_DISKS[0];
@@ -3033,3 +3389,50 @@ function SizingHub() {
     </div>
   );
 }
+
+<div style={{
+  marginBottom:14,
+  padding:"10px 12px",
+  borderRadius:10,
+  background:dreMode?"rgba(0,212,170,0.08)":"rgba(0,153,255,0.06)",
+  border:`1px solid ${dreMode?"rgba(0,212,170,0.25)":"rgba(0,153,255,0.2)"}`
+}}>
+  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+    <strong style={{fontSize:12}}>
+      Mode constructeur
+    </strong>
+    <button
+      onClick={()=>setDreMode(d=>!d)}
+      style={{
+        border:"none",
+        borderRadius:20,
+        padding:"4px 10px",
+        fontSize:11,
+        cursor:"pointer",
+        background:dreMode?th.accent:"#1f2937",
+        color:"#fff"
+      }}
+    >
+      {dreMode ? "Dell réaliste" : "Simplifié"}
+    </button>
+  </div>
+
+  {dreMode && (
+    <div style={{marginTop:10}}>
+      <div style={{fontSize:11,color:th.t2,marginBottom:6}}>
+        Efficacité DRE ({Math.round(dreEfficiency*100)}%)
+      </div>
+      <input
+        type="range"
+        min={0.7}
+        max={0.9}
+        step={0.01}
+        value={dreEfficiency}
+        onChange={e=>setDreEfficiency(Number(e.target.value))}
+        style={{width:"100%"}}
+      />
+    </div>
+  )}
+</div>
+
+
