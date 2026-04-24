@@ -141,16 +141,7 @@ export default function ComputeCalc({ th, isMobile=false }) {
 
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
               <Field title="Nombre de serveurs" value={existing.servers} onChange={v=>setExisting({...existing,servers:v})}/>
-              <div>
-  <div style={label}>Sockets par nœud</div>
-  <select value={existing.sockets}
-    onChange={e=>setExisting({...existing, sockets:Number(e.target.value)})}
-    style={input}>
-    <option value={1}>1 socket</option>
-    <option value={2}>2 sockets</option>
-    <option value={4}>4 sockets</option>
-  </select>
-</div>
+              <Field title="Sockets par nœud" value={existing.sockets} onChange={v=>setExisting({...existing,sockets:v})}/>
               <Field title="Cœurs par socket" value={existing.coresPerSocket} onChange={v=>setExisting({...existing,coresPerSocket:v})}/>
               <Field title="Mémoire totale Go" value={existing.ram} onChange={v=>setExisting({...existing,ram:v})}/>
             </div>
@@ -167,16 +158,7 @@ export default function ComputeCalc({ th, isMobile=false }) {
 
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
               <Field title="Nombre de serveurs cible" value={target.servers} onChange={v=>setTarget({...target,servers:v})}/>
-              <div>
-  <div style={label}>Sockets par nœud cible</div>
-  <select value={target.sockets}
-    onChange={e=>setTarget({...target, sockets:Number(e.target.value)})}
-    style={input}>
-    <option value={1}>1 socket</option>
-    <option value={2}>2 sockets</option>
-    <option value={4}>4 sockets</option>
-  </select>
-</div>
+              <Field title="Sockets par nœud cible" value={target.sockets} onChange={v=>setTarget({...target,sockets:v})}/>
               <Field title="Cœurs par socket cible" value={target.coresPerSocket} onChange={v=>setTarget({...target,coresPerSocket:v})}/>
               <Field title="Mémoire cible Go" value={target.ram} onChange={v=>setTarget({...target,ram:v})}/>
               <Field title="Croissance projetée %" value={target.growth} onChange={v=>setTarget({...target,growth:v})}/>
