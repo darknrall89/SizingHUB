@@ -2837,57 +2837,6 @@ function StorageCalc({ th, isMobile=false }) {
                       </div>
                     </div>
 
-                    <div style={{
-                      marginTop:4,
-                      paddingTop:12,
-                      borderTop:`1px solid ${th.border}`
-                    }}>
-                      <div style={{
-                        fontSize:11,
-                        fontWeight:900,
-                        color:th.t2,
-                        textTransform:"uppercase",
-                        letterSpacing:"0.06em",
-                        marginBottom:10
-                      }}>
-                        Modèle de nœud
-                      </div>
-
-                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-                        <div>
-                          <label style={s.label}>CPU cœurs / nœud</label>
-                          <input type="number" min={8} step={8} value={hciNodeCpu} onChange={e=>setHciNodeCpu(Number(e.target.value))} style={s.input}/>
-                        </div>
-                        <div>
-                          <label style={s.label}>RAM / nœud (Go)</label>
-                          <input type="number" min={64} step={64} value={hciNodeRam} onChange={e=>setHciNodeRam(Number(e.target.value))} style={s.input}/>
-                        </div>
-                        <div>
-                          <label style={s.label}>Disques / nœud</label>
-                          <input type="number" min={2} step={2} value={hciDisksPerNode} onChange={e=>setHciDisksPerNode(Number(e.target.value))} style={s.input}/>
-                        </div>
-                        <div>
-                          <label style={s.label}>Modèle disque</label>
-                          <select value={hciDiskId} onChange={e=>setHciDiskId(e.target.value)} style={s.select}>
-                            {HCI_DISKS.map(d=><option key={d.id} value={d.id}>{d.label}</option>)}
-                          </select>
-                        </div>
-                      </div>
-
-                      <div style={{
-                        marginTop:10,
-                        padding:"9px 10px",
-                        borderRadius:10,
-                        background:th.bg2,
-                        border:`1px solid ${th.border}`,
-                        fontSize:11,
-                        color:th.t2,
-                        lineHeight:1.45
-                      }}>
-                        Brut/nœud : <strong>{fmt(rawPerNode,1)} To</strong> · Utile/nœud : <strong>{fmt(usablePerNode,1)} To</strong> · Effectif/nœud : <strong>{fmt(effPerNode,1)} To</strong>
-                      </div>
-                    </div>
-
                     {hciDedupEn&&(
                       <div>
                         <label style={s.label}>Ratio dédup</label>

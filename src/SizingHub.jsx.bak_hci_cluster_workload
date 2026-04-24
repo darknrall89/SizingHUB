@@ -1222,9 +1222,6 @@ function StorageCalc({ th, isMobile=false }) {
   const [hciRam,         setHciRam]         = useState(16);
   const [hciStorage,     setHciStorage]     = useState(200);
   const [hciGrowth,      setHciGrowth]      = useState(20);
-  const [hciTargetVcpu, setHciTargetVcpu] = useState(400);
-  const [hciTargetRam,  setHciTargetRam]  = useState(1600);
-  const [hciTargetStorage, setHciTargetStorage] = useState(20);
   const [hciRf,          setHciRf]          = useState(2);
   const [hciPlatform,    setHciPlatform]    = useState('vsan');
   const [hciNodeCpu,     setHciNodeCpu]     = useState(32);
@@ -2526,9 +2523,9 @@ function StorageCalc({ th, isMobile=false }) {
         const hciDisk     = HCI_DISKS.find(d=>d.id===hciDiskId)||HCI_DISKS[0];
 
         const growthF = 1 + hciGrowth/100;
-        const reqVcpu = Math.round(hciTargetVcpu * growthF);
-        const reqRam  = Math.round(hciTargetRam * growthF);
-        const reqSto  = hciTargetStorage * growthF;
+        const reqVcpu = Math.round(hciVms * hciVcpu * growthF);
+        const reqRam  = Math.round(hciVms * hciRam * growthF);
+        const reqSto  = (hciVms * hciStorage / 1024 * growthF);
 
         const rawPerNode = hciDisksPerNode * hciDisk.cap;
         const usablePerNode = rawPerNode * (1-hciProfile.overhead) / hciResilOpt.factor * (1-hciProfile.metadataReserve);
@@ -2551,10 +2548,6 @@ function StorageCalc({ th, isMobile=false }) {
         const ramOk = availRam >= reqRam;
         const stoOk = availSto >= reqSto;
         const hciOk = cpuOk && ramOk && stoOk;
-        const growth20Ok =
-          availVcpu >= Math.round(hciTargetVcpu * 1.2) &&
-          availRam  >= Math.round(hciTargetRam * 1.2) &&
-          availSto  >= hciTargetStorage * 1.2;
 
         const toRam = v => v>=1024 ? (v/1024).toFixed(1)+" To" : fmt(v)+" Go";
 
@@ -2837,57 +2830,6 @@ function StorageCalc({ th, isMobile=false }) {
                       </div>
                     </div>
 
-                    <div style={{
-                      marginTop:4,
-                      paddingTop:12,
-                      borderTop:`1px solid ${th.border}`
-                    }}>
-                      <div style={{
-                        fontSize:11,
-                        fontWeight:900,
-                        color:th.t2,
-                        textTransform:"uppercase",
-                        letterSpacing:"0.06em",
-                        marginBottom:10
-                      }}>
-                        Modèle de nœud
-                      </div>
-
-                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-                        <div>
-                          <label style={s.label}>CPU cœurs / nœud</label>
-                          <input type="number" min={8} step={8} value={hciNodeCpu} onChange={e=>setHciNodeCpu(Number(e.target.value))} style={s.input}/>
-                        </div>
-                        <div>
-                          <label style={s.label}>RAM / nœud (Go)</label>
-                          <input type="number" min={64} step={64} value={hciNodeRam} onChange={e=>setHciNodeRam(Number(e.target.value))} style={s.input}/>
-                        </div>
-                        <div>
-                          <label style={s.label}>Disques / nœud</label>
-                          <input type="number" min={2} step={2} value={hciDisksPerNode} onChange={e=>setHciDisksPerNode(Number(e.target.value))} style={s.input}/>
-                        </div>
-                        <div>
-                          <label style={s.label}>Modèle disque</label>
-                          <select value={hciDiskId} onChange={e=>setHciDiskId(e.target.value)} style={s.select}>
-                            {HCI_DISKS.map(d=><option key={d.id} value={d.id}>{d.label}</option>)}
-                          </select>
-                        </div>
-                      </div>
-
-                      <div style={{
-                        marginTop:10,
-                        padding:"9px 10px",
-                        borderRadius:10,
-                        background:th.bg2,
-                        border:`1px solid ${th.border}`,
-                        fontSize:11,
-                        color:th.t2,
-                        lineHeight:1.45
-                      }}>
-                        Brut/nœud : <strong>{fmt(rawPerNode,1)} To</strong> · Utile/nœud : <strong>{fmt(usablePerNode,1)} To</strong> · Effectif/nœud : <strong>{fmt(effPerNode,1)} To</strong>
-                      </div>
-                    </div>
-
                     {hciDedupEn&&(
                       <div>
                         <label style={s.label}>Ratio dédup</label>
@@ -2908,39 +2850,30 @@ function StorageCalc({ th, isMobile=false }) {
                   boxShadow:"0 12px 30px rgba(15,23,42,0.06)"
                 }}>
                   <div style={{fontSize:13,fontWeight:900,color:th.accent,textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:14}}>
-                    Besoin cluster cible
+                    Workload VM cible
                   </div>
 
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
                     <div>
-                      <label style={s.label}>vCPU requis</label>
-                      <input type="number" min={1} step={10} value={hciTargetVcpu} onChange={e=>setHciTargetVcpu(Number(e.target.value))} style={s.input}/>
+                      <label style={s.label}>Nombre de VMs</label>
+                      <input type="number" min={1} step={10} value={hciVms} onChange={e=>setHciVms(Number(e.target.value))} style={s.input}/>
                     </div>
                     <div>
-                      <label style={s.label}>RAM requise (Go)</label>
-                      <input type="number" min={1} step={64} value={hciTargetRam} onChange={e=>setHciTargetRam(Number(e.target.value))} style={s.input}/>
+                      <label style={s.label}>vCPU / VM</label>
+                      <input type="number" min={1} value={hciVcpu} onChange={e=>setHciVcpu(Number(e.target.value))} style={s.input}/>
                     </div>
                     <div>
-                      <label style={s.label}>Stockage requis (To)</label>
-                      <input type="number" min={1} step={1} value={hciTargetStorage} onChange={e=>setHciTargetStorage(Number(e.target.value))} style={s.input}/>
+                      <label style={s.label}>RAM / VM</label>
+                      <input type="number" min={1} step={4} value={hciRam} onChange={e=>setHciRam(Number(e.target.value))} style={s.input}/>
+                    </div>
+                    <div style={{gridColumn:"1 / span 2"}}>
+                      <label style={s.label}>Stockage / VM (Go)</label>
+                      <input type="number" min={10} step={50} value={hciStorage} onChange={e=>setHciStorage(Number(e.target.value))} style={s.input}/>
                     </div>
                     <div>
-                      <label style={s.label}>Croissance appliquée (%)</label>
+                      <label style={s.label}>Croissance %</label>
                       <input type="number" min={0} step={5} value={hciGrowth} onChange={e=>setHciGrowth(Number(e.target.value))} style={s.input}/>
                     </div>
-                  </div>
-
-                  <div style={{
-                    marginTop:12,
-                    padding:"10px 12px",
-                    borderRadius:10,
-                    background:"rgba(0,153,255,0.06)",
-                    border:"1px solid rgba(0,153,255,0.18)",
-                    fontSize:11,
-                    color:th.t2,
-                    lineHeight:1.45
-                  }}>
-                    Les valeurs représentent le besoin global attendu du cluster, et non un profil moyen par VM.
                   </div>
                 </div>
               </div>
@@ -3005,8 +2938,6 @@ function StorageCalc({ th, isMobile=false }) {
                   {!ramOk && <RecoCard type="warn" title={"RAM headroom faible ("+ramMargin+"%)"} body="Augmenter la RAM par nœud si possible."/>}
                   {!stoOk && <RecoCard type="warn" title={"Stockage proche de la limite ("+stoMargin+"%)"} body="Prévoir un nœud supplémentaire à moyen terme."/>}
                   {hciOk && <RecoCard type="ok" title="Design cohérent" body={"Le cluster couvre les besoins actuels avec résilience N+"+hciHaPolicy+"."}/>}
-                  {!growth20Ok && <RecoCard type="warn" title="Croissance 20% non couverte" body="La configuration globale ne couvre pas une croissance de 20% sur vCPU, RAM et stockage. Prévoir un nœud ou augmenter le modèle cible."/>}
-                  {growth20Ok && <RecoCard type="ok" title="Croissance 20% couverte" body="Le cluster dispose d’une marge suffisante pour absorber 20% de croissance globale."/>}
                   {!hciDedupEn && <RecoCard type="info" title="Activer la dédup/compression" body="Peut réduire le nombre de nœuds requis selon le profil workload."/>}
                   {hciNodes < hciProfile.minNodes && <RecoCard type="warn" title="Nombre de nœuds inférieur au minimum recommandé" body={hciProfile.label+" recommande au moins "+hciProfile.minNodes+" nœuds."}/>}
                 </div>
