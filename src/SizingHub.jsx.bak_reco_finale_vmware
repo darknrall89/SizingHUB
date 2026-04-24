@@ -406,104 +406,86 @@ function VMwareCalc({th, isMobile=false}) {
         />
       </div>
 
-      {/* Recommandation finale intelligente */}
+      {/* Bloc avant-vente */}
       <div style={{
-        background: r.efficiencyPct < 75 ? "rgba(255,85,85,0.06)" : r.efficiencyPct < 90 ? "rgba(255,181,71,0.07)" : "rgba(0,212,170,0.06)",
-        border: `1px solid ${r.efficiencyPct < 75 ? "rgba(255,85,85,0.24)" : r.efficiencyPct < 90 ? "rgba(255,181,71,0.25)" : "rgba(0,212,170,0.22)"}`,
-        borderRadius: 14,
-        padding: "16px 18px",
-        marginBottom: 18,
-        boxShadow: SHADOW.card
+        display: "grid",
+        gridTemplateColumns: isMobile ? "1fr" : "1.2fr 1fr",
+        gap: 12,
+        marginBottom: 18
       }}>
         <div style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-          gap: 12,
-          marginBottom: 12
+          background: r.efficiencyPct < 75 ? "rgba(255,85,85,0.06)" : r.efficiencyPct < 90 ? "rgba(255,181,71,0.08)" : "rgba(0,212,170,0.06)",
+          border: `1px solid ${r.efficiencyPct < 75 ? "rgba(255,85,85,0.22)" : r.efficiencyPct < 90 ? "rgba(255,181,71,0.25)" : "rgba(0,212,170,0.22)"}`,
+          borderRadius: 14,
+          padding: "16px 18px"
         }}>
-          <div>
-            <div style={{
-              fontSize: 11,
-              color: th.t3,
-              textTransform: "uppercase",
-              letterSpacing: "0.08em",
-              fontFamily: "monospace",
-              marginBottom: 6
-            }}>
-              Recommandation finale intelligente
-            </div>
-
-            <div style={{
-              fontSize: 18,
-              fontWeight: 800,
-              color: r.efficiencyPct < 75 ? th.danger : r.efficiencyPct < 90 ? th.warn : th.accent
-            }}>
-              {r.efficiencyPct < 75
-                ? "Configuration à optimiser en priorité"
-                : r.efficiencyPct < 90
-                ? "Configuration acceptable mais perfectible"
-                : "Configuration licensing optimisée"
-              }
-            </div>
+          <div style={{
+            fontSize: 11,
+            color: th.t3,
+            textTransform: "uppercase",
+            letterSpacing: "0.08em",
+            fontFamily: "monospace",
+            marginBottom: 10
+          }}>
+            Analyse avant-vente
           </div>
 
           <div style={{
-            fontSize: 11,
-            fontFamily: "monospace",
-            color: r.efficiencyPct < 75 ? th.danger : r.efficiencyPct < 90 ? th.warn : th.accent,
-            background: th.cardBg,
-            border: `1px solid ${th.border}`,
-            borderRadius: 999,
-            padding: "6px 10px",
-            whiteSpace: "nowrap"
+            display: "grid",
+            gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)",
+            gap: 10
           }}>
-            Score {r.efficiencyPct}%
+            <div>
+              <div style={{fontSize: 11, color: th.t3, marginBottom: 4}}>Efficacité licensing</div>
+              <div style={{
+                fontSize: 26,
+                fontWeight: 800,
+                fontFamily: "monospace",
+                color: r.efficiencyPct < 75 ? th.danger : r.efficiencyPct < 90 ? th.warn : th.accent
+              }}>
+                {r.efficiencyPct}%
+              </div>
+            </div>
+
+            <div>
+              <div style={{fontSize: 11, color: th.t3, marginBottom: 4}}>Cœurs non exploités</div>
+              <div style={{fontSize: 26, fontWeight: 800, fontFamily: "monospace", color: r.wastedCores > 0 ? th.warn : th.accent}}>
+                {fmt(r.wastedCores)}
+              </div>
+            </div>
+
+            <div>
+              <div style={{fontSize: 11, color: th.t3, marginBottom: 4}}>Coût perdu / projet</div>
+              <div style={{fontSize: 26, fontWeight: 800, fontFamily: "monospace", color: r.wastedProject > 0 ? th.warn : th.accent}}>
+                ~ {fmt(r.wastedProject)} €
+              </div>
+            </div>
           </div>
         </div>
 
         <div style={{
-          display: "grid",
-          gridTemplateColumns: isMobile ? "1fr" : "1.2fr 1fr",
-          gap: 14
+          background: th.cardBg,
+          border: `1px solid ${th.border}`,
+          borderRadius: 14,
+          padding: "16px 18px",
+          boxShadow: SHADOW.card
         }}>
-          <div style={{fontSize: 13, color: th.t2, lineHeight: 1.65}}>
-            {r.wastedCores > 0
-              ? <>Le design actuel génère <strong style={{color: th.t1}}>{fmt(r.wastedCores)} cœurs facturés non exploités</strong>, soit environ <strong style={{color: th.warn}}>~ {fmt(r.wastedProject)} €</strong> de coût licensing peu valorisé sur {yearsTotal} ans. La première action recommandée est d’aligner les CPU sur <strong style={{color: th.accent}}>16 cœurs/socket</strong> afin d’obtenir plus de puissance à coût VMware équivalent.</>
-              : <>Le design CPU est correctement aligné avec le modèle de facturation VMware/Broadcom. La recommandation est de conserver cette base et de concentrer l’analyse sur la consolidation VM, la RAM, le stockage et les besoins HA.</>
-            }
+          <div style={{
+            fontSize: 11,
+            color: th.t3,
+            textTransform: "uppercase",
+            letterSpacing: "0.08em",
+            fontFamily: "monospace",
+            marginBottom: 10
+          }}>
+            Message commercial
           </div>
 
-          <div style={{
-            background: th.cardBg,
-            border: `1px solid ${th.border}`,
-            borderRadius: 10,
-            padding: "12px 14px"
-          }}>
-            <div style={{
-              fontSize: 11,
-              color: th.t3,
-              textTransform: "uppercase",
-              letterSpacing: "0.08em",
-              fontFamily: "monospace",
-              marginBottom: 10
-            }}>
-              Action proposée
-            </div>
-
-            {r.wastedCores > 0 ? (
-              <ul style={{margin: 0, paddingLeft: 18, color: th.t2, fontSize: 12, lineHeight: 1.7}}>
-                <li>Passer les CPU à 16 cœurs/socket minimum</li>
-                <li>Comparer le gain de performance à coût VMware constant</li>
-                <li>Présenter Proxmox Premium comme alternative de cadrage budgétaire</li>
-              </ul>
-            ) : (
-              <ul style={{margin: 0, paddingLeft: 18, color: th.t2, fontSize: 12, lineHeight: 1.7}}>
-                <li>Conserver le design CPU actuel</li>
-                <li>Valider le nombre de sockets et la consolidation VM</li>
-                <li>Comparer les scénarios sur le coût par VM</li>
-              </ul>
-            )}
+          <div style={{fontSize: 13, color: th.t2, lineHeight: 1.65}}>
+            {r.wastedCores > 0
+              ? <>La configuration actuelle génère une inefficience licensing : vous payez <strong style={{color: th.t1}}>{fmt(r.totalBilled)} cœurs</strong> pour seulement <strong style={{color: th.t1}}>{fmt(r.totalPhys)} cœurs physiques</strong>. En alignant les CPU sur le minimum Broadcom de 16 cœurs/socket, le client peut obtenir jusqu’à <strong style={{color: th.accent}}>+{r.extraPerfPct}% de puissance CPU</strong> sans augmenter le coût de licence.</>
+              : <>La configuration est cohérente côté licensing : les cœurs physiques sont bien alignés avec le modèle de facturation. Le dimensionnement peut être défendu comme optimisé et sans surcoût Broadcom caché.</>
+            }
           </div>
         </div>
       </div>
