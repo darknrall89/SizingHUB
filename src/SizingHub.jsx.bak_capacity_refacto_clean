@@ -1522,80 +1522,6 @@ function StorageCalc({ th, isMobile=false }) {
 
               {showCapacityAdvanced && (
                 <div style={{display:"grid",gap:14}}>
-                  <div style={{
-                    background:th.bg2,
-                    border:`1px solid ${th.border}`,
-                    borderRadius:12,
-                    padding:"14px 16px"
-                  }}>
-                    <div style={{
-                      fontSize:12,
-                      fontWeight:900,
-                      color:th.t1,
-                      textTransform:"uppercase",
-                      letterSpacing:"0.04em",
-                      marginBottom:12
-                    }}>
-                      Paramètres de design globaux
-                    </div>
-
-                    <div style={{
-                      display:"grid",
-                      gridTemplateColumns:isMobile?"1fr":"repeat(4,1fr)",
-                      gap:12
-                    }}>
-                      <div>
-                        <label style={s.label}>Profil workload</label>
-                        <select value={workloadProfile} onChange={e=>setWorkloadProfile(e.target.value)} style={s.select}>
-                          <option value="80r20w">80% read / 20% write</option>
-                          <option value="70r30w">70% read / 30% write</option>
-                          <option value="50r50w">50% read / 50% write</option>
-                          <option value="20r80w">20% read / 80% write</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label style={s.label}>IOPS cible</label>
-                        <input
-                          type="number"
-                          min={1000}
-                          step={5000}
-                          value={iopsTarget}
-                          onChange={e=>setIopsTarget(Number(e.target.value))}
-                          style={s.input}
-                        />
-                      </div>
-
-                      <div>
-                        <label style={s.label}>Déduplication / Compression</label>
-                        <select value={String(dedup)} onChange={e=>setDedup(Number(e.target.value))} style={s.select}>
-                          {[["1","1:1 — aucune"],["1.5","1.5:1 — légère"],["2","2:1 — standard"],["3","3:1 — agressive"],["4","4:1 — maximale"],["5","5:1 — extrême"]].map(([v,l])=>
-                            <option key={v} value={v}>{l}</option>)}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label style={s.label}>Capacité cible utile</label>
-                        <input
-                          type="number"
-                          min={1}
-                          step={10}
-                          value={capacityTarget}
-                          onChange={e=>setCapacityTarget(Number(e.target.value))}
-                          style={s.input}
-                        />
-                      </div>
-                    </div>
-
-                    <div style={{
-                      marginTop:10,
-                      fontSize:11,
-                      color:th.t3,
-                      lineHeight:1.5
-                    }}>
-                      Ces paramètres sont appliqués à l’ensemble du design et alimentent les KPI de capacité, IOPS et recommandations.
-                    </div>
-                  </div>
                   {chassisList.map((chassis,ci)=>{
                     const catalog=DISK_CATALOG[chassis.form];
                     const usedSlots=chassis.groups.reduce((s,g)=>s+g.count,0);
@@ -1760,86 +1686,124 @@ function StorageCalc({ th, isMobile=false }) {
               </div>
             </div>
 
-            {/* Recommandations */}
+            {/* Graphe + résumé */}
             <div style={{
-              background:th.cardBg,
-              border:`1px solid ${th.border}`,
-              borderRadius:14,
-              padding:"18px 20px",
-              boxShadow:SHADOW.card,
+              display:"grid",
+              gridTemplateColumns:isMobile?"1fr":"1.8fr 1fr",
+              gap:16,
               marginBottom:18
             }}>
-              <div style={{
-                display:"flex",
-                justifyContent:"space-between",
-                alignItems:"center",
-                gap:12,
-                marginBottom:14
-              }}>
-                <div>
-                  <div style={{
-                    fontSize:12,
-                    fontWeight:900,
-                    color:th.t1,
-                    textTransform:"uppercase",
-                    letterSpacing:"0.04em"
-                  }}>
-                    Recommandations
+              <div style={{background:th.cardBg,border:`1px solid ${th.border}`,borderRadius:14,padding:"18px 20px",boxShadow:SHADOW.card}}>
+                <div style={{fontSize:12,fontWeight:900,color:th.t1,textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:14}}>
+                  Performance vs objectifs
+                </div>
+                <ObjectiveRow label="Capacité utile" current={fmt(totals.usable,1)} target={fmt(capacityTarget,0)} unit="To" pct={capPct} color={th.accent}/>
+                <ObjectiveRow label="Capacité effective" current={fmt(totals.effective,1)} target={fmt(capacityTarget,0)} unit="To" pct={effPct} color={th.accent2}/>
+                <ObjectiveRow label="IOPS" current={fmt(totals.iops)} target={fmt(iopsTarget)} unit="" pct={iopsPct} color={totals.iopsOk?th.accent:th.danger}/>
+                <ObjectiveRow label="Bande passante" current={fmt(totals.bw,1)} target={bwTarget} unit="GB/s" pct={bwPct} color="#7c3aed"/>
+              </div>
+
+              <div style={{background:th.cardBg,border:`1px solid ${th.border}`,borderRadius:14,padding:"18px 20px",boxShadow:SHADOW.card}}>
+                <div style={{fontSize:12,fontWeight:900,color:th.t1,textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:14}}>
+                  Résumé rapide
+                </div>
+                {[
+                  ["Capacité brute", fmt(totals.physical,1)+" To", th.t1],
+                  ["Capacité utile après RAID", fmt(totals.usable,1)+" To", th.accent],
+                  ["Capacité effective", fmt(totals.effective,1)+" To", th.accent2],
+                  ["IOPS agrégés", fmt(totals.iops), totals.iopsOk?th.accent:th.danger],
+                  ["Validation IOPS", totals.iopsOk?"OK":"Insuffisant", totals.iopsOk?th.accent:th.danger],
+                  ["Bande passante", fmt(totals.bw,1)+" GB/s", "#7c3aed"],
+                  ["Slots libres", fmt(totals.freeSlots)+" / "+fmt(totals.totalSlots), th.t1],
+                ].map(([label,val,color])=>(
+                  <div key={label} style={{display:"flex",justifyContent:"space-between",gap:12,padding:"8px 0",borderBottom:`1px solid ${th.border}`}}>
+                    <span style={{fontSize:12,color:th.t2}}>{label}</span>
+                    <strong style={{fontSize:12,color,fontFamily:"monospace"}}>{val}</strong>
                   </div>
-                  <div style={{fontSize:12,color:th.t2,marginTop:4}}>
-                    Actions proposées selon les objectifs de capacité, IOPS et résilience.
+                ))}
+              </div>
+            </div>
+
+            {/* Paramètres + recommandations */}
+            <div style={{
+              display:"grid",
+              gridTemplateColumns:isMobile?"1fr":"1.7fr 1fr",
+              gap:16,
+              marginBottom:18
+            }}>
+              <div style={{background:th.cardBg,border:`1px solid ${th.border}`,borderRadius:14,padding:"18px 20px",boxShadow:SHADOW.card}}>
+                <div style={{fontSize:12,fontWeight:900,color:th.t1,textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:16}}>
+                  Paramètres du pool
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(5,1fr)",gap:12}}>
+                  <div>
+                    <label style={s.label}>Profil workload</label>
+                    <select value={workloadProfile} onChange={e=>setWorkloadProfile(e.target.value)} style={s.select}>
+                      <option value="80r20w">80% read / 20% write</option>
+                      <option value="70r30w">70% read / 30% write</option>
+                      <option value="50r50w">50% read / 50% write</option>
+                      <option value="20r80w">20% read / 80% write</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={s.label}>IOPS cibles</label>
+                    <input type="number" min={1000} step={5000} value={iopsTarget} onChange={e=>setIopsTarget(Number(e.target.value))} style={s.input}/>
+                  </div>
+                  <div>
+                    <label style={s.label}>Déduplication</label>
+                    <select value={String(dedup)} onChange={e=>setDedup(Number(e.target.value))} style={s.select}>
+                      {[["1","1:1 — aucune"],["1.5","1.5:1"],["2","2:1"],["3","3:1"],["4","4:1"],["5","5:1"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={s.label}>Capacité cible</label>
+                    <input type="number" min={1} step={10} value={capacityTarget} onChange={e=>setCapacityTarget(Number(e.target.value))} style={s.input}/>
+                  </div>
+                  <div>
+                    <label style={s.label}>Unité</label>
+                    <div style={{...s.input,color:th.t2}}>To utiles</div>
                   </div>
                 </div>
 
-                <button
-                  onClick={()=>setChassisList(prev=>prev.map(c=>({...c,groups:c.groups.map(g=>({...g,diskId:"ssd-384",count:Math.max(g.count,8)}))})))}
-                  style={{
-                    cursor:"pointer",
-                    border:"none",
-                    background:th.accent,
-                    color:"#fff",
-                    borderRadius:10,
-                    padding:"10px 14px",
-                    fontSize:13,
-                    fontWeight:800
-                  }}
-                >
-                  ⚡ Optimiser automatiquement
-                </button>
+                <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:14}}>
+                  <button onClick={()=>setChassisList(prev=>prev.map(c=>({...c,groups:c.groups.map(g=>({...g,count:g.count+2}))})))} style={s.btnSm(th.warn)}>+2 disques/groupe</button>
+                  <button onClick={()=>setChassisList(prev=>[...prev,{...prev[prev.length-1],id:Date.now()}])} style={s.btnSm(th.accent2)}>+1 châssis</button>
+                  <button onClick={()=>setChassisList(prev=>prev.map(c=>({...c,groups:c.groups.map(g=>({...g,diskId:"ssd-384"}))})))} style={s.btnSm(th.accent)}>→ SSD 3,84 To</button>
+                </div>
               </div>
 
-              <div style={{
-                display:"grid",
-                gridTemplateColumns:isMobile?"1fr":"1fr 1fr",
-                gap:10
-              }}>
+              <div style={{background:th.cardBg,border:`1px solid ${th.border}`,borderRadius:14,padding:"18px 20px",boxShadow:SHADOW.card}}>
+                <div style={{fontSize:12,fontWeight:900,color:th.t1,textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:14}}>
+                  Recommandations
+                </div>
                 {recommendations.map((rec,i)=>(
-                  <div key={i} style={{
-                    display:"flex",
-                    gap:10,
-                    alignItems:"flex-start",
-                    padding:"10px 12px",
-                    borderRadius:10,
-                    background:rec.ok?"rgba(0,212,170,0.06)":"rgba(255,181,71,0.08)",
-                    border:`1px solid ${rec.ok?"rgba(0,212,170,0.18)":"rgba(255,181,71,0.24)"}`
-                  }}>
+                  <div key={i} style={{display:"flex",gap:10,alignItems:"flex-start",padding:"9px 0",borderBottom:i<recommendations.length-1?`1px solid ${th.border}`:"none"}}>
                     <span style={{
-                      width:24,
-                      height:24,
-                      borderRadius:999,
-                      display:"flex",
-                      alignItems:"center",
-                      justifyContent:"center",
+                      width:24,height:24,borderRadius:999,
+                      display:"flex",alignItems:"center",justifyContent:"center",
                       background:rec.ok?"rgba(0,212,170,0.12)":"rgba(255,181,71,0.14)",
                       color:rec.ok?th.accent:th.warn,
-                      flexShrink:0,
-                      fontWeight:900
+                      flexShrink:0
                     }}>
                       {rec.ok?"✓":"!"}
                     </span>
                     <span style={{fontSize:12,color:th.t2,lineHeight:1.5}}>{rec.text}</span>
                   </div>
                 ))}
+                <button onClick={()=>setChassisList(prev=>prev.map(c=>({...c,groups:c.groups.map(g=>({...g,diskId:"ssd-384",count:Math.max(g.count,8)}))})))} style={{
+                  width:"100%",
+                  marginTop:14,
+                  cursor:"pointer",
+                  border:"none",
+                  background:th.accent,
+                  color:"#fff",
+                  borderRadius:10,
+                  padding:"11px 12px",
+                  fontSize:13,
+                  fontWeight:800
+                }}>
+                  Optimiser automatiquement
+                </button>
               </div>
             </div>
 
