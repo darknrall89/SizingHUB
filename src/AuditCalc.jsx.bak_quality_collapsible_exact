@@ -15,7 +15,6 @@ export default function AuditCalc({ th, isMobile=false }) {
   const [generating,   setGenerating]   = useState(false);
   const [scenarios,    setScenarios]    = useState(null);
   const [scenarioErr,  setScenarioErr]  = useState(null);
-  const [showQuality, setShowQuality] = useState(false);
   const [activeModal,  setActiveModal]  = useState(null);
 
   const s = {
@@ -574,116 +573,40 @@ Reponds UNIQUEMENT avec le JSON, sans markdown ni explication.`;
         <>
 
 
-            {/* Qualite du fichier RVTools */}
-            {r.sheetQuality&&(
-              <div style={{
-                background:th.cardBg,
-                border:"1px solid "+th.border,
-                borderRadius:12,
-                padding:14,
-                marginBottom:14
-              }}>
-                <div
-                  onClick={()=>setShowQuality(!showQuality)}
-                  style={{
-                    display:"flex",
-                    alignItems:"center",
-                    justifyContent:"space-between",
-                    gap:12,
-                    cursor:"pointer"
-                  }}
-                >
-                  <div>
-                    <div style={{
-                      fontSize:11,
-                      fontWeight:800,
-                      color:th.t2,
-                      textTransform:"uppercase",
-                      letterSpacing:"0.08em"
-                    }}>
-                      Qualité du fichier RVTools
-                    </div>
-                    <div style={{
-                      fontSize:12,
-                      fontWeight:800,
-                      color:r.qualityScore>=80?"#00a884":r.qualityScore>=50?"#d97706":"#cc3333",
-                      marginTop:4
-                    }}>
-                      {r.qualityScore}% complet
-                    </div>
+          {/* Qualite du fichier RVTools */}
+          {r.sheetQuality&&(
+            <div style={{background:th.cardBg,border:"1px solid "+th.border,borderRadius:8,padding:16,marginBottom:14}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+                <div style={{fontSize:11,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.08em",fontFamily:"monospace"}}>
+                  Qualite du fichier RVTools
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <div style={{fontSize:11,fontFamily:"monospace",color:r.qualityScore>=80?"#00a884":r.qualityScore>=50?"#d97706":"#cc3333"}}>
+                    {r.qualityScore}% complet
                   </div>
-
-                  <div style={{display:"flex",alignItems:"center",gap:10}}>
-                    <div style={{width:90,height:7,background:th.bg2,borderRadius:99,overflow:"hidden"}}>
-                      <div style={{
-                        width:r.qualityScore+"%",
-                        height:"100%",
-                        background:r.qualityScore>=80?"#00a884":r.qualityScore>=50?"#d97706":"#cc3333",
-                        borderRadius:99
-                      }}/>
-                    </div>
-                    <div style={{fontSize:12,fontWeight:900,color:th.accent}}>
-                      {showQuality ? "Masquer" : "Voir détails"}
-                    </div>
+                  <div style={{width:80,height:6,background:th.bg2,borderRadius:3,overflow:"hidden"}}>
+                    <div style={{width:r.qualityScore+"%",height:"100%",background:r.qualityScore>=80?"#00a884":r.qualityScore>=50?"#d97706":"#cc3333",borderRadius:3}}/>
                   </div>
                 </div>
-
-                {!showQuality && r.qualityScore<100&&(
-                  <div style={{
-                    marginTop:10,
-                    padding:"7px 10px",
-                    background:"rgba(255,181,71,0.08)",
-                    border:"1px solid rgba(255,181,71,0.25)",
-                    borderRadius:8,
-                    fontSize:11,
-                    color:"#d97706"
-                  }}>
-                    ⚠ Analyse partielle — certains onglets RVTools sont manquants.
-                  </div>
-                )}
-
-                {showQuality&&(
-                  <div style={{
-                    display:"grid",
-                    gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",
-                    gap:6,
-                    marginTop:12
-                  }}>
-                    {r.sheetQuality.map(s=>(
-                      <div key={s.id} style={{
-                        display:"flex",
-                        alignItems:"center",
-                        gap:6,
-                        padding:"6px 8px",
-                        background:th.bg2,
-                        borderRadius:8,
-                        border:"1px solid "+(s.available?"rgba(0,168,132,0.2)":s.required?"rgba(204,51,51,0.2)":"rgba(150,150,150,0.15)")
-                      }}>
-                        <span style={{fontSize:11}}>{s.available?"✅":s.required?"❌":"⚠️"}</span>
-                        <div style={{flex:1,minWidth:0}}>
-                          <div style={{
-                            fontSize:10,
-                            fontWeight:700,
-                            color:s.available?th.t1:s.required?"#cc3333":th.t3
-                          }}>
-                            {s.label}
-                          </div>
-                          <div style={{
-                            fontSize:9,
-                            color:th.t3,
-                            whiteSpace:"nowrap",
-                            overflow:"hidden",
-                            textOverflow:"ellipsis"
-                          }}>
-                            {s.available?s.rowCount+" lignes":s.desc}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
-            )}
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}}>
+                {r.sheetQuality.map(s=>(
+                  <div key={s.id} style={{display:"flex",alignItems:"center",gap:6,padding:"5px 8px",background:th.bg2,borderRadius:6,border:"1px solid "+(s.available?"rgba(0,168,132,0.2)":s.required?"rgba(204,51,51,0.2)":"rgba(150,150,150,0.15)")}}>
+                    <span style={{fontSize:11}}>{s.available?"✅":s.required?"❌":"⚠️"}</span>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:10,fontWeight:600,fontFamily:"monospace",color:s.available?th.t1:s.required?"#cc3333":th.t3}}>{s.label}</div>
+                      <div style={{fontSize:9,color:th.t3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{s.available?s.rowCount+" lignes":s.desc}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {r.qualityScore<100&&(
+                <div style={{marginTop:10,padding:"6px 10px",background:"rgba(255,181,71,0.08)",border:"1px solid rgba(255,181,71,0.25)",borderRadius:6,fontSize:10,color:"#d97706",fontFamily:"monospace"}}>
+                  ⚠ Analyse partielle — certaines metriques ne seront pas disponibles
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Cluster Dashboard */}
           {(()=>{
