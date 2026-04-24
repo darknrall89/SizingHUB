@@ -214,19 +214,6 @@ export default function ComputeCalc({ th, isMobile=false }) {
 
   return (
     <div>
-      <button onClick={()=>setCompared(false)} style={{
-        marginBottom:14,
-        padding:"10px 14px",
-        borderRadius:10,
-        border:`1px solid ${th.border}`,
-        background:th.bg2,
-        color:th.t2,
-        fontWeight:900,
-        cursor:"pointer"
-      }}>
-        ← Retour aux hypothèses
-      </button>
-
       <div style={{
         background:th.cardBg,
         border:`1px solid ${th.border}`,

@@ -13,7 +13,6 @@ export default function ComputeCalc({ th, isMobile=false }) {
     servers: 3,
     sockets: 2,
     coresPerSocket: 16,
-    ghz: 2.4,
     ram: 768,
   });
 
@@ -21,7 +20,6 @@ export default function ComputeCalc({ th, isMobile=false }) {
     servers: 4,
     sockets: 2,
     coresPerSocket: 32,
-    ghz: 3.0,
     ram: 2048,
     growth: 20,
     haLoss: 1,
@@ -29,17 +27,13 @@ export default function ComputeCalc({ th, isMobile=false }) {
 
   const existingCores = existing.servers * existing.sockets * existing.coresPerSocket;
   const targetCores = target.servers * target.sockets * target.coresPerSocket;
-  const existingGhz = existingCores * existing.ghz;
-  const targetGhz = targetCores * target.ghz;
   const n1Servers = Math.max(target.servers - target.haLoss, 1);
   const n1Ratio = n1Servers / target.servers;
   const n1Cores = Math.round(targetCores * n1Ratio);
-  const n1Ghz = Math.round(targetGhz * n1Ratio);
   const n1Ram = Math.round(target.ram * n1Ratio);
   
   const cpuGain = existingCores ? Math.round(((targetCores - existingCores) / existingCores) * 100) : 0;
   const ramGain = existing.ram ? Math.round(((target.ram - existing.ram) / existing.ram) * 100) : 0;
-  const ghzGain = existingGhz ? Math.round(((targetGhz - existingGhz) / existingGhz) * 100) : 0;
   
   const cpuOkN1 = n1Cores >= existingCores * (1 + target.growth / 100);
   const ramOkN1 = n1Ram >= existing.ram * (1 + target.growth / 100);
@@ -158,7 +152,6 @@ export default function ComputeCalc({ th, isMobile=false }) {
   </select>
 </div>
               <Field title="Cœurs par socket" value={existing.coresPerSocket} onChange={v=>setExisting({...existing,coresPerSocket:v})}/>
-              <Field title="Fréquence CPU GHz" step={0.1} value={existing.ghz} onChange={v=>setExisting({...existing,ghz:v})}/>
               <Field title="Mémoire totale Go" value={existing.ram} onChange={v=>setExisting({...existing,ram:v})}/>
             </div>
           </Card>
@@ -185,7 +178,6 @@ export default function ComputeCalc({ th, isMobile=false }) {
   </select>
 </div>
               <Field title="Cœurs par socket cible" value={target.coresPerSocket} onChange={v=>setTarget({...target,coresPerSocket:v})}/>
-              <Field title="Fréquence CPU cible GHz" step={0.1} value={target.ghz} onChange={v=>setTarget({...target,ghz:v})}/>
               <Field title="Mémoire cible Go" value={target.ram} onChange={v=>setTarget({...target,ram:v})}/>
               <Field title="Croissance projetée %" value={target.growth} onChange={v=>setTarget({...target,growth:v})}/>
               <Field title="Nœuds perdus en HA" value={target.haLoss} onChange={v=>setTarget({...target,haLoss:v})}/>
@@ -214,19 +206,6 @@ export default function ComputeCalc({ th, isMobile=false }) {
 
   return (
     <div>
-      <button onClick={()=>setCompared(false)} style={{
-        marginBottom:14,
-        padding:"10px 14px",
-        borderRadius:10,
-        border:`1px solid ${th.border}`,
-        background:th.bg2,
-        color:th.t2,
-        fontWeight:900,
-        cursor:"pointer"
-      }}>
-        ← Retour aux hypothèses
-      </button>
-
       <div style={{
         background:th.cardBg,
         border:`1px solid ${th.border}`,
@@ -289,7 +268,6 @@ export default function ComputeCalc({ th, isMobile=false }) {
       <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(5,1fr)",gap:14,marginBottom:18}}>
         <Kpi title="Nœuds cible" value={target.servers} sub={`${n1Servers} en N-1`} color={th.accent} icon={<Server size={28}/>}/>
         <Kpi title="Cœurs cible" value={fmt(targetCores)} sub={`+${cpuGain}% vs existant`} color={th.accent2} icon={<Cpu size={28}/>}/>
-        <Kpi title="Fréquence CPU" value={`${target.ghz} GHz`} sub={`${fmt(Math.round(targetGhz))} GHz agrégés`} color="#3b82f6" icon={<Gauge size={28}/>}/>
         <Kpi title="RAM cible" value={`${fmt(target.ram)} Go`} sub={`+${ramGain}% vs existant`} color="#7c3aed" icon={<MemoryStick size={28}/>}/>
         <Kpi title="Capacité HA" value={`${target.haLoss} perdu`} sub={`${n1Servers} nœuds actifs`} color={globalOk?th.accent:th.warn} icon={<Shield size={28}/>}/>
       </div>
@@ -320,8 +298,7 @@ export default function ComputeCalc({ th, isMobile=false }) {
         <Card>
           <div style={{fontSize:16,fontWeight:950,color:th.t1,marginBottom:16}}>Comparaison & gains</div>
           <Bar label="Cœurs CPU" oldv={existingCores} newv={targetCores} n1v={n1Cores} unit=""/>
-                    <Bar label="GHz agrégés" oldv={Math.round(existingGhz)} newv={Math.round(targetGhz)} n1v={n1Ghz} unit="GHz"/>
-          <Bar label="RAM totale" oldv={existing.ram} newv={target.ram} n1v={n1Ram} unit="Go"/>
+                    <Bar label="RAM totale" oldv={existing.ram} newv={target.ram} n1v={n1Ram} unit="Go"/>
           <Bar label="Nœuds" oldv={existing.servers} newv={target.servers} n1v={n1Servers} unit=""/>
         </Card>
       </div>
