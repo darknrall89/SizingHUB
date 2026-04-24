@@ -1606,17 +1606,6 @@ export default function ClusterOverviewDashboard({
             ))}
           </div>
 
-            {/* ACC_HOSTS_COMPUTE */}
-            <details open className="group">
-              <summary className="list-none cursor-pointer bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-4 flex items-center justify-between hover:bg-gray-50 transition">
-                <div>
-                  <div className="text-sm font-black text-gray-800">Hosts — utilisation CPU par hôte</div>
-                  <div className="text-xs text-gray-400 mt-1">Preuve technique : répartition de la charge CPU par hyperviseur</div>
-                </div>
-                <div className="text-xs font-bold text-blue-600 group-open:hidden">Afficher</div>
-                <div className="text-xs font-bold text-gray-400 hidden group-open:block">Masquer</div>
-              </summary>
-              <div className="mt-3">
           {/* Hosts CPU */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <h3 className="text-sm font-bold text-gray-800 mb-4">Compute — Utilisation CPU par host</h3>
@@ -1657,27 +1646,11 @@ export default function ClusterOverviewDashboard({
             </div>
           </div>
 
-              </div>
-            </details>
-
-            {/* ACC_TOPVMS_COMPUTE */}
-            <details className="group">
-              <summary className="list-none cursor-pointer bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-4 flex items-center justify-between hover:bg-gray-50 transition">
-                <div>
-                  <div className="text-sm font-black text-gray-800">Top VMs — principales consommatrices CPU</div>
-                  <div className="text-xs text-gray-400 mt-1">Preuve d’optimisation : VMs les plus significatives en allocation vCPU</div>
-                </div>
-                <div className="text-xs font-bold text-blue-600 group-open:hidden">Afficher</div>
-                <div className="text-xs font-bold text-gray-400 hidden group-open:block">Masquer</div>
-              </summary>
-              <div className="mt-3">
           {/* Top CPU Consumers */}
           <TopCpuConsumersBlock
             consumers={topCpuConsumers}
             totalVcpu={clusterSummary.allocatedVcpu||0}
           />
-              </div>
-            </details>
         </div>
       )}
 
