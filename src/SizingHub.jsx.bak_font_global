@@ -67,10 +67,7 @@ const fmt = (n, dec=0) => Number.isFinite(n) ? n.toLocaleString("fr-FR",{maximum
 
 function PageHeader({ title, subtitle, badge, th }) {
   return (
-  <div style={{
-    fontFamily: "Inter, sans-serif",
-    letterSpacing: "-0.02em",
-    fontVariantNumeric: "tabular-nums",
+    <div style={{
       display: "flex",
       justifyContent: "space-between",
       alignItems: "flex-start",

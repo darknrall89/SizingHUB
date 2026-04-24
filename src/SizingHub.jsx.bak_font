@@ -67,10 +67,7 @@ const fmt = (n, dec=0) => Number.isFinite(n) ? n.toLocaleString("fr-FR",{maximum
 
 function PageHeader({ title, subtitle, badge, th }) {
   return (
-  <div style={{
-    fontFamily: "Inter, sans-serif",
-    letterSpacing: "-0.02em",
-    fontVariantNumeric: "tabular-nums",
+    <div style={{
       display: "flex",
       justifyContent: "space-between",
       alignItems: "flex-start",
@@ -94,7 +91,7 @@ function PageHeader({ title, subtitle, badge, th }) {
         border: `1px solid ${th.border2}`,
         padding: "6px 10px",
         borderRadius: 999,
-        fontFamily:"Inter, sans-serif",
+        fontFamily: "monospace",
         textTransform: "uppercase",
       }}>
         {badge}
@@ -147,7 +144,7 @@ function MetricCard({label,value,sub,tone="default",th}){
         color:th.t3,
         textTransform:"uppercase",
         letterSpacing:"0.08em",
-        fontFamily:"Inter, sans-serif",
+        fontFamily:"monospace",
         marginBottom:6
       }}>
         {label}
@@ -179,9 +176,9 @@ function KpiCard({label, value, color, sub, bg, th}) {
   const hasBg = !!bg;
   return (
     <div style={{background:hasBg?bg:th.cardBg, border:hasBg?"none":`1px solid ${th.border}`, borderRadius:8, padding:"14px 16px"}}>
-      <div style={{fontSize:10, color:hasBg?"rgba(255,255,255,0.6)":th.t3, fontFamily:"Inter, sans-serif", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:4}}>{label}</div>
-      <div style={{fontSize:22, fontWeight:700, fontFamily:"Inter, sans-serif", color:hasBg?"#fff":(color||th.accent)}}>{value}</div>
-      {sub&&<div style={{fontSize:11, color:hasBg?"rgba(255,255,255,0.7)":th.t3, fontFamily:"Inter, sans-serif", marginTop:3}}>{sub}</div>}
+      <div style={{fontSize:10, color:hasBg?"rgba(255,255,255,0.6)":th.t3, fontFamily:"monospace", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:4}}>{label}</div>
+      <div style={{fontSize:22, fontWeight:700, fontFamily:"monospace", color:hasBg?"#fff":(color||th.accent)}}>{value}</div>
+      {sub&&<div style={{fontSize:11, color:hasBg?"rgba(255,255,255,0.7)":th.t3, fontFamily:"monospace", marginTop:3}}>{sub}</div>}
     </div>
   );
 }
@@ -196,7 +193,7 @@ function Card({children, accent, th}) {
 }
 
 function SectionTitle({children, th}) {
-  return <div style={{fontSize:10, fontWeight:600, color:th.t2, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:14, paddingBottom:8, borderBottom:`1px solid ${th.border}`, fontFamily:"Inter, sans-serif"}}>{children}</div>;
+  return <div style={{fontSize:10, fontWeight:600, color:th.t2, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:14, paddingBottom:8, borderBottom:`1px solid ${th.border}`, fontFamily:"monospace"}}>{children}</div>;
 }
 
 function ResultRow({label, value, highlight, warn, danger, th}) {
@@ -204,7 +201,7 @@ function ResultRow({label, value, highlight, warn, danger, th}) {
   return (
     <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 0", borderBottom:`1px solid ${th.border}`}}>
       <span style={{fontSize:12, color:th.t2}}>{label}</span>
-      <span style={{fontFamily:"Inter, sans-serif", fontWeight:600, fontSize:13, color}}>{value}</span>
+      <span style={{fontFamily:"monospace", fontWeight:600, fontSize:13, color}}>{value}</span>
     </div>
   );
 }
@@ -217,7 +214,7 @@ function InfoBox({children, type="info", th}) {
     : {bg:th.infoBoxBg, border:th.infoBoxBorder, color:th.infoBoxColor};
   const Icon = type==="ok" ? CheckCircle : type==="alert" ? AlertTriangle : Info;
   return (
-    <div style={{background:s.bg, border:`1px solid ${s.border}`, borderRadius:4, padding:"8px 12px", fontSize:11, color:s.color, fontFamily:"Inter, sans-serif", marginBottom:12, display:"flex", gap:8, alignItems:"flex-start"}}>
+    <div style={{background:s.bg, border:`1px solid ${s.border}`, borderRadius:4, padding:"8px 12px", fontSize:11, color:s.color, fontFamily:"monospace", marginBottom:12, display:"flex", gap:8, alignItems:"flex-start"}}>
       <Icon size={13} style={{marginTop:1, flexShrink:0}} /><span>{children}</span>
     </div>
   );
@@ -226,10 +223,10 @@ function InfoBox({children, type="info", th}) {
 function SliderField({label, min, max, step=1, value, onChange, display, th}) {
   return (
     <div style={{marginBottom:14}}>
-      <label style={{display:"block", fontSize:10, color:th.t3, fontFamily:"Inter, sans-serif", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:5}}>{label}</label>
+      <label style={{display:"block", fontSize:10, color:th.t3, fontFamily:"monospace", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:5}}>{label}</label>
       <div style={{display:"flex", alignItems:"center", gap:10}}>
         <input type="range" min={min} max={max} step={step} value={value} onChange={e=>onChange(Number(e.target.value))} style={{flex:1, accentColor:th.accent}} />
-        <span style={{fontFamily:"Inter, sans-serif", fontSize:12, color:th.accent, minWidth:60, textAlign:"right"}}>{display||value}</span>
+        <span style={{fontFamily:"monospace", fontSize:12, color:th.accent, minWidth:60, textAlign:"right"}}>{display||value}</span>
       </div>
     </div>
   );
@@ -238,10 +235,10 @@ function SliderField({label, min, max, step=1, value, onChange, display, th}) {
 function NumField({label, min, max, step=1, value, onChange, unit, note, th}) {
   return (
     <div style={{marginBottom:14}}>
-      <label style={{display:"block", fontSize:10, color:th.t3, fontFamily:"Inter, sans-serif", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:5}}>{label}</label>
+      <label style={{display:"block", fontSize:10, color:th.t3, fontFamily:"monospace", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:5}}>{label}</label>
       <div style={{display:"flex", gap:8, alignItems:"center"}}>
         <input type="number" min={min} max={max} step={step} value={value} onChange={e=>onChange(Number(e.target.value))}
-          style={{width:"100%", background:th.inputBg, border:`1px solid ${th.border}`, borderRadius:4, padding:"7px 10px", color:th.t1, fontFamily:"Inter, sans-serif", fontSize:13, boxSizing:"border-box"}} />
+          style={{width:"100%", background:th.inputBg, border:`1px solid ${th.border}`, borderRadius:4, padding:"7px 10px", color:th.t1, fontFamily:"monospace", fontSize:13, boxSizing:"border-box"}} />
         {unit && <span style={{fontSize:11, color:th.t3, whiteSpace:"nowrap"}}>{unit}</span>}
       </div>
       {note && <div style={{fontSize:10, color:th.t3, marginTop:3}}>{note}</div>}
@@ -252,9 +249,9 @@ function NumField({label, min, max, step=1, value, onChange, unit, note, th}) {
 function SelectField({label, value, onChange, options, th}) {
   return (
     <div style={{marginBottom:14}}>
-      <label style={{display:"block", fontSize:10, color:th.t3, fontFamily:"Inter, sans-serif", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:5}}>{label}</label>
+      <label style={{display:"block", fontSize:10, color:th.t3, fontFamily:"monospace", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:5}}>{label}</label>
       <select value={value} onChange={e=>onChange(e.target.value)}
-        style={{width:"100%", background:th.inputBg, border:`1px solid ${th.border}`, borderRadius:4, padding:"7px 10px", color:th.t1, fontFamily:"Inter, sans-serif", fontSize:12, boxSizing:"border-box"}}>
+        style={{width:"100%", background:th.inputBg, border:`1px solid ${th.border}`, borderRadius:4, padding:"7px 10px", color:th.t1, fontFamily:"monospace", fontSize:12, boxSizing:"border-box"}}>
         {options.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
     </div>
@@ -333,10 +330,10 @@ function VMwareCalc({th, isMobile=false}) {
   const tt = {background:th.tooltipBg,border:`1px solid ${th.border2}`,borderRadius:4,fontSize:11,color:th.t1};
   const s = {
     card:     (accent)=>({background:th.cardBg,borderTop:`1px solid ${th.border}`,borderRight:`1px solid ${th.border}`,borderBottom:`1px solid ${th.border}`,borderLeft:accent?`2px solid ${accent}`:`1px solid ${th.border}`,borderRadius:6,padding:16}),
-    secTitle: {fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:14,paddingBottom:8,borderBottom:`1px solid ${th.border}`,fontFamily:"Inter, sans-serif"},
-    label:    {display:"block",fontSize:10,color:th.t3,fontFamily:"Inter, sans-serif",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:5},
-    input:    {width:"100%",background:th.bg2,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"Inter, sans-serif",fontSize:13,boxSizing:"border-box"},
-    select:   {width:"100%",background:th.bg2,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"Inter, sans-serif",fontSize:12,boxSizing:"border-box"},
+    secTitle: {fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:14,paddingBottom:8,borderBottom:`1px solid ${th.border}`,fontFamily:"monospace"},
+    label:    {display:"block",fontSize:10,color:th.t3,fontFamily:"monospace",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:5},
+    input:    {width:"100%",background:th.bg2,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"monospace",fontSize:13,boxSizing:"border-box"},
+    select:   {width:"100%",background:th.bg2,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"monospace",fontSize:12,boxSizing:"border-box"},
     row:      {display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${th.border}`},
     divider:  {border:"none",borderTop:`1px solid ${th.border}`,margin:"12px 0"},
     field:    {marginBottom:12},
@@ -360,7 +357,7 @@ function VMwareCalc({th, isMobile=false}) {
     return (
       <div style={{...s.row,background:highlight?`${th.accent}11`:undefined,padding:highlight?"8px 10px":"8px 0",borderRadius:highlight?4:0,marginBottom:highlight?4:0}}>
         <span style={{fontSize:12,color:th.t2}}>{label}</span>
-        <span style={{fontFamily:"Inter, sans-serif",fontWeight:600,fontSize:13,color:color||th.t1}}>{value}</span>
+        <span style={{fontFamily:"monospace",fontWeight:600,fontSize:13,color:color||th.t1}}>{value}</span>
       </div>
     );
   }
@@ -368,8 +365,8 @@ function VMwareCalc({th, isMobile=false}) {
   function KpiC({label,value,sub,bg}) {
     return (
       <div style={{background:bg,borderRadius:8,padding:"14px 16px"}}>
-        <div style={{fontSize:22,fontWeight:700,fontFamily:"Inter, sans-serif",color:"#fff"}}>{value}</div>
-        {sub&&<div style={{fontSize:11,color:"rgba(255,255,255,0.75)",fontFamily:"Inter, sans-serif",marginTop:2}}>{sub}</div>}
+        <div style={{fontSize:22,fontWeight:700,fontFamily:"monospace",color:"#fff"}}>{value}</div>
+        {sub&&<div style={{fontSize:11,color:"rgba(255,255,255,0.75)",fontFamily:"monospace",marginTop:2}}>{sub}</div>}
         <div style={{fontSize:10,color:"rgba(255,255,255,0.55)",textTransform:"uppercase",letterSpacing:"0.08em",marginTop:4}}>{label}</div>
       </div>
     );
@@ -436,7 +433,7 @@ function VMwareCalc({th, isMobile=false}) {
               color: th.t3,
               textTransform: "uppercase",
               letterSpacing: "0.08em",
-              fontFamily:"Inter, sans-serif",
+              fontFamily: "monospace",
               marginBottom: 6
             }}>
               Recommandation finale intelligente
@@ -458,7 +455,7 @@ function VMwareCalc({th, isMobile=false}) {
 
           <div style={{
             fontSize: 11,
-            fontFamily:"Inter, sans-serif",
+            fontFamily: "monospace",
             color: r.efficiencyPct < 75 ? th.danger : r.efficiencyPct < 90 ? th.warn : th.accent,
             background: th.cardBg,
             border: `1px solid ${th.border}`,
@@ -493,7 +490,7 @@ function VMwareCalc({th, isMobile=false}) {
               color: th.t3,
               textTransform: "uppercase",
               letterSpacing: "0.08em",
-              fontFamily:"Inter, sans-serif",
+              fontFamily: "monospace",
               marginBottom: 10
             }}>
               Action proposée
@@ -536,7 +533,7 @@ function VMwareCalc({th, isMobile=false}) {
             color: th.t3,
             textTransform: "uppercase",
             letterSpacing: "0.08em",
-            fontFamily:"Inter, sans-serif",
+            fontFamily: "monospace",
             marginBottom: 10
           }}>
             Optimisation CPU
@@ -562,7 +559,7 @@ function VMwareCalc({th, isMobile=false}) {
               padding: "10px 12px",
               fontSize: 12,
               fontWeight: 700,
-              fontFamily:"Inter, sans-serif"
+              fontFamily: "monospace"
             }}
           >
             {cores < 16 ? "Optimiser à 16 cœurs/socket" : "CPU déjà optimisé"}
@@ -582,7 +579,7 @@ function VMwareCalc({th, isMobile=false}) {
             color: th.t3,
             textTransform: "uppercase",
             letterSpacing: "0.08em",
-            fontFamily:"Inter, sans-serif",
+            fontFamily: "monospace",
             marginBottom: 14
           }}>
             Graphique efficacité
@@ -590,7 +587,7 @@ function VMwareCalc({th, isMobile=false}) {
 
           <div style={{display: "flex", justifyContent: "space-between", marginBottom: 8}}>
             <span style={{fontSize: 12, color: th.t2}}>Cœurs utilisés</span>
-            <strong style={{fontSize: 12, color: th.t1, fontFamily:"Inter, sans-serif"}}>
+            <strong style={{fontSize: 12, color: th.t1, fontFamily: "monospace"}}>
               {fmt(r.totalPhys)} / {fmt(r.totalBilled)}
             </strong>
           </div>
@@ -618,7 +615,7 @@ function VMwareCalc({th, isMobile=false}) {
               fontSize: 13,
               color: r.efficiencyPct < 75 ? th.danger : r.efficiencyPct < 90 ? th.warn : th.accent,
               fontWeight: 800,
-              fontFamily:"Inter, sans-serif"
+              fontFamily: "monospace"
             }}>
               {r.efficiencyPct}%
             </span>
@@ -652,7 +649,7 @@ function VMwareCalc({th, isMobile=false}) {
             color: th.t3,
             textTransform: "uppercase",
             letterSpacing: "0.08em",
-            fontFamily:"Inter, sans-serif",
+            fontFamily: "monospace",
             marginBottom: 12
           }}>
             Comparaison licence
@@ -669,7 +666,7 @@ function VMwareCalc({th, isMobile=false}) {
               border: `1px solid ${th.border}`
             }}>
               <span style={{fontSize: 12, color: th.t2}}>VMware {licType.toUpperCase()}</span>
-              <strong style={{fontSize: 13, color: th.t1, fontFamily:"Inter, sans-serif"}}>
+              <strong style={{fontSize: 13, color: th.t1, fontFamily: "monospace"}}>
                 ~ {fmt(r.totalProject)} €
               </strong>
             </div>
@@ -684,7 +681,7 @@ function VMwareCalc({th, isMobile=false}) {
               border: "1px solid rgba(0,212,170,0.22)"
             }}>
               <span style={{fontSize: 12, color: th.t2}}>Proxmox VE Premium</span>
-              <strong style={{fontSize: 13, color: th.accent, fontFamily:"Inter, sans-serif"}}>
+              <strong style={{fontSize: 13, color: th.accent, fontFamily: "monospace"}}>
                 ~ {fmt(r.proxmoxProjectCost)} €
               </strong>
             </div>
@@ -732,8 +729,8 @@ function VMwareCalc({th, isMobile=false}) {
         <div style={{borderRadius:6,border:`1px solid ${th.border}`,overflow:"hidden",marginBottom:4}}>
           <div onClick={()=>setFinanceOpen(v=>!v)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 16px",cursor:"pointer",background:financeOpen?"rgba(255,107,53,0.08)":th.bg2}}>
             <div style={{display:"flex",alignItems:"center",gap:10}}>
-              <span style={{fontSize:11,fontWeight:600,color:financeOpen?"#ff6b35":th.t2,textTransform:"uppercase",letterSpacing:"0.08em",fontFamily:"Inter, sans-serif"}}>💰 Impact financier</span>
-              {r.showOpt&&<span style={{fontSize:10,background:"rgba(255,181,71,0.15)",color:"#ffb347",border:"1px solid rgba(255,181,71,0.4)",borderRadius:3,padding:"1px 6px",fontFamily:"Inter, sans-serif"}}>⚠️ Surcoût détecté</span>}
+              <span style={{fontSize:11,fontWeight:600,color:financeOpen?"#ff6b35":th.t2,textTransform:"uppercase",letterSpacing:"0.08em",fontFamily:"monospace"}}>💰 Impact financier</span>
+              {r.showOpt&&<span style={{fontSize:10,background:"rgba(255,181,71,0.15)",color:"#ffb347",border:"1px solid rgba(255,181,71,0.4)",borderRadius:3,padding:"1px 6px",fontFamily:"monospace"}}>⚠️ Surcoût détecté</span>}
             </div>
             <span style={{color:th.t3}}>{financeOpen?"▲":"▼"}</span>
           </div>
@@ -760,7 +757,7 @@ function VMwareCalc({th, isMobile=false}) {
         <div style={s.card(th.accent2)}>
           <div style={s.secTitle}>Résultats licensing</div>
           {r.surcharge&&(
-            <div style={{background:"rgba(255,181,71,0.1)",border:"1px solid rgba(255,181,71,0.3)",borderRadius:4,padding:"8px 12px",marginBottom:12,fontSize:11,color:"#ffb347",fontFamily:"Inter, sans-serif"}}>
+            <div style={{background:"rgba(255,181,71,0.1)",border:"1px solid rgba(255,181,71,0.3)",borderRadius:4,padding:"8px 12px",marginBottom:12,fontSize:11,color:"#ffb347",fontFamily:"monospace"}}>
               ⚠ {fmt(r.totalBilled)} cœurs facturés — minimum 16/socket appliqué
             </div>
           )}
@@ -771,8 +768,8 @@ function VMwareCalc({th, isMobile=false}) {
           <RR label="Packs 2-cœurs"       value={fmt(r.packs)+" packs"} color={th.accent}/>
         </div>
         <div style={{borderRadius:6,border:`1px solid ${r.showOpt?"rgba(255,181,71,0.4)":th.border}`,padding:"12px 16px",background:r.showOpt?"rgba(255,181,71,0.05)":"rgba(0,212,170,0.04)"}}>
-          <div style={{fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10,fontFamily:"Inter, sans-serif"}}>Optimisation licensing</div>
-          {r.showOpt?(<div><div style={{fontSize:12,color:"#ffb347",fontFamily:"Inter, sans-serif",fontWeight:600,marginBottom:6}}>CPUs a {cores} coeurs/socket - Broadcom facture 16 minimum</div><div style={{fontSize:11,color:th.t2,marginBottom:8}}>Vous payez {fmt(r.totalBilled)} coeurs pour {fmt(r.totalPhys)} coeurs physiques reels ({r.surPct}% de surcout).</div><div style={{padding:"6px 10px",background:th.bg2,borderRadius:3,fontSize:11,color:th.t1,fontFamily:"Inter, sans-serif"}}>Conseil : choisir des CPUs a 16 coeurs/socket vous donnerait plus de puissance au meme prix Broadcom.</div></div>):(<div style={{fontSize:11,color:th.accent}}>Configuration optimale - coeurs physiques 16/socket, aucun surcout Broadcom</div>)}
+          <div style={{fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10,fontFamily:"monospace"}}>Optimisation licensing</div>
+          {r.showOpt?(<div><div style={{fontSize:12,color:"#ffb347",fontFamily:"monospace",fontWeight:600,marginBottom:6}}>CPUs a {cores} coeurs/socket - Broadcom facture 16 minimum</div><div style={{fontSize:11,color:th.t2,marginBottom:8}}>Vous payez {fmt(r.totalBilled)} coeurs pour {fmt(r.totalPhys)} coeurs physiques reels ({r.surPct}% de surcout).</div><div style={{padding:"6px 10px",background:th.bg2,borderRadius:3,fontSize:11,color:th.t1,fontFamily:"monospace"}}>Conseil : choisir des CPUs a 16 coeurs/socket vous donnerait plus de puissance au meme prix Broadcom.</div></div>):(<div style={{fontSize:11,color:th.accent}}>Configuration optimale - coeurs physiques 16/socket, aucun surcout Broadcom</div>)}
         </div>
 
 
@@ -857,7 +854,7 @@ function WindowsCalc({th, isMobile=false}) {
               color:th.t3,
               textTransform:"uppercase",
               letterSpacing:"0.08em",
-              fontFamily:"Inter, sans-serif",
+              fontFamily:"monospace",
               marginBottom:6
             }}>
               Recommandation Windows & SQL
@@ -873,7 +870,7 @@ function WindowsCalc({th, isMobile=false}) {
 
           <div style={{
             fontSize:11,
-            fontFamily:"Inter, sans-serif",
+            fontFamily:"monospace",
             color:r.sqlWarn?th.danger:r.wsEfficiency<100?th.warn:th.accent,
             background:th.cardBg,
             border:`1px solid ${th.border}`,
@@ -910,7 +907,7 @@ function WindowsCalc({th, isMobile=false}) {
               color:th.t3,
               textTransform:"uppercase",
               letterSpacing:"0.08em",
-              fontFamily:"Inter, sans-serif",
+              fontFamily:"monospace",
               marginBottom:10
             }}>
               Action proposée
@@ -1306,15 +1303,15 @@ function StorageCalc({ th, isMobile=false }) {
   const s = {
     card: (accent) => ({ background:th.cardBg, borderTop:`1px solid ${th.border}`,borderRight:`1px solid ${th.border}`,borderBottom:`1px solid ${th.border}`,borderLeft:accent?`2px solid ${accent}`:`1px solid ${th.border}`, borderRadius:6, padding:16, marginBottom:14 }),
     groupRow: { background:th.bg2, border:`1px solid ${th.border}`, borderRadius:4, padding:"10px 14px", marginBottom:8 },
-    label: { display:"block", fontSize:10, color:th.t3, fontFamily:"Inter, sans-serif", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:4 },
-    input: { width:"100%", background:th.bg1, border:`1px solid ${th.border}`, borderRadius:4, padding:"6px 8px", color:th.t1, fontFamily:"Inter, sans-serif", fontSize:12, boxSizing:"border-box" },
-    select: { width:"100%", background:th.bg1, border:`1px solid ${th.border}`, borderRadius:4, padding:"6px 8px", color:th.t1, fontFamily:"Inter, sans-serif", fontSize:12, boxSizing:"border-box" },
-    btn: (color) => ({ cursor:"pointer", fontSize:11, padding:"5px 12px", borderRadius:4, border:`1px solid ${color}44`, background:`${color}11`, color, fontFamily:"Inter, sans-serif" }),
-    btnSm: (color) => ({ cursor:"pointer", fontSize:10, padding:"3px 8px", borderRadius:3, border:`1px solid ${color}44`, background:`${color}11`, color, fontFamily:"Inter, sans-serif" }),
-    secTitle: { fontSize:10, fontWeight:600, color:th.t2, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:12, paddingBottom:8, borderBottom:`1px solid ${th.border}`, fontFamily:"Inter, sans-serif" },
-    tag: (color) => ({ display:"inline-block", fontSize:9, padding:"2px 6px", borderRadius:3, background:`${color}22`, color, border:`1px solid ${color}44`, fontFamily:"Inter, sans-serif", marginLeft:6 }),
+    label: { display:"block", fontSize:10, color:th.t3, fontFamily:"monospace", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:4 },
+    input: { width:"100%", background:th.bg1, border:`1px solid ${th.border}`, borderRadius:4, padding:"6px 8px", color:th.t1, fontFamily:"monospace", fontSize:12, boxSizing:"border-box" },
+    select: { width:"100%", background:th.bg1, border:`1px solid ${th.border}`, borderRadius:4, padding:"6px 8px", color:th.t1, fontFamily:"monospace", fontSize:12, boxSizing:"border-box" },
+    btn: (color) => ({ cursor:"pointer", fontSize:11, padding:"5px 12px", borderRadius:4, border:`1px solid ${color}44`, background:`${color}11`, color, fontFamily:"monospace" }),
+    btnSm: (color) => ({ cursor:"pointer", fontSize:10, padding:"3px 8px", borderRadius:3, border:`1px solid ${color}44`, background:`${color}11`, color, fontFamily:"monospace" }),
+    secTitle: { fontSize:10, fontWeight:600, color:th.t2, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:12, paddingBottom:8, borderBottom:`1px solid ${th.border}`, fontFamily:"monospace" },
+    tag: (color) => ({ display:"inline-block", fontSize:9, padding:"2px 6px", borderRadius:3, background:`${color}22`, color, border:`1px solid ${color}44`, fontFamily:"monospace", marginLeft:6 }),
     divider: { border:"none", borderTop:`1px solid ${th.border}`, margin:"12px 0" },
-    miniVal: (color) => ({ fontSize:13, fontWeight:600, fontFamily:"Inter, sans-serif", color:color||th.t1 }),
+    miniVal: (color) => ({ fontSize:13, fontWeight:600, fontFamily:"monospace", color:color||th.t1 }),
   };
 
   return (
@@ -1328,7 +1325,7 @@ function StorageCalc({ th, isMobile=false }) {
         ].map(tab=>(
           <button key={tab.id} onClick={()=>setStorageTab(tab.id)} style={{
             cursor:"pointer", border:"none", background:"none",
-            padding:"8px 18px", fontSize:12, fontFamily:"Inter, sans-serif", fontWeight:600,
+            padding:"8px 18px", fontSize:12, fontFamily:"monospace", fontWeight:600,
             color:storageTab===tab.id?th.accent:th.t3,
             borderBottom:storageTab===tab.id?`2px solid ${th.accent}`:"2px solid transparent",
             marginBottom:-2, transition:"all 0.15s",
@@ -1374,12 +1371,12 @@ function StorageCalc({ th, isMobile=false }) {
               <div style={{height:26,position:"relative"}}>
                 <div style={{position:"absolute",left:0,right:0,top:8,height:10,borderRadius:999,border:`1px dashed ${th.t3}`,opacity:.7}}/>
                 <div style={{position:"absolute",left:0,top:8,height:10,width:pct+"%",background:color,borderRadius:999}}/>
-                <div style={{position:"absolute",left:`calc(${pct}% - 26px)`,top:2,fontSize:11,fontWeight:800,color:"#fff",background:color,borderRadius:6,padding:"2px 7px",fontFamily:"Inter, sans-serif"}}>
+                <div style={{position:"absolute",left:`calc(${pct}% - 26px)`,top:2,fontSize:11,fontWeight:800,color:"#fff",background:color,borderRadius:6,padding:"2px 7px",fontFamily:"monospace"}}>
                   {current}
                 </div>
               </div>
             </div>
-            <div style={{fontSize:12,color:th.t2,fontFamily:"Inter, sans-serif",textAlign:"right"}}>{target} {unit}</div>
+            <div style={{fontSize:12,color:th.t2,fontFamily:"monospace",textAlign:"right"}}>{target} {unit}</div>
           </div>
         );
 
@@ -1396,7 +1393,7 @@ function StorageCalc({ th, isMobile=false }) {
                 <div style={{fontSize:11,color:color,textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:800,marginBottom:6}}>
                   {label}
                 </div>
-                <div style={{fontSize:26,fontWeight:900,color:color,fontFamily:"Inter, sans-serif"}}>
+                <div style={{fontSize:26,fontWeight:900,color:color,fontFamily:"monospace"}}>
                   {value}
                 </div>
                 <div style={{fontSize:12,color:th.t2,marginTop:4}}>
@@ -1465,7 +1462,7 @@ function StorageCalc({ th, isMobile=false }) {
                 borderRadius:12,
                 padding:"14px 16px"
               }}>
-                <div style={{fontSize:11,color:th.t3,textTransform:"uppercase",letterSpacing:"0.08em",fontFamily:"Inter, sans-serif",marginBottom:8}}>
+                <div style={{fontSize:11,color:th.t3,textTransform:"uppercase",letterSpacing:"0.08em",fontFamily:"monospace",marginBottom:8}}>
                   Recommandation principale
                 </div>
                 <div style={{fontSize:14,fontWeight:800,color:th.t1,lineHeight:1.45}}>
@@ -1623,7 +1620,7 @@ function StorageCalc({ th, isMobile=false }) {
                             <span style={{
                               fontSize:11,
                               color:remain<0?th.danger:th.t2,
-                              fontFamily:"Inter, sans-serif",
+                              fontFamily:"monospace",
                               background:th.cardBg,
                               border:`1px solid ${th.border}`,
                               borderRadius:999,
@@ -1717,7 +1714,7 @@ function StorageCalc({ th, isMobile=false }) {
                                       padding:"8px 10px"
                                     }}>
                                       <div style={{fontSize:10,color:th.t3,textTransform:"uppercase",letterSpacing:"0.06em"}}>{label}</div>
-                                      <div style={{fontSize:15,fontWeight:900,color,fontFamily:"Inter, sans-serif",marginTop:3}}>{val}</div>
+                                      <div style={{fontSize:15,fontWeight:900,color,fontFamily:"monospace",marginTop:3}}>{val}</div>
                                     </div>
                                   ))}
                                 </div>
@@ -1757,7 +1754,7 @@ function StorageCalc({ th, isMobile=false }) {
                 ].map(([label,val,color])=>(
                   <div key={label} style={{background:th.bg2,border:`1px solid ${th.border}`,borderRadius:10,padding:"10px 12px"}}>
                     <div style={{fontSize:10,color:th.t3,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>{label}</div>
-                    <div style={{fontSize:18,fontWeight:900,color,fontFamily:"Inter, sans-serif"}}>{val}</div>
+                    <div style={{fontSize:18,fontWeight:900,color,fontFamily:"monospace"}}>{val}</div>
                   </div>
                 ))}
               </div>
@@ -1966,7 +1963,7 @@ function StorageCalc({ th, isMobile=false }) {
                   <div key={k.label} style={{background:k.bg,borderRadius:8,padding:"14px 16px"}}>
                     <div style={{fontSize:10,color:"rgba(255,255,255,0.6)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>{k.label}</div>
                     <div style={{fontSize:10,color:"rgba(255,255,255,0.5)",marginBottom:4}}>{k.sub}</div>
-                    <div style={{fontSize:20,fontWeight:700,fontFamily:"Inter, sans-serif",color:"#fff"}}>{k.val}</div>
+                    <div style={{fontSize:20,fontWeight:700,fontFamily:"monospace",color:"#fff"}}>{k.val}</div>
                   </div>
                 ))}
               </div>
@@ -1974,27 +1971,27 @@ function StorageCalc({ th, isMobile=false }) {
               {/* Sélecteur constructeur */}
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr 1fr",gap:10,marginBottom:16}}>
                 <div>
-                  <label style={{display:"block",fontSize:10,color:th.t3,fontFamily:"Inter, sans-serif",textTransform:"uppercase",marginBottom:5}}>Constructeur</label>
-                  <select value={vVendor} onChange={e=>{setVVendor(e.target.value);const first=Object.keys(VENDORS[e.target.value].models)[0];setVModel(first);const m=VENDORS[e.target.value].models[first];setVRaid(m.raids[0].id);setVOverhead(m.overheadDefault);setVDedupRatio(m.dedupDefault);setVVendorDedup(m.hasDedup);}} style={{width:"100%",background:th.bg2,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"Inter, sans-serif",fontSize:12,boxSizing:"border-box"}}>
+                  <label style={{display:"block",fontSize:10,color:th.t3,fontFamily:"monospace",textTransform:"uppercase",marginBottom:5}}>Constructeur</label>
+                  <select value={vVendor} onChange={e=>{setVVendor(e.target.value);const first=Object.keys(VENDORS[e.target.value].models)[0];setVModel(first);const m=VENDORS[e.target.value].models[first];setVRaid(m.raids[0].id);setVOverhead(m.overheadDefault);setVDedupRatio(m.dedupDefault);setVVendorDedup(m.hasDedup);}} style={{width:"100%",background:th.bg2,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"monospace",fontSize:12,boxSizing:"border-box"}}>
                     {Object.entries(VENDORS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label style={{display:"block",fontSize:10,color:th.t3,fontFamily:"Inter, sans-serif",textTransform:"uppercase",marginBottom:5}}>Modèle de baie</label>
-                  <select value={vModel} onChange={e=>{setVModel(e.target.value);const m=vendor.models[e.target.value];setVRaid(m.raids[0].id);setVOverhead(m.overheadDefault);setVDedupRatio(m.dedupDefault);setVVendorDedup(m.hasDedup);}} style={{width:"100%",background:th.bg2,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"Inter, sans-serif",fontSize:12,boxSizing:"border-box"}}>
+                  <label style={{display:"block",fontSize:10,color:th.t3,fontFamily:"monospace",textTransform:"uppercase",marginBottom:5}}>Modèle de baie</label>
+                  <select value={vModel} onChange={e=>{setVModel(e.target.value);const m=vendor.models[e.target.value];setVRaid(m.raids[0].id);setVOverhead(m.overheadDefault);setVDedupRatio(m.dedupDefault);setVVendorDedup(m.hasDedup);}} style={{width:"100%",background:th.bg2,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"monospace",fontSize:12,boxSizing:"border-box"}}>
                     {Object.entries(vendor.models).map(([k,m])=><option key={k} value={k}>{m.label}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label style={{display:"block",fontSize:10,color:th.t3,fontFamily:"Inter, sans-serif",textTransform:"uppercase",marginBottom:5}}>Protection RAID</label>
-                  <select value={vRaid} onChange={e=>setVRaid(e.target.value)} style={{width:"100%",background:th.bg2,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"Inter, sans-serif",fontSize:12,boxSizing:"border-box"}}>
+                  <label style={{display:"block",fontSize:10,color:th.t3,fontFamily:"monospace",textTransform:"uppercase",marginBottom:5}}>Protection RAID</label>
+                  <select value={vRaid} onChange={e=>setVRaid(e.target.value)} style={{width:"100%",background:th.bg2,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"monospace",fontSize:12,boxSizing:"border-box"}}>
                     {model?.raids.map(r=><option key={r.id} value={r.id}>{r.label}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label style={{display:"block",fontSize:10,color:th.t3,fontFamily:"Inter, sans-serif",textTransform:"uppercase",marginBottom:5}}>Overhead système (%)</label>
+                  <label style={{display:"block",fontSize:10,color:th.t3,fontFamily:"monospace",textTransform:"uppercase",marginBottom:5}}>Overhead système (%)</label>
                   <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                    <input type="number" min={model?.overheadMin||10} max={model?.overheadMax||35} value={vOverhead} onChange={e=>setVOverhead(Number(e.target.value))} style={{width:"100%",background:th.bg2,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"Inter, sans-serif",fontSize:13,boxSizing:"border-box"}}/>
+                    <input type="number" min={model?.overheadMin||10} max={model?.overheadMax||35} value={vOverhead} onChange={e=>setVOverhead(Number(e.target.value))} style={{width:"100%",background:th.bg2,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"monospace",fontSize:13,boxSizing:"border-box"}}/>
                     <span style={{fontSize:11,color:th.t3}}>%</span>
                   </div>
                   <div style={{fontSize:10,color:th.t3,marginTop:2}}>Min {model?.overheadMin}% — Max {model?.overheadMax}%</div>
@@ -2005,29 +2002,29 @@ function StorageCalc({ th, isMobile=false }) {
 
                 {/* Config disques */}
                 <div style={{background:th.bg2,borderLeft:`2px solid ${VENDORS[vVendor].color}`,borderRadius:4,padding:14}}>
-                  <div style={{fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:12,fontFamily:"Inter, sans-serif"}}>Configuration disques</div>
+                  <div style={{fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:12,fontFamily:"monospace"}}>Configuration disques</div>
                   <div style={{marginBottom:12}}>
-                    <label style={{display:"block",fontSize:10,color:th.t3,fontFamily:"Inter, sans-serif",textTransform:"uppercase",marginBottom:5}}>Nombre de disques</label>
-                    <input type="number" min={1} max={500} value={vDisks} onChange={e=>setVDisks(Number(e.target.value))} style={{width:"100%",background:th.bg1,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"Inter, sans-serif",fontSize:13,boxSizing:"border-box"}}/>
+                    <label style={{display:"block",fontSize:10,color:th.t3,fontFamily:"monospace",textTransform:"uppercase",marginBottom:5}}>Nombre de disques</label>
+                    <input type="number" min={1} max={500} value={vDisks} onChange={e=>setVDisks(Number(e.target.value))} style={{width:"100%",background:th.bg1,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"monospace",fontSize:13,boxSizing:"border-box"}}/>
                   </div>
                   <div style={{marginBottom:12}}>
-                    <label style={{display:"block",fontSize:10,color:th.t3,fontFamily:"Inter, sans-serif",textTransform:"uppercase",marginBottom:5}}>Capacité / disque (TB)</label>
-                    <input type="number" min={0.5} max={32} step={0.5} value={vDiskCap} onChange={e=>setVDiskCap(Number(e.target.value))} style={{width:"100%",background:th.bg1,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"Inter, sans-serif",fontSize:13,boxSizing:"border-box"}}/>
+                    <label style={{display:"block",fontSize:10,color:th.t3,fontFamily:"monospace",textTransform:"uppercase",marginBottom:5}}>Capacité / disque (TB)</label>
+                    <input type="number" min={0.5} max={32} step={0.5} value={vDiskCap} onChange={e=>setVDiskCap(Number(e.target.value))} style={{width:"100%",background:th.bg1,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"monospace",fontSize:13,boxSizing:"border-box"}}/>
                   </div>
                   <div style={{marginBottom:12}}>
-                    <label style={{display:"block",fontSize:10,color:th.t3,fontFamily:"Inter, sans-serif",textTransform:"uppercase",marginBottom:5}}>Cible capacité nette (TB)</label>
-                    <input type="number" min={1} step={5} value={vTarget} onChange={e=>setVTarget(Number(e.target.value))} style={{width:"100%",background:th.bg1,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"Inter, sans-serif",fontSize:13,boxSizing:"border-box"}}/>
+                    <label style={{display:"block",fontSize:10,color:th.t3,fontFamily:"monospace",textTransform:"uppercase",marginBottom:5}}>Cible capacité nette (TB)</label>
+                    <input type="number" min={1} step={5} value={vTarget} onChange={e=>setVTarget(Number(e.target.value))} style={{width:"100%",background:th.bg1,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"monospace",fontSize:13,boxSizing:"border-box"}}/>
                   </div>
                   {model?.hasDedup&&(
                     <div>
-                      <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:12,color:vVendorDedup?th.accent:th.t2,fontFamily:"Inter, sans-serif",marginBottom:6}}>
+                      <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:12,color:vVendorDedup?th.accent:th.t2,fontFamily:"monospace",marginBottom:6}}>
                         <input type="checkbox" checked={vVendorDedup} onChange={e=>setVVendorDedup(e.target.checked)} style={{accentColor:th.accent}}/>
                         {vVendorDedup?`Dédup/compression actif (×${vDedupRatio})`:"Dédup/compression désactivé"}
                       </label>
                       {vVendorDedup&&(
                         <div style={{display:"flex",alignItems:"center",gap:8}}>
                           <input type="range" min={1} max={8} step={0.5} value={vDedupRatio} onChange={e=>setVDedupRatio(Number(e.target.value))} style={{flex:1,accentColor:th.accent}}/>
-                          <span style={{fontFamily:"Inter, sans-serif",fontSize:12,color:th.accent,minWidth:36}}>{vDedupRatio}:1</span>
+                          <span style={{fontFamily:"monospace",fontSize:12,color:th.accent,minWidth:36}}>{vDedupRatio}:1</span>
                         </div>
                       )}
                     </div>
@@ -2041,8 +2038,8 @@ function StorageCalc({ th, isMobile=false }) {
 
                 {/* Résultats */}
                 <div style={{background:th.bg2,borderLeft:`2px solid ${th.accent}`,borderRadius:4,padding:14}}>
-                  <div style={{fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:12,fontFamily:"Inter, sans-serif"}}>Résultats {model?.label}</div>
-                  <div style={{marginBottom:10,padding:"6px 10px",borderRadius:4,fontSize:11,fontFamily:"Inter, sans-serif",background:`${VENDORS[vVendor].color}15`,color:VENDORS[vVendor].color,border:`1px solid ${VENDORS[vVendor].color}33`}}>
+                  <div style={{fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:12,fontFamily:"monospace"}}>Résultats {model?.label}</div>
+                  <div style={{marginBottom:10,padding:"6px 10px",borderRadius:4,fontSize:11,fontFamily:"monospace",background:`${VENDORS[vVendor].color}15`,color:VENDORS[vVendor].color,border:`1px solid ${VENDORS[vVendor].color}33`}}>
                     {model?.protection} · Overhead {vOverhead}%
                   </div>
                   {[
@@ -2055,7 +2052,7 @@ function StorageCalc({ th, isMobile=false }) {
                   ].map((row,i)=>(
                     <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:`1px solid ${th.border}`}}>
                       <span style={{fontSize:12,color:th.t2}}>{row.label}</span>
-                      <span style={{fontFamily:"Inter, sans-serif",fontWeight:600,fontSize:13,color:row.color||th.t1}}>{row.val}</span>
+                      <span style={{fontFamily:"monospace",fontWeight:600,fontSize:13,color:row.color||th.t1}}>{row.val}</span>
                     </div>
                   ))}
                   <div style={{marginTop:10,padding:"8px 10px",borderRadius:4,fontSize:11,
@@ -2068,7 +2065,7 @@ function StorageCalc({ th, isMobile=false }) {
 
                 {/* Fiche modèle */}
                 <div style={{background:th.bg2,borderLeft:`2px solid ${th.warn}`,borderRadius:4,padding:14}}>
-                  <div style={{fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:12,fontFamily:"Inter, sans-serif"}}>Caractéristiques {model?.label}</div>
+                  <div style={{fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:12,fontFamily:"monospace"}}>Caractéristiques {model?.label}</div>
                   {[
                     {label:"Constructeur",    val:VENDORS[vVendor].label},
                     {label:"Protection",      val:model?.protection},
@@ -2079,7 +2076,7 @@ function StorageCalc({ th, isMobile=false }) {
                   ].map((row,i)=>(
                     <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:`1px solid ${th.border}`}}>
                       <span style={{fontSize:12,color:th.t2}}>{row.label}</span>
-                      <span style={{fontFamily:"Inter, sans-serif",fontWeight:600,fontSize:12,color:row.color||th.t1}}>{row.val}</span>
+                      <span style={{fontFamily:"monospace",fontWeight:600,fontSize:12,color:row.color||th.t1}}>{row.val}</span>
                     </div>
                   ))}
                   <div style={{marginTop:12,padding:"8px 10px",background:th.bg1,borderRadius:4,fontSize:11,color:th.t2,lineHeight:1.6}}>
@@ -2140,7 +2137,7 @@ function StorageCalc({ th, isMobile=false }) {
                 <div key={k.label} style={{background:k.bg,borderRadius:8,padding:"10px 12px"}}>
                   <div style={{fontSize:9,color:"rgba(255,255,255,0.6)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2}}>{k.label}</div>
                   <div style={{fontSize:9,color:"rgba(255,255,255,0.5)",marginBottom:3}}>{k.sub}</div>
-                  <div style={{fontSize:17,fontWeight:700,fontFamily:"Inter, sans-serif",color:"#fff"}}>{k.val}</div>
+                  <div style={{fontSize:17,fontWeight:700,fontFamily:"monospace",color:"#fff"}}>{k.val}</div>
                 </div>
               ))}
             </div>
@@ -2168,7 +2165,7 @@ function StorageCalc({ th, isMobile=false }) {
                     <label style={s.label}>Nombre de nœuds</label>
                     <div style={{display:"flex",alignItems:"center",gap:8}}>
                       <input type="range" min={2} max={32} value={hciNodes} onChange={e=>setHciNodes(Number(e.target.value))} style={{flex:1}}/>
-                      <span style={{fontSize:13,fontWeight:600,fontFamily:"Inter, sans-serif",color:th.t1,minWidth:30}}>{hciNodes}</span>
+                      <span style={{fontSize:13,fontWeight:600,fontFamily:"monospace",color:th.t1,minWidth:30}}>{hciNodes}</span>
                     </div>
                   </div>
                   <div style={{marginBottom:8}}>
@@ -2178,12 +2175,12 @@ function StorageCalc({ th, isMobile=false }) {
                     </select>
                   </div>
                   {hciSolution==="proxmox"&&(hciResil==="ceph_rf2"||hciResil==="ceph_rf3")&&hciNodes<3&&(
-                    <div style={{background:"rgba(255,181,71,0.1)",border:"1px solid rgba(255,181,71,0.3)",borderRadius:4,padding:"8px 10px",marginBottom:8,fontSize:11,color:"#ffb347",fontFamily:"Inter, sans-serif"}}>
+                    <div style={{background:"rgba(255,181,71,0.1)",border:"1px solid rgba(255,181,71,0.3)",borderRadius:4,padding:"8px 10px",marginBottom:8,fontSize:11,color:"#ffb347",fontFamily:"monospace"}}>
                       Ceph nécessite minimum 3 nœuds pour le quorum
                     </div>
                   )}
                   {hciSolution==="proxmox"&&hciResil==="zfs_mirror"&&hciNodes>2&&(
-                    <div style={{background:"rgba(0,153,255,0.08)",border:"1px solid rgba(0,153,255,0.2)",borderRadius:4,padding:"8px 10px",marginBottom:8,fontSize:11,color:th.accent2,fontFamily:"Inter, sans-serif"}}>
+                    <div style={{background:"rgba(0,153,255,0.08)",border:"1px solid rgba(0,153,255,0.2)",borderRadius:4,padding:"8px 10px",marginBottom:8,fontSize:11,color:th.accent2,fontFamily:"monospace"}}>
                       ZFS + réplication est optimal pour 2 nœuds — considérez Ceph RF2/RF3
                     </div>
                   )}
@@ -2259,7 +2256,7 @@ function StorageCalc({ th, isMobile=false }) {
                       </select>
                     </div>
                   </div>
-                  <div style={{marginTop:10,padding:"8px 10px",background:th.bg2,borderRadius:4,fontSize:11,color:th.t2,fontFamily:"Inter, sans-serif"}}>
+                  <div style={{marginTop:10,padding:"8px 10px",background:th.bg2,borderRadius:4,fontSize:11,color:th.t2,fontFamily:"monospace"}}>
                     Brut/nœud : {rawPerNode.toFixed(1)} TB · Utile/nœud : {usablePerN.toFixed(1)} To · Eff/nœud : {effPerNode.toFixed(1)} To
                   </div>
                 </div>
@@ -2276,7 +2273,7 @@ function StorageCalc({ th, isMobile=false }) {
                   ].map(r=>(
                     <div key={r.label} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:`1px solid ${th.border}`}}>
                       <span style={{fontSize:11,color:th.t2}}>{r.label}</span>
-                      <span style={{fontFamily:"Inter, sans-serif",fontWeight:600,fontSize:12,color:r.highlight?th.accent:th.t1,marginLeft:8}}>{r.val}</span>
+                      <span style={{fontFamily:"monospace",fontWeight:600,fontSize:12,color:r.highlight?th.accent:th.t1,marginLeft:8}}>{r.val}</span>
                     </div>
                   ))}
                 </div>
@@ -2397,7 +2394,7 @@ function VeeamCalc({th, isMobile=false}) {
               <Bar dataKey="value" fill={th.accent3} radius={[0,3,3,0]} />
             </BarChart>
           </ResponsiveContainer>
-          <div style={{fontSize:10,color:th.t3,marginTop:8,fontFamily:"Inter, sans-serif"}}>Licence : {licType.toUpperCase()} · Repo : {repoType.toUpperCase()} · {copies} copie(s)</div>
+          <div style={{fontSize:10,color:th.t3,marginTop:8,fontFamily:"monospace"}}>Licence : {licType.toUpperCase()} · Repo : {repoType.toUpperCase()} · {copies} copie(s)</div>
         </Card>
       </div>
     </div>
@@ -2563,11 +2560,11 @@ function SwitchCalc({ th, isMobile=false }) {
   const removeGroup = (id) => setServerGroups(gs => gs.filter(g => g.id!==id));
 
   const s = {
-    label:    {display:"block",fontSize:10,color:th.t3,fontFamily:"Inter, sans-serif",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4},
-    input:    {width:"100%",background:th.bg2,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"Inter, sans-serif",fontSize:13,boxSizing:"border-box"},
-    select:   {width:"100%",background:th.bg2,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"Inter, sans-serif",fontSize:13,boxSizing:"border-box"},
+    label:    {display:"block",fontSize:10,color:th.t3,fontFamily:"monospace",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4},
+    input:    {width:"100%",background:th.bg2,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"monospace",fontSize:13,boxSizing:"border-box"},
+    select:   {width:"100%",background:th.bg2,border:`1px solid ${th.border}`,borderRadius:4,padding:"7px 10px",color:th.t1,fontFamily:"monospace",fontSize:13,boxSizing:"border-box"},
     card:     (accent) => ({background:th.cardBg,borderTop:`1px solid ${th.border}`,borderRight:`1px solid ${th.border}`,borderBottom:`1px solid ${th.border}`,borderLeft:`2px solid ${accent||th.border}`,borderRadius:6,padding:16,marginBottom:14}),
-    secTitle: {fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:14,fontFamily:"Inter, sans-serif"},
+    secTitle: {fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:14,fontFamily:"monospace"},
   };
 
   const kpis = [
@@ -2594,7 +2591,7 @@ function SwitchCalc({ th, isMobile=false }) {
           <div key={k.label} style={{background:k.bg,borderRadius:8,padding:"14px 16px"}}>
             <div style={{fontSize:10,color:"rgba(255,255,255,0.6)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>{k.label}</div>
             <div style={{fontSize:10,color:"rgba(255,255,255,0.5)",marginBottom:4}}>{k.sub}</div>
-            <div style={{fontSize:20,fontWeight:700,fontFamily:"Inter, sans-serif",color:"#fff"}}>{k.val}</div>
+            <div style={{fontSize:20,fontWeight:700,fontFamily:"monospace",color:"#fff"}}>{k.val}</div>
           </div>
         ))}
       </div>
@@ -2634,7 +2631,7 @@ function SwitchCalc({ th, isMobile=false }) {
                 <option value="irf">HPE IRF (stack virtuel)</option>
                 <option value="none">Aucune (standalone)</option>
               </select>
-              <div style={{fontSize:10,color:th.t3,fontFamily:"Inter, sans-serif",marginTop:3}}>
+              <div style={{fontSize:10,color:th.t3,fontFamily:"monospace",marginTop:3}}>
                 {stackTech==="mlag"     &&"MLAG : ports uplink standards — pas de port dédié consommé · LACP recommandé"}
                 {stackTech==="stackwise"&&"StackWise : câbles dédiés propriétaires — ports data non consommés · latence <1µs"}
                 {stackTech==="irf"      &&"IRF : stack virtuel HPE — administré comme un seul équipement"}
@@ -2661,7 +2658,7 @@ function SwitchCalc({ th, isMobile=false }) {
                     <option key={v} value={v}>{l}</option>
                   ))}
                 </select>
-                <div style={{fontSize:9,color:th.t3,fontFamily:"Inter, sans-serif",marginTop:2}}>BW serveurs / BW uplinks</div>
+                <div style={{fontSize:9,color:th.t3,fontFamily:"monospace",marginTop:2}}>BW serveurs / BW uplinks</div>
               </div>
               <div>
                 <label style={s.label}>Ports firewall réservés</label>
@@ -2692,7 +2689,7 @@ function SwitchCalc({ th, isMobile=false }) {
                 <div style={{fontSize:10,color:th.t3,marginTop:3}}>Vert &lt; {Math.round(uplinkWarnPct/2)}% · Ambre &lt; {uplinkWarnPct}% · Rouge &ge; {uplinkWarnPct}% — défaut 150%</div>
               </div>
             </div>
-            <div style={{marginTop:10,padding:"8px 10px",background:th.bg2,borderRadius:4,fontSize:11,fontFamily:"Inter, sans-serif",color:th.t2}}>
+            <div style={{marginTop:10,padding:"8px 10px",background:th.bg2,borderRadius:4,fontSize:11,fontFamily:"monospace",color:th.t2}}>
               BW uplink / switch : {totals.bwUplink} Gbps · BW nécessaire : {Math.round(totals.bwUplinkNeeded)} Gbps
               {totals.bwUplinkNeeded > totals.bwUplink
                 ? <span style={{color:th.danger}}> ⚠ Insuffisant — augmenter vitesse ou quantité</span>
@@ -2707,11 +2704,11 @@ function SwitchCalc({ th, isMobile=false }) {
           <div style={s.card(th.accent)}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
               <div style={s.secTitle}>Serveurs <span style={{fontSize:9,color:th.t3,fontWeight:400}}>(interfaces par serveur)</span></div>
-              <button onClick={addGroup} style={{cursor:"pointer",fontSize:11,padding:"4px 12px",borderRadius:4,border:`1px solid ${th.accent}`,background:`${th.accent}15`,color:th.accent,fontFamily:"Inter, sans-serif"}}>+ Groupe</button>
+              <button onClick={addGroup} style={{cursor:"pointer",fontSize:11,padding:"4px 12px",borderRadius:4,border:`1px solid ${th.accent}`,background:`${th.accent}15`,color:th.accent,fontFamily:"monospace"}}>+ Groupe</button>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"2fr 48px 40px 40px 40px 40px 24px",gap:4,marginBottom:6}}>
               {[{h:"Groupe",align:"left"},{h:"Qté",align:"center"},{h:"1G",align:"center"},{h:"10G",align:"center"},{h:"25G",align:"center"},{h:"Mgmt",align:"center"},{h:"",align:"center"}].map((col,i)=>(
-                <div key={i} style={{fontSize:9,color:th.t3,fontFamily:"Inter, sans-serif",textTransform:"uppercase",textAlign:col.align}}>
+                <div key={i} style={{fontSize:9,color:th.t3,fontFamily:"monospace",textTransform:"uppercase",textAlign:col.align}}>
                   {col.h}
                 </div>
               ))}
@@ -2733,15 +2730,15 @@ function SwitchCalc({ th, isMobile=false }) {
             {/* Totaux ports physiques */}
             <div style={{borderTop:`1px solid ${th.border}`,paddingTop:8,marginTop:4}}>
               <div style={{display:"grid",gridTemplateColumns:"2fr 48px 40px 40px 40px 40px 24px",gap:4}}>
-                <div style={{fontSize:10,color:th.t3,fontFamily:"Inter, sans-serif"}}>Total ports</div>
-                <div style={{fontSize:11,fontWeight:700,color:th.accent,fontFamily:"Inter, sans-serif",textAlign:"center"}}>{totals.tServers}</div>
-                <div style={{fontSize:11,fontWeight:700,color:th.t1,fontFamily:"Inter, sans-serif",textAlign:"center"}}>{totals.t1g}</div>
-                <div style={{fontSize:11,fontWeight:700,color:th.accent2,fontFamily:"Inter, sans-serif",textAlign:"center"}}>{totals.t10g}</div>
-                <div style={{fontSize:11,fontWeight:700,color:th.accent,fontFamily:"Inter, sans-serif",textAlign:"center"}}>{totals.t25g}</div>
-                <div style={{fontSize:11,fontWeight:700,color:th.t1,fontFamily:"Inter, sans-serif",textAlign:"center"}}>{totals.tMgmt}</div>
+                <div style={{fontSize:10,color:th.t3,fontFamily:"monospace"}}>Total ports</div>
+                <div style={{fontSize:11,fontWeight:700,color:th.accent,fontFamily:"monospace",textAlign:"center"}}>{totals.tServers}</div>
+                <div style={{fontSize:11,fontWeight:700,color:th.t1,fontFamily:"monospace",textAlign:"center"}}>{totals.t1g}</div>
+                <div style={{fontSize:11,fontWeight:700,color:th.accent2,fontFamily:"monospace",textAlign:"center"}}>{totals.t10g}</div>
+                <div style={{fontSize:11,fontWeight:700,color:th.accent,fontFamily:"monospace",textAlign:"center"}}>{totals.t25g}</div>
+                <div style={{fontSize:11,fontWeight:700,color:th.t1,fontFamily:"monospace",textAlign:"center"}}>{totals.tMgmt}</div>
                 <div/>
               </div>
-              <div style={{fontSize:10,color:th.t3,fontFamily:"Inter, sans-serif",marginTop:4}}>
+              <div style={{fontSize:10,color:th.t3,fontFamily:"monospace",marginTop:4}}>
                 BW data totale : {totals.t10g}×10G + {totals.t25g}×25G = {totals.bwEW} Gbps
               </div>
             </div>
@@ -2760,7 +2757,7 @@ function SwitchCalc({ th, isMobile=false }) {
             ].map(r=>(
               <div key={r.label} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:`1px solid ${th.border}`}}>
                 <span style={{fontSize:11,color:th.t2}}>{r.label}</span>
-                <span style={{fontFamily:"Inter, sans-serif",fontWeight:600,fontSize:12,color:r.color}}>{r.val}</span>
+                <span style={{fontFamily:"monospace",fontWeight:600,fontSize:12,color:r.color}}>{r.val}</span>
               </div>
             ))}
           </div>
@@ -2770,18 +2767,18 @@ function SwitchCalc({ th, isMobile=false }) {
             <div style={s.secTitle}>Segmentation réseau</div>
             <div style={{display:"grid",gridTemplateColumns:"40px 1fr 60px 60px",gap:4,marginBottom:4}}>
               {["VLAN","Usage","Vitesse","QoS"].map(h=>(
-                <div key={h} style={{fontSize:9,color:th.t3,fontFamily:"Inter, sans-serif",textTransform:"uppercase"}}>{h}</div>
+                <div key={h} style={{fontSize:9,color:th.t3,fontFamily:"monospace",textTransform:"uppercase"}}>{h}</div>
               ))}
             </div>
             {vlans.map(v=>(
               <div key={v.id} style={{display:"grid",gridTemplateColumns:"40px 1fr 60px 60px",gap:4,padding:"5px 0",borderBottom:`1px solid ${th.border}`}}>
-                <span style={{fontFamily:"Inter, sans-serif",fontWeight:700,fontSize:11,color:th.accent2}}>{v.id}</span>
+                <span style={{fontFamily:"monospace",fontWeight:700,fontSize:11,color:th.accent2}}>{v.id}</span>
                 <div>
                   <div style={{fontSize:11,fontWeight:600,color:th.t1}}>{v.name}</div>
                   <div style={{fontSize:10,color:th.t3}}>{v.use}</div>
                 </div>
-                <span style={{fontSize:10,fontFamily:"Inter, sans-serif",color:th.t2,alignSelf:"center"}}>{v.speed}</span>
-                <span style={{fontSize:10,fontFamily:"Inter, sans-serif",alignSelf:"center",
+                <span style={{fontSize:10,fontFamily:"monospace",color:th.t2,alignSelf:"center"}}>{v.speed}</span>
+                <span style={{fontSize:10,fontFamily:"monospace",alignSelf:"center",
                   color:v.qos==="Priority"?"#e05a20":v.qos==="Assured"?th.accent:v.qos==="Low"?th.t3:th.t2}}>
                   {v.qos}
                 </span>
