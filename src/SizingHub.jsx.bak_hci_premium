@@ -2522,456 +2522,221 @@ function StorageCalc({ th, isMobile=false }) {
         const hciResilOpt = hciProfile.resiliency.find(r=>r.id===hciResil)||hciProfile.resiliency[0];
         const hciDisk     = HCI_DISKS.find(d=>d.id===hciDiskId)||HCI_DISKS[0];
 
-        const growthF = 1 + hciGrowth/100;
-        const reqVcpu = Math.round(hciVms * hciVcpu * growthF);
-        const reqRam  = Math.round(hciVms * hciRam * growthF);
-        const reqSto  = (hciVms * hciStorage / 1024 * growthF);
+        // Workload cible avec croissance
+        const hciGrowthF    = 1 + hciGrowth/100;
+        const hciTgtVcpu    = hciVms * hciVcpu * hciGrowthF;
+        const hciTgtRam     = hciVms * hciRam * hciGrowthF;
+        const hciTgtStorage = hciVms * hciStorage / 1024 * hciGrowthF;
 
-        const rawPerNode = hciDisksPerNode * hciDisk.cap;
-        const usablePerNode = rawPerNode * (1-hciProfile.overhead) / hciResilOpt.factor * (1-hciProfile.metadataReserve);
-        const effPerNode = hciDedupEn ? usablePerNode * hciDedupRatio : usablePerNode;
+        // Capacité par nœud
+        const rawPerNode  = hciDisksPerNode * hciDisk.cap;
+        const usablePerN  = rawPerNode * (1-hciProfile.overhead) / hciResilOpt.factor * (1-hciProfile.metadataReserve);
+        const effPerNode  = hciDedupEn ? usablePerN*hciDedupRatio : usablePerN;
 
-        const activeNodes = Math.max(hciNodes - hciHaPolicy, 1);
-        const totalCpu = hciNodes * hciNodeCpu;
-        const totalRam = hciNodes * hciNodeRam;
-        const totalRaw = hciNodes * rawPerNode;
-
-        const availVcpu = activeNodes * hciNodeCpu * hciOvercommit;
-        const availRam  = activeNodes * hciNodeRam;
-        const availSto  = activeNodes * effPerNode;
-
-        const cpuMargin = reqVcpu>0 ? Math.round(((availVcpu-reqVcpu)/reqVcpu)*100) : 0;
-        const ramMargin = reqRam>0 ? Math.round(((availRam-reqRam)/reqRam)*100) : 0;
-        const stoMargin = reqSto>0 ? Math.round(((availSto-reqSto)/reqSto)*100) : 0;
-
-        const cpuOk = availVcpu >= reqVcpu;
-        const ramOk = availRam >= reqRam;
-        const stoOk = availSto >= reqSto;
-        const hciOk = cpuOk && ramOk && stoOk;
-
-        const toRam = v => v>=1024 ? (v/1024).toFixed(1)+" To" : fmt(v)+" Go";
-
-        const HciKpi = ({label,value,sub,color,icon,margin}) => (
-          <div style={{
-            background:`linear-gradient(135deg, ${color}14, ${color}06)`,
-            border:`1px solid ${color}28`,
-            borderRadius:16,
-            padding:"18px 20px",
-            boxShadow:"0 12px 30px rgba(15,23,42,0.06)",
-            display:"flex",
-            alignItems:"center",
-            gap:14
-          }}>
-            <div style={{
-              width:52,
-              height:52,
-              borderRadius:16,
-              background:`${color}14`,
-              color,
-              display:"flex",
-              alignItems:"center",
-              justifyContent:"center",
-              flexShrink:0
-            }}>
-              {icon}
-            </div>
-            <div style={{flex:1}}>
-              <div style={{
-                fontSize:11,
-                fontWeight:900,
-                color,
-                textTransform:"uppercase",
-                letterSpacing:"0.06em",
-                marginBottom:5
-              }}>
-                {label}
-              </div>
-              <div style={{
-                fontSize:24,
-                fontWeight:900,
-                color,
-                letterSpacing:"-0.03em",
-                fontFamily:"Inter, sans-serif"
-              }}>
-                {value}
-              </div>
-              <div style={{fontSize:12,color:th.t2,marginTop:4}}>
-                {sub}
-              </div>
-            </div>
-            {margin!==undefined && (
-              <div style={{
-                fontSize:12,
-                fontWeight:900,
-                color:margin>=0?th.accent:th.danger,
-                background:margin>=0?"rgba(0,212,170,0.10)":"rgba(255,85,85,0.10)",
-                border:`1px solid ${margin>=0?"rgba(0,212,170,0.22)":"rgba(255,85,85,0.22)"}`,
-                borderRadius:999,
-                padding:"5px 8px"
-              }}>
-                {margin>=0?"+":""}{margin}%
-              </div>
-            )}
-          </div>
-        );
-
-        const ResultRow = ({icon,label,value,sub,color=th.t1}) => (
-          <div style={{
-            display:"grid",
-            gridTemplateColumns:"34px 1fr auto",
-            gap:12,
-            alignItems:"center",
-            padding:"11px 0",
-            borderBottom:`1px solid ${th.border}`
-          }}>
-            <div style={{
-              width:30,
-              height:30,
-              borderRadius:10,
-              background:`${color}12`,
-              color,
-              display:"flex",
-              alignItems:"center",
-              justifyContent:"center"
-            }}>
-              {icon}
-            </div>
-            <div>
-              <div style={{fontSize:12,fontWeight:750,color:th.t1}}>{label}</div>
-              {sub && <div style={{fontSize:11,color:th.t3,marginTop:2}}>{sub}</div>}
-            </div>
-            <strong style={{fontSize:13,color,fontFamily:"Inter, sans-serif",whiteSpace:"nowrap"}}>{value}</strong>
-          </div>
-        );
-
-        const RecoCard = ({type="info",title,body}) => {
-          const color = type==="warn" ? th.warn : type==="ok" ? th.accent : th.accent2;
-          const Icon = type==="warn" ? AlertTriangle : type==="ok" ? CheckCircle : Info;
-          return (
-            <div style={{
-              display:"flex",
-              gap:12,
-              padding:"14px 16px",
-              borderRadius:14,
-              background:`${color}08`,
-              border:`1px solid ${color}25`
-            }}>
-              <div style={{
-                width:36,
-                height:36,
-                borderRadius:999,
-                background:`${color}14`,
-                color,
-                display:"flex",
-                alignItems:"center",
-                justifyContent:"center",
-                flexShrink:0
-              }}>
-                <Icon size={18}/>
-              </div>
-              <div>
-                <div style={{fontSize:13,fontWeight:900,color:th.t1}}>{title}</div>
-                <div style={{fontSize:12,color:th.t2,lineHeight:1.5,marginTop:4}}>{body}</div>
-              </div>
-            </div>
-          );
-        };
+              // Nœuds fixés par l utilisateur
+        const nodesReco   = hciNodes;
+        const haN         = Math.max(nodesReco - hciHaPolicy, 1);
+        const cpuTotal    = nodesReco * hciNodeCpu;
+        const cpuHaN      = haN * hciNodeCpu;
+        const vcpuHaN     = cpuHaN * hciOvercommit;
+        const ramTotal    = nodesReco * hciNodeRam;
+        const ramHaN      = haN * hciNodeRam;
+        const stoTotal    = nodesReco * effPerNode;
+        const stoHaN      = haN * effPerNode;
+        const rawTotal    = nodesReco * rawPerNode;
+        const cpuHeadroom = Math.round((1 - hciTgtVcpu/vcpuHaN)*100);
+        const ramHeadroom = Math.round((1 - hciTgtRam/ramHaN)*100);
+        const stoHeadroom = Math.round((1 - hciTgtStorage/stoHaN)*100);
+        const kpis = [
+          {label:"Nœuds",              sub:hciProfile.label+" · "+hciResilOpt.label,              val:nodesReco+" nœuds", bg:"linear-gradient(135deg,#0077cc,#005599)"},
+          {label:"CPU total cluster",  sub:nodesReco+" nœuds × "+hciNodeCpu+" cœurs",             val:cpuTotal+" cœurs",  bg:"linear-gradient(135deg,#e05a20,#b84510)"},
+          {label:"RAM totale cluster", sub:nodesReco+" nœuds × "+hciNodeRam+" Go",                val:ramTotal>=1024?(ramTotal/1024).toFixed(1)+" To":ramTotal+" Go", bg:"linear-gradient(135deg,#5a4fcf,#3d35a0)"},
+          {label:"Stockage effectif",  sub:hciProfile.label+" · dédup "+(hciDedupEn?"ON":"OFF"),  val:stoTotal.toFixed(1)+" To", bg:"linear-gradient(135deg,#2d7a4f,#1a5c38)"},
+          {label:"vCPU dispo N-"+hciHaPolicy, sub:haN+" nœuds actifs × "+hciOvercommit+":1",      val:vcpuHaN+" vCPU",    bg:cpuHeadroom>=10?"linear-gradient(135deg,#00a884,#007a60)":"linear-gradient(135deg,#cc3333,#991111)"},
+          {label:"RAM dispo N-"+hciHaPolicy,  sub:haN+" nœuds actifs · headroom "+ramHeadroom+"%",val:ramHaN>=1024?(ramHaN/1024).toFixed(1)+" To":ramHaN+" Go", bg:ramHeadroom>=10?"linear-gradient(135deg,#00a884,#007a60)":"linear-gradient(135deg,#cc3333,#991111)"},
+        ]
 
         return (
           <div>
-            {/* HERO */}
-            <div style={{
-              display:"grid",
-              gridTemplateColumns:isMobile?"1fr":"1.4fr 1fr",
-              gap:18,
-              alignItems:"center",
-              background:hciOk?"rgba(0,212,170,0.06)":"rgba(255,85,85,0.07)",
-              border:`1px solid ${hciOk?"rgba(0,212,170,0.22)":"rgba(255,85,85,0.25)"}`,
-              borderRadius:18,
-              padding:"22px 26px",
-              marginBottom:18,
-              boxShadow:"0 12px 32px rgba(15,23,42,0.06)"
-            }}>
-              <div style={{display:"flex",alignItems:"center",gap:18}}>
-                <div style={{
-                  width:72,
-                  height:72,
-                  borderRadius:999,
-                  background:hciOk?"linear-gradient(135deg,#10b981,#059669)":"linear-gradient(135deg,#ef4444,#b91c1c)",
-                  color:"#fff",
-                  display:"flex",
-                  alignItems:"center",
-                  justifyContent:"center",
-                  fontSize:38,
-                  fontWeight:900
-                }}>
-                  {hciOk?"✓":"!"}
-                </div>
-                <div>
-                  <div style={{fontSize:24,fontWeight:900,color:hciOk?th.accent:th.danger,letterSpacing:"-0.03em"}}>
-                    {hciOk?"Cluster cohérent":"Cluster sous-dimensionné"}
-                  </div>
-                  <div style={{fontSize:13,color:th.t2,marginTop:6,lineHeight:1.5}}>
-                    {hciOk
-                      ? "Le dimensionnement couvre les besoins avec résilience N+"+hciHaPolicy+"."
-                      : "Les ressources disponibles ne couvrent pas les besoins avec la politique HA définie."}
-                  </div>
-                  <div style={{
-                    display:"inline-flex",
-                    gap:8,
-                    marginTop:10,
-                    padding:"6px 10px",
-                    borderRadius:999,
-                    background:hciOk?"rgba(0,212,170,0.10)":"rgba(255,85,85,0.10)",
-                    color:hciOk?th.accent:th.danger,
-                    fontSize:12,
-                    fontWeight:900
-                  }}>
-                    CPU {cpuMargin>=0?"+":""}{cpuMargin}% · RAM {ramMargin>=0?"+":""}{ramMargin}% · Stockage {stoMargin>=0?"+":""}{stoMargin}%
-                  </div>
-                </div>
-              </div>
-
-              <div style={{
-                background:th.cardBg,
-                border:`1px solid ${th.border}`,
-                borderRadius:14,
-                padding:"16px 18px"
-              }}>
-                <div style={{fontSize:12,fontWeight:900,color:th.accent,marginBottom:8}}>Résumé</div>
-                <div style={{fontSize:13,color:th.t2,lineHeight:1.55}}>
-                  {hciOk
-                    ? "Votre cluster HCI offre une capacité suffisante pour les workloads actuels avec une bonne marge de sécurité."
-                    : "Des ajustements sont nécessaires : ajouter un nœud, augmenter CPU/RAM ou revoir la résilience."}
-                </div>
-              </div>
-            </div>
-
             {/* KPIs */}
-            <div style={{
-              display:"grid",
-              gridTemplateColumns:isMobile?"1fr":"repeat(4,1fr)",
-              gap:14,
-              marginBottom:18
-            }}>
-              <HciKpi label="Nœuds cluster" value={hciNodes} sub="Nœuds physiques" color="#2563eb" icon={<Database size={24}/>} />
-              <HciKpi label={"CPU disponible N-"+hciHaPolicy} value={fmt(availVcpu)+" vCPU"} sub={"Requis : "+fmt(reqVcpu)+" vCPU"} color={cpuOk?th.accent:th.danger} icon={<Cpu size={24}/>} margin={cpuMargin}/>
-              <HciKpi label={"RAM disponible N-"+hciHaPolicy} value={toRam(availRam)} sub={"Requis : "+toRam(reqRam)} color={ramOk?th.accent:"#7c3aed"} icon={<Server size={24}/>} margin={ramMargin}/>
-              <HciKpi label="Stockage effectif" value={fmt(availSto,1)+" To"} sub={"Requis : "+fmt(reqSto,1)+" To"} color={stoOk?th.accent:th.danger} icon={<HardDrive size={24}/>} margin={stoMargin}/>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(6,1fr)",gap:6,marginBottom:14}}>
+              {kpis.map(k=>(
+                <div key={k.label} style={{background:k.bg,borderRadius:8,padding:"10px 12px"}}>
+                  <div style={{fontSize:9,color:"rgba(255,255,255,0.6)",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2}}>{k.label}</div>
+                  <div style={{fontSize:9,color:"rgba(255,255,255,0.5)",marginBottom:3}}>{k.sub}</div>
+                  <div style={{fontSize:17,fontWeight:700,fontFamily:"Inter, sans-serif",color:"#fff"}}>{k.val}</div>
+                </div>
+              ))}
             </div>
 
-            {/* MAIN GRID */}
-            <div style={{
-              display:"grid",
-              gridTemplateColumns:isMobile?"1fr":"1fr 1.25fr 1fr",
-              gap:16,
-              marginBottom:18
-            }}>
-              {/* CONFIG */}
-              <div style={{display:"grid",gap:16}}>
-                <div style={{
-                  background:th.cardBg,
-                  border:`1px solid ${th.border}`,
-                  borderTop:`4px solid ${hciProfile.color}`,
-                  borderRadius:16,
-                  padding:"18px 20px",
-                  boxShadow:"0 12px 30px rgba(15,23,42,0.06)"
-                }}>
-                  <div style={{fontSize:13,fontWeight:900,color:hciProfile.color,textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:14}}>
-                    1. Configuration HCI
-                  </div>
+            {/* Layout 3 colonnes */}
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:14}}>
 
-                  <div style={{display:"grid",gap:12}}>
+              {/* Col 1 - Plateforme + Workload */}
+              <div style={{display:"flex",flexDirection:"column",gap:14}}>
+                <div style={{background:th.cardBg,borderTop:`1px solid ${th.border}`,borderRight:`1px solid ${th.border}`,borderBottom:`1px solid ${th.border}`,borderLeft:`2px solid ${th.accent2}`,borderRadius:6,padding:16}}>
+                  <div style={s.secTitle}>Plateforme HCI</div>
+                  <div style={{marginBottom:8}}>
+                    <label style={s.label}>Hyperviseur</label>
+                    <select value={hciSolution} onChange={e=>{setHciSolution(e.target.value);setHciResil(HCI_PROFILES[e.target.value].resiliency[0].id);}} style={s.select}>
+                      {Object.entries(HCI_PROFILES).map(([k,p])=><option key={k} value={k}>{p.label}</option>)}
+                    </select>
+                  </div>
+                  <div style={{marginBottom:8}}>
+                    <label style={s.label}>Résilience</label>
+                    <select value={hciResil} onChange={e=>setHciResil(e.target.value)} style={s.select}>
+                      {hciProfile.resiliency.map(r=><option key={r.id} value={r.id}>{r.label}</option>)}
+                    </select>
+                  </div>
+                  <div style={{marginBottom:8}}>
+                    <label style={s.label}>Nombre de nœuds</label>
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <input type="range" min={2} max={32} value={hciNodes} onChange={e=>setHciNodes(Number(e.target.value))} style={{flex:1}}/>
+                      <span style={{fontSize:13,fontWeight:600,fontFamily:"Inter, sans-serif",color:th.t1,minWidth:30}}>{hciNodes}</span>
+                    </div>
+                  </div>
+                  <div style={{marginBottom:8}}>
+                    <label style={s.label}>Overcommit vCPU</label>
+                    <select value={hciOvercommit} onChange={e=>setHciOvercommit(Number(e.target.value))} style={s.select}>
+                      {[[1,"1:1 — Sans overcommit"],[2,"2:1"],[3,"3:1"],[4,"4:1 — Standard"],[6,"6:1"],[8,"8:1 — Densité élevée"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}
+                    </select>
+                  </div>
+                  {hciSolution==="proxmox"&&(hciResil==="ceph_rf2"||hciResil==="ceph_rf3")&&hciNodes<3&&(
+                    <div style={{background:"rgba(255,181,71,0.1)",border:"1px solid rgba(255,181,71,0.3)",borderRadius:4,padding:"8px 10px",marginBottom:8,fontSize:11,color:"#ffb347",fontFamily:"Inter, sans-serif"}}>
+                      Ceph nécessite minimum 3 nœuds pour le quorum
+                    </div>
+                  )}
+                  {hciSolution==="proxmox"&&hciResil==="zfs_mirror"&&hciNodes>2&&(
+                    <div style={{background:"rgba(0,153,255,0.08)",border:"1px solid rgba(0,153,255,0.2)",borderRadius:4,padding:"8px 10px",marginBottom:8,fontSize:11,color:th.accent2,fontFamily:"Inter, sans-serif"}}>
+                      ZFS + réplication est optimal pour 2 nœuds — considérez Ceph RF2/RF3
+                    </div>
+                  )}
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                     <div>
-                      <label style={s.label}>Hyperviseur</label>
-                      <select value={hciSolution} onChange={e=>{setHciSolution(e.target.value);setHciResil(HCI_PROFILES[e.target.value].resiliency[0].id);}} style={s.select}>
-                        {Object.entries(HCI_PROFILES).map(([k,p])=><option key={k} value={k}>{p.label}</option>)}
+                      <label style={s.label}>Politique HA</label>
+                      <select value={hciHaPolicy} onChange={e=>setHciHaPolicy(Number(e.target.value))} style={s.select}>
+                        <option value={1}>N+1 (1 panne)</option>
+                        <option value={2}>N+2 (2 pannes)</option>
                       </select>
                     </div>
-
                     <div>
-                      <label style={s.label}>Résilience</label>
-                      <select value={hciResil} onChange={e=>setHciResil(e.target.value)} style={s.select}>
-                        {hciProfile.resiliency.map(r=><option key={r.id} value={r.id}>{r.label}</option>)}
+                      <label style={s.label}>Dedup/Compression</label>
+                      <select value={hciDedupEn} onChange={e=>setHciDedupEn(e.target.value==="true")} style={s.select}>
+                        <option value="false">Desactivee</option>
+                        <option value="true">Activee</option>
                       </select>
                     </div>
-
-                    <div>
-                      <label style={s.label}>Nombre de nœuds</label>
-                      <div style={{display:"flex",alignItems:"center",gap:10}}>
-                        <button onClick={()=>setHciNodes(Math.max(2,hciNodes-1))} style={s.btnSm(th.t2)}>-</button>
-                        <input type="range" min={2} max={32} value={hciNodes} onChange={e=>setHciNodes(Number(e.target.value))} style={{flex:1,accentColor:hciProfile.color}}/>
-                        <button onClick={()=>setHciNodes(hciNodes+1)} style={s.btnSm(th.accent)}>+</button>
-                        <strong style={{fontSize:13,color:th.t1,minWidth:24,textAlign:"right"}}>{hciNodes}</strong>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label style={s.label}>Overcommit vCPU</label>
-                      <select value={hciOvercommit} onChange={e=>setHciOvercommit(Number(e.target.value))} style={s.select}>
-                        {[[1,"1:1 — Sans overcommit"],[2,"2:1"],[3,"3:1"],[4,"4:1 — Standard"],[6,"6:1"],[8,"8:1 — Densité élevée"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}
+                  </div>
+                  {hciDedupEn&&(
+                    <div style={{marginTop:8}}>
+                      <label style={s.label}>Ratio dedup</label>
+                      <select value={hciDedupRatio} onChange={e=>setHciDedupRatio(Number(e.target.value))} style={s.select}>
+                        {[["1.5","1.5:1"],["2","2:1"],["3","3:1"],["4","4:1"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}
                       </select>
                     </div>
-
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-                      <div>
-                        <label style={s.label}>Politique HA</label>
-                        <select value={hciHaPolicy} onChange={e=>setHciHaPolicy(Number(e.target.value))} style={s.select}>
-                          <option value={1}>N+1</option>
-                          <option value={2}>N+2</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label style={s.label}>Dédup/Compression</label>
-                        <select value={hciDedupEn} onChange={e=>setHciDedupEn(e.target.value==="true")} style={s.select}>
-                          <option value="false">Désactivée</option>
-                          <option value="true">Activée</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    {hciDedupEn&&(
-                      <div>
-                        <label style={s.label}>Ratio dédup</label>
-                        <select value={hciDedupRatio} onChange={e=>setHciDedupRatio(Number(e.target.value))} style={s.select}>
-                          {[["1.5","1.5:1"],["2","2:1"],["3","3:1"],["4","4:1"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}
-                        </select>
-                      </div>
-                    )}
-                  </div>
+                  )}
                 </div>
-
-                <div style={{
-                  background:th.cardBg,
-                  border:`1px solid ${th.border}`,
-                  borderTop:`4px solid ${th.accent}`,
-                  borderRadius:16,
-                  padding:"18px 20px",
-                  boxShadow:"0 12px 30px rgba(15,23,42,0.06)"
-                }}>
-                  <div style={{fontSize:13,fontWeight:900,color:th.accent,textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:14}}>
-                    Workload VM cible
+                <div style={{background:th.cardBg,borderTop:`1px solid ${th.border}`,borderRight:`1px solid ${th.border}`,borderBottom:`1px solid ${th.border}`,borderLeft:`2px solid ${th.accent}`,borderRadius:6,padding:16}}>
+                  <div style={s.secTitle}>Workload VM (cible)</div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
+                    {[
+                      {label:"Nombre de VMs",unit:"",val:hciVms,set:setHciVms,min:1,step:10},
+                      {label:"vCPU / VM",unit:"",val:hciVcpu,set:setHciVcpu,min:1,step:1},
+                      {label:"RAM / VM (Go)",unit:"Go",val:hciRam,set:setHciRam,min:4,step:4},
+                      {label:"Stockage / VM (Go)",unit:"Go",val:hciStorage,set:setHciStorage,min:10,step:50},
+                    ].map(f=>(
+                      <div key={f.label}>
+                        <label style={s.label}>{f.label}</label>
+                        <input type="number" min={f.min} step={f.step} value={f.val} onChange={e=>f.set(Number(e.target.value))} style={s.input}/>
+                      </div>
+                    ))}
                   </div>
-
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
-                    <div>
-                      <label style={s.label}>Nombre de VMs</label>
-                      <input type="number" min={1} step={10} value={hciVms} onChange={e=>setHciVms(Number(e.target.value))} style={s.input}/>
-                    </div>
-                    <div>
-                      <label style={s.label}>vCPU / VM</label>
-                      <input type="number" min={1} value={hciVcpu} onChange={e=>setHciVcpu(Number(e.target.value))} style={s.input}/>
-                    </div>
-                    <div>
-                      <label style={s.label}>RAM / VM</label>
-                      <input type="number" min={1} step={4} value={hciRam} onChange={e=>setHciRam(Number(e.target.value))} style={s.input}/>
-                    </div>
-                    <div style={{gridColumn:"1 / span 2"}}>
-                      <label style={s.label}>Stockage / VM (Go)</label>
-                      <input type="number" min={10} step={50} value={hciStorage} onChange={e=>setHciStorage(Number(e.target.value))} style={s.input}/>
-                    </div>
-                    <div>
-                      <label style={s.label}>Croissance %</label>
-                      <input type="number" min={0} step={5} value={hciGrowth} onChange={e=>setHciGrowth(Number(e.target.value))} style={s.input}/>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* RESULTATS */}
-              <div style={{
-                background:th.cardBg,
-                border:`1px solid ${th.border}`,
-                borderTop:`4px solid #7c3aed`,
-                borderRadius:16,
-                padding:"18px 20px",
-                boxShadow:"0 12px 30px rgba(15,23,42,0.06)"
-              }}>
-                <div style={{fontSize:13,fontWeight:900,color:"#7c3aed",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:14}}>
-                  2. Capacité & performance
-                </div>
-
-                <ResultRow icon={<Cpu size={16}/>} label="VMs → vCPU total" sub="Avec croissance intégrée" value={fmt(reqVcpu)+" vCPUs"} color="#7c3aed"/>
-                <ResultRow icon={<Server size={16}/>} label="RAM requise" sub="Avec croissance intégrée" value={toRam(reqRam)} color="#7c3aed"/>
-                <ResultRow icon={<HardDrive size={16}/>} label="Stockage requis" sub="Avec croissance intégrée" value={fmt(reqSto,1)+" To"} color="#7c3aed"/>
-                <ResultRow icon={<Database size={16}/>} label="Stockage brut / nœud" value={fmt(rawPerNode,1)+" To"} color={th.accent}/>
-                <ResultRow icon={<Database size={16}/>} label="Stockage brut total" value={fmt(totalRaw,1)+" To"} color={th.t1}/>
-                <ResultRow icon={<Info size={16}/>} label="Overhead plateforme" value={(hciProfile.overhead*100).toFixed(0)+"% + metadata "+(hciProfile.metadataReserve*100).toFixed(0)+"%"} color={th.t2}/>
-
-                <div style={{
-                  marginTop:16,
-                  padding:"14px 16px",
-                  borderRadius:14,
-                  background:hciOk?"rgba(0,212,170,0.08)":"rgba(255,85,85,0.08)",
-                  border:`1px solid ${hciOk?"rgba(0,212,170,0.22)":"rgba(255,85,85,0.22)"}`,
-                  display:"flex",
-                  gap:12,
-                  alignItems:"center"
-                }}>
-                  <CheckCircle size={22} color={hciOk?th.accent:th.danger}/>
                   <div>
-                    <div style={{fontSize:13,fontWeight:900,color:hciOk?th.accent:th.danger}}>
-                      {hciOk?"Capacité suffisante":"Capacité insuffisante"}
-                    </div>
-                    <div style={{fontSize:12,color:th.t2,marginTop:3,lineHeight:1.5}}>
-                      {hciOk?"Toutes les ressources couvrent les besoins avec une marge confortable.":"Ajustez le nombre de nœuds ou le modèle de nœud."}
-                    </div>
+                    <label style={s.label}>Taux de croissance (%)</label>
+                    <input type="number" min={0} step={5} value={hciGrowth} onChange={e=>setHciGrowth(Number(e.target.value))} style={s.input}/>
                   </div>
                 </div>
               </div>
 
-              {/* RECOMMANDATIONS */}
-              <div style={{
-                background:th.cardBg,
-                border:`1px solid ${th.border}`,
-                borderTop:`4px solid ${th.warn}`,
-                borderRadius:16,
-                padding:"18px 20px",
-                boxShadow:"0 12px 30px rgba(15,23,42,0.06)"
-              }}>
-                <div style={{fontSize:13,fontWeight:900,color:th.warn,textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:14}}>
-                  3. Recommandations
+
+              {/* Col 2 — Modèle de nœud */}
+              <div>
+                <div style={{background:th.cardBg,borderTop:`1px solid ${th.border}`,borderRight:`1px solid ${th.border}`,borderBottom:`1px solid ${th.border}`,borderLeft:`2px solid #e05a20`,borderRadius:6,padding:16,marginBottom:14}}>
+                  <div style={s.secTitle}>Modèle de nœud</div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                    <div>
+                      <label style={s.label}>CPU cœurs / nœud</label>
+                      <input type="number" min={8} step={8} value={hciNodeCpu} onChange={e=>setHciNodeCpu(Number(e.target.value))} style={s.input}/>
+                    </div>
+                    <div>
+                      <label style={s.label}>RAM / nœud (Go)</label>
+                      <input type="number" min={64} step={64} value={hciNodeRam} onChange={e=>setHciNodeRam(Number(e.target.value))} style={s.input}/>
+                    </div>
+                    <div>
+                      <label style={s.label}>Disques / nœud</label>
+                      <input type="number" min={2} step={2} value={hciDisksPerNode} onChange={e=>setHciDisksPerNode(Number(e.target.value))} style={s.input}/>
+                    </div>
+                    <div>
+                      <label style={s.label}>Modèle disque</label>
+                      <select value={hciDiskId} onChange={e=>setHciDiskId(e.target.value)} style={s.select}>
+                        {HCI_DISKS.map(d=><option key={d.id} value={d.id}>{d.label}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div style={{marginTop:10,padding:"8px 10px",background:th.bg2,borderRadius:4,fontSize:11,color:th.t2,fontFamily:"Inter, sans-serif"}}>
+                    Brut/nœud : {rawPerNode.toFixed(1)} TB · Utile/nœud : {usablePerN.toFixed(1)} To · Eff/nœud : {effPerNode.toFixed(1)} To
+                  </div>
                 </div>
 
-                <div style={{display:"grid",gap:12}}>
-                  {!cpuOk && <RecoCard type="warn" title={"CPU headroom faible ("+cpuMargin+"%)"} body="Ajouter un nœud ou augmenter les vCPU par nœud."/>}
-                  {!ramOk && <RecoCard type="warn" title={"RAM headroom faible ("+ramMargin+"%)"} body="Augmenter la RAM par nœud si possible."/>}
-                  {!stoOk && <RecoCard type="warn" title={"Stockage proche de la limite ("+stoMargin+"%)"} body="Prévoir un nœud supplémentaire à moyen terme."/>}
-                  {hciOk && <RecoCard type="ok" title="Design cohérent" body={"Le cluster couvre les besoins actuels avec résilience N+"+hciHaPolicy+"."}/>}
-                  {!hciDedupEn && <RecoCard type="info" title="Activer la dédup/compression" body="Peut réduire le nombre de nœuds requis selon le profil workload."/>}
-                  {hciNodes < hciProfile.minNodes && <RecoCard type="warn" title="Nombre de nœuds inférieur au minimum recommandé" body={hciProfile.label+" recommande au moins "+hciProfile.minNodes+" nœuds."}/>}
+                <div style={{background:th.cardBg,borderTop:`1px solid ${th.border}`,borderRight:`1px solid ${th.border}`,borderBottom:`1px solid ${th.border}`,borderLeft:`2px solid ${th.accent2}`,borderRadius:6,padding:16}}>
+                  <div style={s.secTitle}>Résultats détaillés</div>
+                  {[
+                    {label:"VMs → vCPU total (avec croissance)", val:fmt(Math.round(hciTgtVcpu))+" vCPUs"},
+                    {label:"RAM requise (avec croissance)",       val:fmt(Math.round(hciTgtRam))+" Go"},
+                    {label:"Stockage requis (avec croissance)",   val:hciTgtStorage.toFixed(1)+" To"},
+                    {label:"Stockage brut / nœud",                val:rawPerNode.toFixed(1)+" To", highlight:true},
+                    {label:"Stockage brut total",                 val:rawTotal.toFixed(1)+" TB"},
+                    {label:"Overhead plateforme",                 val:(hciProfile.overhead*100).toFixed(0)+"% + metadata "+(hciProfile.metadataReserve*100).toFixed(0)+"%"},
+                  ].map(r=>(
+                    <div key={r.label} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:`1px solid ${th.border}`}}>
+                      <span style={{fontSize:11,color:th.t2}}>{r.label}</span>
+                      <span style={{fontFamily:"Inter, sans-serif",fontWeight:600,fontSize:12,color:r.highlight?th.accent:th.t1,marginLeft:8}}>{r.val}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
-            </div>
 
-            {/* Synthèse globale */}
-            <div style={{
-              background:th.cardBg,
-              border:`1px solid ${th.border}`,
-              borderRadius:16,
-              padding:"18px 20px",
-              boxShadow:"0 12px 30px rgba(15,23,42,0.06)"
-            }}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,marginBottom:14}}>
-                <div style={{fontSize:13,fontWeight:900,color:th.t1,textTransform:"uppercase",letterSpacing:"0.04em"}}>
-                  Synthèse & recommandations globales
+              {/* Col 3 — Recommandations */}
+              <div>
+                <div style={{background:th.cardBg,borderTop:`1px solid ${th.border}`,borderRight:`1px solid ${th.border}`,borderBottom:`1px solid ${th.border}`,borderLeft:`2px solid ${hciProfile.color}`,borderRadius:6,padding:16}}>
+                  <div style={s.secTitle}>Recommandations {hciProfile.label}</div>
+                  {[
+                    cpuHeadroom < 20 && {type:"warn", msg:`CPU headroom faible (${cpuHeadroom}%) — ajouter 1 nœud ou augmenter les cœurs/nœud`},
+                    ramHeadroom < 20 && {type:"warn", msg:`RAM headroom faible (${ramHeadroom}%) — augmenter la RAM/nœud`},
+                    stoHeadroom < 10 && {type:"warn", msg:`Stockage proche de la limite — prévoir un nœud supplémentaire`},
+                    cpuHeadroom >= 20 && ramHeadroom >= 20 && {type:"ok", msg:"Configuration équilibrée — headroom CPU et RAM suffisant"},
+                    hciDedupEn && {type:"ok", msg:`Dédup ×${hciDedupRatio} : économie de ${((1-1/hciDedupRatio)*100).toFixed(0)}% d'espace`},
+                    !hciDedupEn && {type:"info", msg:"Activer la dédup/compression peut réduire le nombre de nœuds"},
+                    hciSolution==="nutanix" && {type:"info", msg:"Overhead CVM inclus dans les calculs ("+((hciProfile.overhead)*100).toFixed(0)+"%)"},
+                    hciSolution==="vsan" && hciResil==="ftt1r5" && {type:"ok", msg:"RAID-5 (FTT=1) optimal pour ≥4 nœuds — économise 25% vs RAID-1"},
+                    nodesReco > 8 && {type:"info", msg:`${nodesReco} nœuds — envisager un scale-out en 2 clusters`},
+                  ].filter(Boolean).map((r,i)=>(
+                    <div key={i} style={{
+                      display:"flex",alignItems:"flex-start",gap:8,padding:"7px 10px",
+                      borderRadius:4,marginBottom:6,
+                      background:r.type==="ok"?"rgba(0,212,170,0.06)":r.type==="warn"?"rgba(255,181,71,0.08)":"rgba(0,153,255,0.06)",
+                      border:`1px solid ${r.type==="ok"?"rgba(0,212,170,0.2)":r.type==="warn"?"rgba(255,181,71,0.25)":"rgba(0,153,255,0.2)"}`,
+                    }}>
+                      <span style={{fontSize:13,flexShrink:0}}>{r.type==="ok"?"✓":r.type==="warn"?"⚠":"ℹ"}</span>
+                      <span style={{fontSize:11,color:th.t1,lineHeight:1.5}}>{r.msg}</span>
+                    </div>
+                  ))}
                 </div>
-                <button style={{cursor:"pointer",border:`1px solid ${th.border}`,background:th.bg2,color:th.t2,borderRadius:10,padding:"9px 12px",fontSize:12,fontWeight:800}}>
-                  Générer le rapport
-                </button>
-              </div>
-
-              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",gap:12}}>
-                <RecoCard type={hciOk?"ok":"warn"} title={hciOk?"Design cohérent":"Design à renforcer"} body={hciOk?"Le cluster couvre les besoins actuels avec résilience.":"Le cluster nécessite un ajustement avant présentation client."}/>
-                <RecoCard type="warn" title="Optimisations possibles" body="Ajuster CPU/RAM ou ajouter un nœud pour augmenter la marge de sécurité."/>
-                <RecoCard type="info" title="Anticipation" body="Surveillez la croissance et planifiez l’évolution dans 6 à 12 mois."/>
               </div>
             </div>
           </div>
         );
       })()}
-
-      
 
     </div>
   );
