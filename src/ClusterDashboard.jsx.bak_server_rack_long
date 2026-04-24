@@ -1031,7 +1031,7 @@ const DatastoreCard = ({ ds }) => {
   return (
     <div className={"flex items-center gap-4 p-4 rounded-xl border bg-white transition-all hover:shadow-md "+(pct>=80?"border-red-200 bg-red-50/20":pct>=60?"border-amber-200":"border-gray-100")}>
       {/* Icône */}
-      <div className="w-[280px] h-[50px] flex-shrink-0 flex items-center">
+      <div className="w-[104px] h-[48px] flex-shrink-0 flex items-center justify-center">
         <DatastoreIcon purpose={purpose}/>
       </div>
       {/* Infos */}
@@ -1307,7 +1307,6 @@ const TABS = [
 
 
 
-
 const ServerRackVisual = ({ health="healthy" }) => {
   const led =
     health === "critical" ? "bg-red-400" :
@@ -1315,31 +1314,25 @@ const ServerRackVisual = ({ health="healthy" }) => {
     "bg-emerald-400";
 
   return (
-    <div className="relative w-[260px] h-[42px] rounded-lg bg-gradient-to-b from-slate-600 via-slate-800 to-slate-950 border border-slate-500 shadow-md overflow-hidden">
-
-      {/* Rack gauche */}
-      <div className="absolute left-2 top-1 bottom-1 w-4 rounded bg-black border border-slate-600 flex flex-col items-center justify-around">
+    <div className="relative w-[86px] h-[38px] rounded-lg bg-gradient-to-b from-slate-600 via-slate-800 to-slate-950 border border-slate-500 shadow-sm overflow-hidden">
+      <div className="absolute left-1.5 top-1 bottom-1 w-3 rounded bg-slate-950 border border-slate-600 flex flex-col items-center justify-around">
         <span className="w-1.5 h-1.5 rounded-full bg-blue-400"/>
         <span className={"w-1.5 h-1.5 rounded-full "+led}/>
-        <span className="w-1.5 h-1.5 rounded-full bg-slate-400"/>
       </div>
 
-      {/* Disques / slots */}
-      <div className="absolute left-8 right-8 top-1.5 bottom-1.5 grid grid-cols-10 gap-1">
-        {[...Array(10)].map((_,i)=>(
-          <div key={i} className="rounded bg-black/50 border border-slate-700 relative overflow-hidden">
+      <div className="absolute left-6 right-6 top-1.5 bottom-1.5 grid grid-cols-4 gap-1">
+        {[0,1,2,3].map(i=>(
+          <div key={i} className="rounded bg-black/45 border border-slate-600 relative overflow-hidden">
             <div className="absolute inset-0 bg-[radial-gradient(circle,#64748b_1px,transparent_1px)] [background-size:4px_4px] opacity-70"/>
             <div className={"absolute bottom-0.5 right-0.5 w-1 h-1 rounded-full "+led}/>
           </div>
         ))}
       </div>
 
-      {/* Rack droit */}
-      <div className="absolute right-2 top-1 bottom-1 w-4 rounded bg-black border border-slate-600 flex flex-col items-center justify-around">
+      <div className="absolute right-1.5 top-1 bottom-1 w-3 rounded bg-slate-950 border border-slate-600 flex flex-col items-center justify-around">
         <span className={"w-1.5 h-1.5 rounded-full "+led}/>
-        <span className="w-1.5 h-1.5 rounded-full bg-blue-400"/>
+        <span className="w-1.5 h-1.5 rounded-full bg-slate-400"/>
       </div>
-
     </div>
   );
 };
@@ -1672,9 +1665,9 @@ export default function ClusterOverviewDashboard({
                 const freeCores = h.totalCpuCores - usedCores;
                 const health = (h.cpuUsagePercent||0)>=80?"critical":(h.cpuUsagePercent||0)>=60?"warning":"healthy";
                 return (
-                  <div key={h.id} className={"flex items-center gap-6 p-4 rounded-xl border transition-all hover:shadow-sm "+
+                  <div key={h.id} className={"flex items-center gap-4 p-4 rounded-xl border transition-all hover:shadow-sm "+
                     (health==="critical"?"border-red-200 bg-red-50/20":health==="warning"?"border-amber-200 bg-amber-50/10":"border-gray-100 bg-gray-50")}>
-                    <div className="w-[280px] h-[50px] flex-shrink-0 flex items-center">
+                    <div className="w-[104px] h-[48px] flex-shrink-0 flex items-center justify-center">
                       <ServerRackVisual health={health}/>
                     </div>
                     <div className="flex-1 min-w-0">
@@ -1754,9 +1747,9 @@ export default function ClusterOverviewDashboard({
                 const freeGb = h.totalRamGb - usedGb;
                 const health = (h.ramUsagePercent||0)>=80?"critical":(h.ramUsagePercent||0)>=60?"warning":"healthy";
                 return (
-                  <div key={h.id} className={"flex items-center gap-6 p-4 rounded-xl border transition-all hover:shadow-sm "+
+                  <div key={h.id} className={"flex items-center gap-4 p-4 rounded-xl border transition-all hover:shadow-sm "+
                     (health==="critical"?"border-red-200 bg-red-50/20":health==="warning"?"border-amber-200 bg-amber-50/10":"border-gray-100 bg-gray-50")}>
-                    <div className="w-[280px] h-[50px] flex-shrink-0 flex items-center">
+                    <div className="w-[104px] h-[48px] flex-shrink-0 flex items-center justify-center">
                       <MemoryNodeVisual health={health}/>
                     </div>
                     <div className="flex-1 min-w-0">
