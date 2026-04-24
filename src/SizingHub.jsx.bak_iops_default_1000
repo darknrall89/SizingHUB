@@ -1199,8 +1199,8 @@ function StorageCalc({ th, isMobile=false }) {
   const [showCapacityAdvanced, setShowCapacityAdvanced] = useState(true);
   const [chassisList, setChassisList] = useState([newChassis("3.5-12")]);
   const [dedup, setDedup] = useState(1);
-  const [iopsTarget,     setIopsTarget]     = useState(1000);
-  const [capacityTarget, setCapacityTarget] = useState(10);
+  const [iopsTarget,     setIopsTarget]     = useState(50000);
+  const [capacityTarget, setCapacityTarget] = useState(100);
   const [storageTab,     setStorageTab]     = useState('classic'); // 'classic' | 'vendor' | 'hci'
   // HCI états
   const [hciVms,         setHciVms]         = useState(100);
@@ -1253,54 +1253,6 @@ function StorageCalc({ th, isMobile=false }) {
   }));
   const removeGroup = (cid,gid) => setChassisList(p=>p.map(c=>c.id!==cid?c:{...c,groups:c.groups.filter(g=>g.id!==gid)}));
   const updateGroup = (cid,gid,patch) => setChassisList(p=>p.map(c=>c.id!==cid?c:{...c,groups:c.groups.map(g=>g.id===gid?{...g,...patch}:g)}));
-
-  const optimizeStorageDesign = () => {
-    const profiles = {
-      "80r20w": { read: 0.8, write: 0.2 },
-      "70r30w": { read: 0.7, write: 0.3 },
-      "50r50w": { read: 0.5, write: 0.5 },
-      "20r80w": { read: 0.2, write: 0.8 },
-    };
-
-    const p = profiles[workloadProfile] || profiles["70r30w"];
-    const targetRaid = "raid6";
-    const penalty = 6;
-    const workloadFactor = p.read + p.write * penalty;
-
-    setChassisList(prev => prev.map((chassis, ci) => {
-      const catalog = DISK_CATALOG[chassis.form];
-
-      const preferredDisk =
-        catalog.find(d => d.id === "ssd-384") ||
-        catalog.find(d => d.type === "SSD") ||
-        catalog[0];
-
-      return {
-        ...chassis,
-        groups: chassis.groups.map((g, gi) => {
-          if (ci !== 0 || gi !== 0) return g;
-
-          const usableTargetRaw = capacityTarget / Math.max(dedup, 1);
-          const disksForCapacity = Math.ceil(usableTargetRaw / preferredDisk.cap) + 2;
-          const disksForIops = Math.ceil((iopsTarget * workloadFactor) / preferredDisk.iops);
-
-          const recommendedCount = Math.min(
-            chassis.slots,
-            Math.max(4, disksForCapacity, disksForIops)
-          );
-
-          return {
-            ...g,
-            diskId: preferredDisk.id,
-            raid: targetRaid,
-            hotSpares: 0,
-            count: recommendedCount,
-          };
-        })
-      };
-    }));
-  };
-
 
   const totals = useMemo(()=>{
     let physical=0,usable=0,iops=0,bw=0;
@@ -1847,7 +1799,7 @@ function StorageCalc({ th, isMobile=false }) {
                 </div>
 
                 <button
-                  onClick={optimizeStorageDesign}
+                  onClick={()=>setChassisList(prev=>prev.map(c=>({...c,groups:c.groups.map(g=>({...g,diskId:"ssd-384",count:Math.max(g.count,8)}))})))}
                   style={{
                     cursor:"pointer",
                     border:"none",
