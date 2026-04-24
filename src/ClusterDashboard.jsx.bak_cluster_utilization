@@ -1402,116 +1402,40 @@ export default function ClusterOverviewDashboard({
               </div>
             )}
           </div>
-            <div className="lg:col-span-3">
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="text-sm font-bold text-gray-800">Cluster Utilization</h3>
-                    <p className="text-xs text-gray-400 mt-1">Consommation globale CPU / RAM au niveau cluster</p>
-                  </div>
-                  <div className="flex items-center gap-3 text-xs text-gray-400">
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-400 inline-block"/>&lt;60%</span>
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block"/>60-80%</span>
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400 inline-block"/>&gt;80%</span>
+          <div className="lg:col-span-3">
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-bold text-gray-800">Host Utilization</h3>
+                <div className="flex items-center gap-3 text-xs text-gray-400">
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-400 inline-block"/>&lt;60%</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block"/>60-80%</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400 inline-block"/>&gt;80%</span>
+                </div>
+              </div>
+              <div className="space-y-3">
+                {sortedHosts.length>0?sortedHosts.map(h=><HostCard key={h.id||h.name} host={h}/>):
+                  <div className="text-sm text-gray-400 text-center py-8">Aucun host detecte</div>}
+              </div>
+              {((clusterSummary.poweredOffVms||0)>0||(clusterSummary.cpuOversubscription))&&(
+                <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
+                  {(clusterSummary.poweredOffVms||0)>0&&(
+                    <div className="flex items-center gap-2 text-xs text-gray-600">
+                      <div className="w-5 h-5 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <Database size={10} className="text-amber-600"/>
+                      </div>
+                      <span><strong>{clusterSummary.poweredOffVms} VMs inutilisees</strong> — gain potentiel : {formatRam((clusterSummary.avgRamPerVmGb||0)*clusterSummary.poweredOffVms)} RAM / {Math.round((parseFloat(clusterSummary.avgVcpuPerVm)||0)*clusterSummary.poweredOffVms)} vCPU</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 text-xs text-gray-600">
+                    <div className="w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                      <TrendingDown size={10} className="text-blue-600"/>
+                    </div>
+                    <span>CPU oversubscription <strong>{clusterSummary.cpuOversubscription}</strong> — consolidation analysee</span>
                   </div>
                 </div>
-
-                {(()=>{
-                  const totalCpu = sortedHosts.reduce((sum,h)=>sum+(Number(h.totalCpuCores)||0),0);
-                  const totalRam = sortedHosts.reduce((sum,h)=>sum+(Number(h.totalRamGb)||0),0);
-
-                  const usedCpu = sortedHosts.reduce((sum,h)=>{
-                    const cores = Number(h.totalCpuCores)||0;
-                    const pct = Number(h.cpuUsagePercent)||0;
-                    return sum + (cores * pct / 100);
-                  },0);
-
-                  const usedRam = sortedHosts.reduce((sum,h)=>{
-                    const ram = Number(h.totalRamGb)||0;
-                    const pct = Number(h.ramUsagePercent)||0;
-                    return sum + (ram * pct / 100);
-                  },0);
-
-                  const cpuPct = totalCpu>0 ? Math.round((usedCpu/totalCpu)*100) : 0;
-                  const ramPct = totalRam>0 ? Math.round((usedRam/totalRam)*100) : 0;
-
-                  const statusColor = p => p>80 ? "bg-red-500" : p>60 ? "bg-amber-400" : "bg-emerald-500";
-                  const textColor = p => p>80 ? "text-red-600" : p>60 ? "text-amber-600" : "text-emerald-600";
-                  const bgColor = p => p>80 ? "bg-red-50 border-red-100" : p>60 ? "bg-amber-50 border-amber-100" : "bg-emerald-50 border-emerald-100";
-
-                  const UtilCard = ({label,pct,used,total,unit,icon:Icon,color}) => (
-                    <div className={"rounded-2xl border p-5 "+bgColor(pct)}>
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                          <div className={"w-11 h-11 rounded-xl flex items-center justify-center "+color}>
-                            <Icon size={20} className="text-white"/>
-                          </div>
-                          <div>
-                            <div className="text-sm font-bold text-gray-800">{label}</div>
-                            <div className="text-xs text-gray-500">{used} / {total} {unit}</div>
-                          </div>
-                        </div>
-                        <div className={"text-3xl font-black "+textColor(pct)}>{pct}%</div>
-                      </div>
-
-                      <div className="h-3 bg-white/70 rounded-full overflow-hidden border border-white">
-                        <div className={"h-full rounded-full "+statusColor(pct)} style={{width:Math.min(100,pct)+"%"}}/>
-                      </div>
-
-                      <div className="mt-3 text-xs text-gray-500">
-                        {pct>80
-                          ? "Seuil élevé : prévoir une marge additionnelle ou un hôte supplémentaire."
-                          : pct>60
-                          ? "Utilisation modérée : surveiller la croissance à court terme."
-                          : "Utilisation confortable au niveau cluster."}
-                      </div>
-                    </div>
-                  );
-
-                  return (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                      <UtilCard
-                        label="CPU cluster"
-                        pct={cpuPct}
-                        used={Math.round(usedCpu)}
-                        total={totalCpu}
-                        unit="cores"
-                        icon={Cpu}
-                        color="bg-blue-500"
-                      />
-                      <UtilCard
-                        label="RAM cluster"
-                        pct={ramPct}
-                        used={formatRam(Math.round(usedRam))}
-                        total={formatRam(totalRam)}
-                        unit=""
-                        icon={MemoryStick}
-                        color="bg-purple-500"
-                      />
-                    </div>
-                  );
-                })()}
-
-                {((clusterSummary.poweredOffVms||0)>0||(clusterSummary.cpuOversubscription))&&(
-                  <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
-                    {(clusterSummary.poweredOffVms||0)>0&&(
-                      <div className="flex items-center gap-2 text-xs text-gray-600">
-                        <div className="w-5 h-5 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
-                          <Database size={10} className="text-amber-600"/>
-                        </div>
-                        <span><strong>{clusterSummary.poweredOffVms} VMs inutilisees</strong> — gain potentiel : {formatRam((clusterSummary.avgRamPerVmGb||0)*clusterSummary.poweredOffVms)} RAM / {Math.round((parseFloat(clusterSummary.avgVcpuPerVm)||0)*clusterSummary.poweredOffVms)} vCPU</span>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-2 text-xs text-gray-600">
-                      <div className="w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                        <TrendingDown size={10} className="text-blue-600"/>
-                      </div>
-                      <span>CPU oversubscription <strong>{clusterSummary.cpuOversubscription}</strong> — consolidation analysee</span>
-                    </div>
-                  </div>
-                )}
-              </div>
+              )}
             </div>
+          </div>
           </div>
         </div>
       )}

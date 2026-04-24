@@ -1417,20 +1417,10 @@ export default function ClusterOverviewDashboard({
                 </div>
 
                 {(()=>{
-                  const totalCpu = sortedHosts.reduce((sum,h)=>sum+(Number(h.totalCpuCores)||0),0);
-                  const totalRam = sortedHosts.reduce((sum,h)=>sum+(Number(h.totalRamGb)||0),0);
-
-                  const usedCpu = sortedHosts.reduce((sum,h)=>{
-                    const cores = Number(h.totalCpuCores)||0;
-                    const pct = Number(h.cpuUsagePercent)||0;
-                    return sum + (cores * pct / 100);
-                  },0);
-
-                  const usedRam = sortedHosts.reduce((sum,h)=>{
-                    const ram = Number(h.totalRamGb)||0;
-                    const pct = Number(h.ramUsagePercent)||0;
-                    return sum + (ram * pct / 100);
-                  },0);
+                  const totalCpu = sortedHosts.reduce((s,h)=>s+(Number(h.cores)||0),0);
+                  const totalRam = sortedHosts.reduce((s,h)=>s+(Number(h.ramGo)||0),0);
+                  const usedCpu = sortedHosts.reduce((s,h)=>s+(Number(h.usedCores)||0),0);
+                  const usedRam = sortedHosts.reduce((s,h)=>s+(Number(h.usedRamGo)||0),0);
 
                   const cpuPct = totalCpu>0 ? Math.round((usedCpu/totalCpu)*100) : 0;
                   const ramPct = totalRam>0 ? Math.round((usedRam/totalRam)*100) : 0;
@@ -1473,7 +1463,7 @@ export default function ClusterOverviewDashboard({
                       <UtilCard
                         label="CPU cluster"
                         pct={cpuPct}
-                        used={Math.round(usedCpu)}
+                        used={usedCpu}
                         total={totalCpu}
                         unit="cores"
                         icon={Cpu}
@@ -1482,7 +1472,7 @@ export default function ClusterOverviewDashboard({
                       <UtilCard
                         label="RAM cluster"
                         pct={ramPct}
-                        used={formatRam(Math.round(usedRam))}
+                        used={formatRam(usedRam)}
                         total={formatRam(totalRam)}
                         unit=""
                         icon={MemoryStick}
