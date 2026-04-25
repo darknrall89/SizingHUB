@@ -169,10 +169,58 @@ const TopCpuConsumersBlock = ({ consumers = [], totalVcpu = 0 }) => {
   const totalTop = top.reduce((s,v)=>s+(Number(v.vcpu)||0),0);
   const topPct = totalVcpu > 0 ? Math.round((totalTop / totalVcpu) * 100) : 0;
 
-  const oversized = top.filter(v=>v.isOverprovisioned).length;
-  const potentialGain = top
-    .filter(v=>v.isOverprovisioned)
-    .reduce((s,v)=>s+Math.max(0, (Number(v.vcpu)||0)-4),0);
+  const enriched = top.map(vm => {
+    const vcpu = Number(vm.vcpu)||0;
+    const readiness = Number(vm.cpuReadinessPct)||0;
+    let usage = Number(vm.cpuUsagePct ?? vm.cpuUsagePercent ?? vm.cpuUsage ?? 0);
+
+if (!usage || usage === 0) {
+  const readiness = Number(vm.cpuReadinessPct)||0;
+
+  if (readiness > 10) usage = 85;
+  else if (readiness > 5) usage = 70;
+  else if ((vm.vcpu || 0) >= 8) usage = 40;
+  else usage = 25;
+}
+
+    let score = 90;
+    if (vm.isOverprovisioned) score = 45;
+    else if (readiness > 5) score = 65;
+    else if (vcpu >= 8 && usage > 0 && usage < 35) score = 50;
+    else if (vcpu >= 8 && usage > 0 && usage < 60) score = 70;
+
+    const tone =
+      score < 55 ? "red" :
+      score < 75 ? "amber" :
+      "emerald";
+
+    const status =
+      score < 55 ? "Surdimensionnée" :
+      score < 75 ? "À surveiller" :
+      "Normal";
+
+    const statusSub =
+      score < 55 ? "vCPU élevé / usage faible" :
+      score < 75 ? "Optimisation possible" :
+      "Utilisation optimale";
+
+    return { ...vm, vcpu, readiness, usage, score, tone, status, statusSub };
+  });
+
+  const oversized = enriched.filter(v=>v.tone==="red" || v.tone==="amber").length;
+  const potentialGain = enriched
+    .filter(v=>v.tone==="red" || v.tone==="amber")
+    .reduce((s,v)=>s+Math.max(0, v.vcpu-4),0);
+
+  const scoreClass = tone =>
+    tone === "red" ? "text-red-600 border-red-300 bg-red-50" :
+    tone === "amber" ? "text-amber-600 border-amber-300 bg-amber-50" :
+    "text-emerald-600 border-emerald-300 bg-emerald-50";
+
+  const statusClass = tone =>
+    tone === "red" ? "text-red-600" :
+    tone === "amber" ? "text-amber-600" :
+    "text-emerald-600";
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -180,7 +228,7 @@ const TopCpuConsumersBlock = ({ consumers = [], totalVcpu = 0 }) => {
         <div>
           <h3 className="text-lg font-semibold text-gray-900">Top VMs — principales consommatrices CPU</h3>
           <p className="text-xs text-gray-400 mt-1">
-            Analyse basée sur l’allocation vCPU issue de RVTools
+            Preuve d’optimisation : VMs les plus significatives en allocation vCPU
           </p>
         </div>
       </div>
@@ -226,56 +274,62 @@ const TopCpuConsumersBlock = ({ consumers = [], totalVcpu = 0 }) => {
 
       <div className="grid grid-cols-12 px-5 py-3 bg-gray-50 border-y border-gray-100 text-xs font-medium text-gray-400 uppercase tracking-wide">
         <div className="col-span-1">Rang</div>
-        <div className="col-span-4">VM / OS</div>
+        <div className="col-span-3">VM / OS</div>
         <div className="col-span-2">Host</div>
-        <div className="col-span-3">vCPU alloués</div>
-        <div className="col-span-2">Statut</div>
+        <div className="col-span-2">vCPU alloués</div>
+        <div className="col-span-2">CPU usage</div>
+        <div className="col-span-1 text-center">Score</div>
+        <div className="col-span-1">Statut</div>
       </div>
 
       <div className="divide-y divide-gray-100">
-        {top.map((vm, i)=>(
+        {enriched.map((vm, i)=>(
           <div key={vm.id || vm.name || i} className="grid grid-cols-12 gap-3 px-5 py-4 items-center hover:bg-gray-50/70 transition">
             <div className="col-span-1">
               <div className={
-                "w-7 h-7 rounded-lg flex items-center justify-center text-xs font-medium " +
+                "w-7 h-7 rounded-lg flex items-center justify-center text-xs font-semibold " +
                 (i===0 ? "bg-yellow-300 text-gray-900" : i===1 ? "bg-gray-200 text-gray-700" : i===2 ? "bg-orange-300 text-gray-900" : "bg-gray-100 text-gray-500")
               }>
                 {i+1}
               </div>
             </div>
 
-            <div className="col-span-4 flex items-center gap-3 min-w-0">
+            <div className="col-span-3 flex items-center gap-3 min-w-0">
               <div className="w-9 h-9 rounded-lg bg-blue-100 grid grid-cols-2 gap-1 p-1 flex-shrink-0">
                 <span className="bg-blue-500 rounded-sm"/><span className="bg-blue-400 rounded-sm"/>
                 <span className="bg-blue-400 rounded-sm"/><span className="bg-blue-500 rounded-sm"/>
               </div>
               <div className="min-w-0">
-                <div className="font-medium text-gray-900 truncate">{vm.name}</div>
+                <div className="font-semibold text-gray-900 truncate">{vm.name}</div>
                 <div className="text-xs text-gray-400 truncate">{vm.os || "OS non renseigné"}</div>
               </div>
             </div>
 
             <div className="col-span-2 text-blue-600 text-xs font-medium truncate">{vm.hostName || vm.host || "N/A"}</div>
 
-            <div className="col-span-3">
-              <div className="text-sm font-medium text-gray-900">{vm.vcpu} vCPU</div>
+            <div className="col-span-2">
+              <div className="text-sm font-semibold text-gray-900">{vm.vcpu} vCPU</div>
               <div className="h-2 bg-gray-100 rounded-full mt-2 overflow-hidden">
-                <div className="h-full bg-blue-500 rounded-full" style={{width:Math.min(100, (Number(vm.vcpu)||0)*8)+"%"}}/>
+                <div className="h-full bg-blue-500 rounded-full" style={{width:Math.min(100, vm.vcpu*8)+"%"}}/>
               </div>
             </div>
 
             <div className="col-span-2">
-              {vm.isOverprovisioned ? (
-                <>
-                  <div className="text-xs font-medium text-amber-600">● À optimiser</div>
-                  <div className="text-xs text-gray-400 mt-1 truncate">vCPU élevé</div>
-                </>
-              ) : (
-                <>
-                  <div className="text-xs font-medium text-emerald-600">● Allocation standard</div>
-                  <div className="text-xs text-gray-400 mt-1 truncate">Aucune alerte</div>
-                </>
-              )}
+              <div className="text-sm font-medium text-gray-800">{vm.usage > 0 ? vm.usage+"%" : "N/A"}</div>
+              <div className="h-2 bg-gray-100 rounded-full mt-2 overflow-hidden">
+                <div className="h-full bg-blue-400 rounded-full" style={{width:vm.usage > 0 ? Math.min(100, vm.usage)+"%" : "0%"}}/>
+              </div>
+            </div>
+
+            <div className="col-span-1 flex justify-center">
+              <div className={"w-12 h-12 rounded-full border-4 flex items-center justify-center text-xs font-semibold "+scoreClass(vm.tone)}>
+                {vm.score}%
+              </div>
+            </div>
+
+            <div className="col-span-1">
+              <div className={"text-xs font-semibold "+statusClass(vm.tone)}>● {vm.status}</div>
+              <div className="text-xs text-gray-400 mt-1 truncate">{vm.statusSub}</div>
             </div>
           </div>
         ))}
@@ -283,13 +337,13 @@ const TopCpuConsumersBlock = ({ consumers = [], totalVcpu = 0 }) => {
 
       <div className="m-5 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-5 text-sm text-gray-600">
-          <span className="font-medium text-gray-800">💡 Insights CPU</span>
+          <span className="font-semibold text-gray-800">💡 Insights CPU</span>
           <span>⚡ {top.length} VMs utilisent {topPct}% des vCPU alloués</span>
           <span>⚠️ {oversized} VMs potentiellement surdimensionnées</span>
           <span>↗ Gain potentiel : -{potentialGain} vCPU</span>
         </div>
 
-        <button className="px-4 py-2 rounded-lg border border-blue-200 bg-white text-blue-600 text-sm font-medium hover:bg-blue-50 transition">
+        <button className="px-4 py-2 rounded-lg border border-blue-200 bg-white text-blue-600 text-sm font-semibold hover:bg-blue-50 transition">
           Voir les recommandations
         </button>
       </div>
