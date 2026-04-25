@@ -58,7 +58,7 @@ const RatioCard = ({ label, value, icon:Icon, color }) => (
   <div className={"rounded-xl p-3 flex items-center gap-3 "+(color==="blue"?"bg-blue-50":"bg-orange-50")}>
     {Icon&&<Icon size={16} className={color==="blue"?"text-blue-500":"text-orange-500"}/>}
     <div>
-      <div className={"text-lg font-bold "+(color==="blue"?"text-gray-700 font-medium":"text-orange-700")}>{fmt(value)}</div>
+      <div className={"text-lg font-bold "+(color==="blue"?"text-blue-700":"text-orange-700")}>{fmt(value)}</div>
       <div className="text-xs text-gray-500">{label}</div>
     </div>
   </div>
@@ -173,11 +173,11 @@ const TopCpuConsumersBlock = ({consumers=[], totalVcpu=0}) => {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
       {/* Bandeau contexte */}
-      <div className="bg-gray-50 border-b border-gray-100 px-5 py-3 flex items-center gap-2">
-        <span className="text-blue-600 text-lg">⚡</span>
-        <span className="text-sm text-gray-700 font-medium">
+      <div className="bg-blue-50 border-b border-blue-100 px-5 py-3 flex items-center gap-2">
+        <span className="text-blue-500">⚡</span>
+        <span className="text-sm text-blue-700">
           Les <strong>{consumers.length} VMs</strong> ci-dessous représentent{" "}
-          <strong className="text-blue-600 text-base font-black">{topPct}%</strong> des vCPU alloués{" "}
+          <strong>{topPct}%</strong> des vCPU alloués{" "}
           <span className="text-blue-400">({topVcpuSum} vCPU / {totalVcpu} vCPU)</span>
         </span>
       </div>
@@ -251,7 +251,7 @@ const TopCpuConsumersBlock = ({consumers=[], totalVcpu=0}) => {
       <div className="border-t border-gray-100 bg-gray-50 px-5 py-3 flex flex-wrap items-center gap-4 text-xs text-gray-500">
         <span className="text-yellow-500">💡</span>
         <strong className="text-gray-600">Insights CPU</strong>
-        <span className="flex items-center gap-1"><span className="text-blue-600 text-lg">⚡</span>{consumers.length} VMs utilisent {topPct}% des vCPU alloues</span>
+        <span className="flex items-center gap-1"><span className="text-blue-500">⚡</span>{consumers.length} VMs utilisent {topPct}% des vCPU alloues</span>
         {overProv>0&&<span className="flex items-center gap-1"><span className="text-blue-400">○</span>{overProv} VM{overProv>1?"s":""} potentiellement surprovisionnee{overProv>1?"s":""}</span>}
         {contention>0&&<span className="flex items-center gap-1"><AlertTriangle size={11} className="text-orange-400"/>{contention} VM{contention>1?"s":""} en contention CPU (readiness {">"} 5%)</span>}
       </div>
@@ -308,7 +308,7 @@ const TopMemoryConsumersBlock = ({consumers=[], totalAllocatedRam=0}) => {
         <span className="text-violet-500">✦</span>
         <span className="text-sm text-violet-700">
           Les <strong>{consumers.length} VMs</strong> ci-dessous représentent{" "}
-          <strong className="text-blue-600 text-base font-black">{topPct}%</strong> de la RAM allouée aux VMs{" "}
+          <strong>{topPct}%</strong> de la RAM allouée aux VMs{" "}
           <span className="text-violet-400">({topRamSum} GB / {totalAllocatedRam} GB)</span>
         </span>
       </div>
@@ -493,7 +493,7 @@ const getNetworkSegmentStyle = (name) => {
   if (n.includes("storage")||n.includes("san")||n.includes("iscsi")) return {bg:"bg-emerald-100", text:"text-emerald-700", bar:"bg-emerald-400", label:"Storage"};
   if (n.includes("mgmt")||n.includes("management")||n.includes("adm")) return {bg:"bg-slate-100", text:"text-slate-600", bar:"bg-slate-400", label:"Management"};
   if (n.includes("backup")||n.includes("veeam")) return {bg:"bg-purple-100", text:"text-purple-700", bar:"bg-purple-400", label:"Backup"};
-  return {bg:"bg-blue-100", text:"text-gray-700 font-medium", bar:"bg-blue-400", label:"VM Network"};
+  return {bg:"bg-blue-100", text:"text-blue-700", bar:"bg-blue-400", label:"VM Network"};
 };
 
 // ── Network Segments View ────────────────────────────────────────────────────
@@ -518,7 +518,7 @@ const TYPE_STYLES = {
   management: {bg:"bg-slate-50",   border:"border-slate-200",  title:"text-slate-700",   badge:"bg-slate-100 text-slate-600",    icon:"text-slate-500"},
   storage:    {bg:"bg-emerald-50", border:"border-emerald-200",title:"text-emerald-700", badge:"bg-emerald-100 text-emerald-700",icon:"text-emerald-500"},
   mirror:     {bg:"bg-orange-50",  border:"border-orange-200", title:"text-orange-700",  badge:"bg-orange-100 text-orange-700",  icon:"text-orange-500"},
-  vm:         {bg:"bg-blue-50",    border:"border-blue-200",   title:"text-gray-700 font-medium",    badge:"bg-blue-100 text-gray-700 font-medium",      icon:"text-blue-500"},
+  vm:         {bg:"bg-blue-50",    border:"border-blue-200",   title:"text-blue-700",    badge:"bg-blue-100 text-blue-700",      icon:"text-blue-500"},
 };
 
 const NetworkSegmentsView = ({segments=[], totalHosts=0}) => {
@@ -581,7 +581,7 @@ const NetworkSegmentsView = ({segments=[], totalHosts=0}) => {
         <div className="flex items-center gap-2">
           <Info size={14} className={inconsistencies===0?"text-blue-500":"text-amber-500"}/>
           <div>
-            <div className={"text-xs font-semibold "+(inconsistencies===0?"text-gray-700 font-medium":"text-amber-700")}>
+            <div className={"text-xs font-semibold "+(inconsistencies===0?"text-blue-700":"text-amber-700")}>
               {inconsistencies===0?"Tous les segments sont presents sur "+totalHosts+"/"+totalHosts+" hosts.":"Des incoherences ont ete detectees."}
             </div>
             <div className="text-xs text-gray-500">{inconsistencies===0?"Bonne couverture reseau sur l ensemble du cluster.":inconsistencies+" segment(s) presentent des problemes."}</div>
@@ -698,7 +698,7 @@ const getPortGroupStyle = (name) => {
   if (n.includes("mgmt")||n.includes("management")) return {bg:"bg-slate-100", text:"text-slate-600", border:"border-slate-200"};
   if (n.includes("storage")||n.includes("san")) return {bg:"bg-emerald-100", text:"text-emerald-700", border:"border-emerald-200"};
   if (n.includes("mirror")||n.includes("backup")) return {bg:"bg-orange-100", text:"text-orange-700", border:"border-orange-200"};
-  return {bg:"bg-blue-100", text:"text-gray-700 font-medium", border:"border-blue-200"};
+  return {bg:"bg-blue-100", text:"text-blue-700", border:"border-blue-200"};
 };
 
 const groupVSwitches = (vSwitches) => {
@@ -878,7 +878,7 @@ const VSwitchesView = ({vSwitches=[], totalHosts=0}) => {
                     </div>
                     <table className="w-full text-xs">
                       <thead>
-                        <tr className="border-b border-gray-100 hover:bg-gray-50 transition">
+                        <tr className="border-b border-gray-100">
                           {["Host","MTU","Port groups presents","Statut"].map(col=>(
                             <th key={col} className="text-left py-1.5 px-2 text-gray-400 font-semibold uppercase tracking-wide text-xs">{col}</th>
                           ))}
@@ -921,7 +921,7 @@ const VSwitchesView = ({vSwitches=[], totalHosts=0}) => {
         <div className="flex items-center gap-2">
           <Info size={14} className={inconsistencies===0?"text-blue-500":"text-amber-500"}/>
           <div>
-            <div className={"text-sm font-semibold "+(inconsistencies===0?"text-gray-700 font-medium":"text-amber-700")}>
+            <div className={"text-sm font-semibold "+(inconsistencies===0?"text-blue-700":"text-amber-700")}>
               {inconsistencies===0?"Tous les vSwitches sont coherents sur l ensemble des hosts.":"Des incoherences ont ete detectees."}
             </div>
             <div className="text-xs text-gray-500">
@@ -954,7 +954,7 @@ const getPurposeBadge = (purpose) => {
   const map = {
     backup:     { label:"Backup",     cls:"bg-purple-100 text-purple-700" },
     iso:        { label:"ISO/Media",  cls:"bg-slate-100 text-slate-600"   },
-    production: { label:"Production", cls:"bg-blue-100 text-gray-700 font-medium"     },
+    production: { label:"Production", cls:"bg-blue-100 text-blue-700"     },
     nfs:        { label:"NFS",        cls:"bg-cyan-100 text-cyan-700"     },
     generic:    { label:"VMFS",       cls:"bg-gray-100 text-gray-600"     },
   };
@@ -1915,7 +1915,7 @@ export default function ClusterOverviewDashboard({
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-bold text-gray-800 truncate">{h.name}</span>
                           <span className="text-xs text-gray-400">{h.totalCpuCores} cores physiques</span>
-                          {h.vmCount&&<span className="text-xs bg-blue-100 text-gray-700 font-medium px-2 py-0.5 rounded-full">{h.vmCount} VMs</span>}
+                          {h.vmCount&&<span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{h.vmCount} VMs</span>}
                         </div>
                         <span className={tone.color+" text-base font-bold ml-4"}>{h.cpuUsagePercent||0}%</span>
                       </div>
@@ -2149,7 +2149,7 @@ export default function ClusterOverviewDashboard({
                 <div className="flex flex-col gap-2 flex-shrink-0">
                   {allVSwitches.length>0&&(
                     <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5 text-xs">
-                      <div className="font-semibold text-gray-700 font-medium">vSwitch ({allVSwitches.length})</div>
+                      <div className="font-semibold text-blue-700">vSwitch ({allVSwitches.length})</div>
                       <div className="text-blue-500">{[...new Set(allVSwitches.map(s=>s.name))].slice(0,2).join(", ")}</div>
                     </div>
                   )}
@@ -2283,7 +2283,7 @@ export default function ClusterOverviewDashboard({
         const savings = od.savings||{};
         const catColors = {
           cleanup:"bg-green-100 text-green-700",
-          balancing:"bg-blue-100 text-gray-700 font-medium",
+          balancing:"bg-blue-100 text-blue-700",
           risk:"bg-red-100 text-red-700",
           rightsizing:"bg-orange-100 text-orange-700",
           consolidation:"bg-violet-100 text-violet-700",
@@ -2398,7 +2398,7 @@ export default function ClusterOverviewDashboard({
                         <div className="text-xs text-gray-600 font-medium">{"→ "+r.recommendation}</div>
                         {(r.estimatedGainCpu>0||r.estimatedGainRam>0||r.estimatedGainStorage>0)&&(
                           <div className="flex gap-3 mt-2">
-                            {r.estimatedGainCpu>0&&<span className="text-xs bg-blue-100 text-gray-700 font-medium px-2 py-0.5 rounded-full font-medium">{r.estimatedGainCpu} vCPU</span>}
+                            {r.estimatedGainCpu>0&&<span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">{r.estimatedGainCpu} vCPU</span>}
                             {r.estimatedGainRam>0&&<span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-medium">{r.estimatedGainRam} Go RAM</span>}
                             {r.estimatedGainStorage>0&&<span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium">{r.estimatedGainStorage} To</span>}
                           </div>
@@ -2480,7 +2480,7 @@ export default function ClusterOverviewDashboard({
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="border-b border-gray-100 hover:bg-gray-50 transition">
+                    <tr className="border-b border-gray-100">
                       {["Nom VM","Host","vCPU","RAM","Derniere MAJ","Statut"].map(col=>(
                         <th key={col} className="text-left py-2 px-2 text-gray-400 font-semibold uppercase tracking-wide">{col}</th>
                       ))}
