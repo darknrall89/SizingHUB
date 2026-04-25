@@ -1132,44 +1132,10 @@ const DatastoreCard = ({ ds }) => {
 
   return (
     <div className={"flex items-center gap-4 p-4 rounded-xl border bg-white transition-all hover:shadow-md "+(pct>=80?"border-red-200 bg-red-50/20":pct>=60?"border-amber-200":"border-gray-100")}>
-        {/* Visuel datastore premium */}
-        <div className="w-[170px] h-[64px] flex-shrink-0 flex items-center justify-center">
-          <div className={
-            "relative w-[112px] h-[46px] rounded-xl border shadow-sm flex items-center justify-center " +
-            (purpose==="backup" ? "bg-purple-50 border-purple-200" :
-             purpose==="iso" ? "bg-sky-50 border-sky-200" :
-             purpose==="prod" ? "bg-blue-50 border-blue-200" :
-             "bg-slate-50 border-slate-200")
-          }>
-            <div className={
-              "absolute left-2 top-2 bottom-2 w-2 rounded-full " +
-              (pct>=80 ? "bg-red-400" : pct>=60 ? "bg-amber-400" : "bg-emerald-400")
-            }/>
-
-            <div className="flex gap-1.5">
-              {[0,1,2].map(i=>(
-                <div key={i} className={
-                  "w-5 h-7 rounded-md border flex flex-col items-center justify-center gap-0.5 " +
-                  (purpose==="backup" ? "bg-white border-purple-200" :
-                   purpose==="iso" ? "bg-white border-sky-200" :
-                   purpose==="prod" ? "bg-white border-blue-200" :
-                   "bg-white border-slate-200")
-                }>
-                  <span className="w-2.5 h-0.5 rounded-full bg-slate-300"/>
-                  <span className="w-2.5 h-0.5 rounded-full bg-slate-200"/>
-                  <span className={
-                    "w-1.5 h-1.5 rounded-full mt-0.5 " +
-                    (pct>=80 ? "bg-red-400" : pct>=60 ? "bg-amber-400" : "bg-emerald-400")
-                  }/>
-                </div>
-              ))}
-            </div>
-
-            <div className="absolute -right-2 -top-2 px-2 py-0.5 rounded-full bg-white border border-gray-100 shadow-sm text-[10px] font-semibold text-gray-500">
-              {ds.type || "DS"}
-            </div>
-          </div>
-        </div>
+      {/* Icône */}
+      <div className="w-[280px] h-[50px] flex-shrink-0 flex items-center">
+        <DatastoreIcon purpose={purpose}/>
+      </div>
       {/* Infos */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1 flex-wrap">
