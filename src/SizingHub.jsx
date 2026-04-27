@@ -26,26 +26,26 @@ import {
 
 // ─── Theme ────────────────────────────────────────────────────────────────────
 const DARK = {
-  bg0:"#0a0b0d", bg1:"#111318", bg2:"#181b22",
+  bg0:"#0a0b0d", bg1:"#111318", bg2:"#181b22", sidebarBg:"#1B2B4B", sidebarBorder:"rgba(255,255,255,0.08)",
   t1:"#e8eaf0", t2:"#8b90a0", t3:"#4a5068",
-  border:"rgba(255,255,255,0.07)", border2:"rgba(0,212,170,0.2)",
-  accent:"#00d4aa", accent2:"#0099ff", accent3:"#ff6b35",
+  border:"rgba(255,255,255,0.07)", border2:"rgba(59,126,246,0.2)",
+  accent:"#3B7EF6", accent2:"#6366f1", accent3:"#ff6b35",
   warn:"#ffb347", danger:"#ff5555",
   cardBg:"#111318", inputBg:"#181b22",
-  infoBoxBg:"rgba(0,153,255,0.08)", infoBoxBorder:"rgba(0,153,255,0.2)", infoBoxColor:"#7ab8ff",
-  okBoxBg:"rgba(0,212,170,0.07)", okBoxBorder:"rgba(0,212,170,0.2)", okBoxColor:"#00d4aa",
+  infoBoxBg:"rgba(99,102,241,0.08)", infoBoxBorder:"rgba(99,102,241,0.2)", infoBoxColor:"#7ab8ff",
+  okBoxBg:"rgba(59,126,246,0.07)", okBoxBorder:"rgba(59,126,246,0.2)", okBoxColor:"#3B7EF6",
   alertBoxBg:"rgba(255,107,53,0.08)", alertBoxBorder:"rgba(255,107,53,0.25)", alertBoxColor:"#ffb347",
   tooltipBg:"#181b22",
 };
 const LIGHT = {
-  bg0:"#f0f2f5", bg1:"#ffffff", bg2:"#f4f5f7",
+  bg0:"#F4F6FA", bg1:"#ffffff", bg2:"#f8f9fc", sidebarBg:"#1B2B4B", sidebarBorder:"rgba(255,255,255,0.08)",
   t1:"#111318", t2:"#5a6072", t3:"#9aa0b0",
-  border:"rgba(0,0,0,0.08)", border2:"rgba(0,168,132,0.3)",
-  accent:"#00a884", accent2:"#0077cc", accent3:"#e05a20",
+  border:"rgba(0,0,0,0.08)", border2:"rgba(37,99,235,0.3)",
+  accent:"#2563EB", accent2:"#6366f1", accent3:"#e05a20",
   warn:"#d97706", danger:"#dc2626",
   cardBg:"#ffffff", inputBg:"#f4f5f7",
-  infoBoxBg:"rgba(0,119,204,0.07)", infoBoxBorder:"rgba(0,119,204,0.2)", infoBoxColor:"#0077cc",
-  okBoxBg:"rgba(0,168,132,0.07)", okBoxBorder:"rgba(0,168,132,0.2)", okBoxColor:"#00a884",
+  infoBoxBg:"rgba(99,102,241,0.07)", infoBoxBorder:"rgba(99,102,241,0.2)", infoBoxColor:"#6366f1",
+  okBoxBg:"rgba(37,99,235,0.07)", okBoxBorder:"rgba(37,99,235,0.2)", okBoxColor:"#2563EB",
   alertBoxBg:"rgba(217,119,6,0.08)", alertBoxBorder:"rgba(217,119,6,0.25)", alertBoxColor:"#d97706",
   tooltipBg:"#ffffff",
 };
@@ -129,8 +129,8 @@ function MetricCard({label,value,sub,tone="default",th}){
       color:"#409CFF"
     },
     default:{
-      bg:"rgba(0,212,170,0.08)",
-      border:"rgba(0,212,170,0.22)",
+      bg:"rgba(59,126,246,0.08)",
+      border:"rgba(59,126,246,0.22)",
       color:th.accent
     },
     warn:{
@@ -430,8 +430,8 @@ function VMwareCalc({th, isMobile=false}) {
 
       {/* Recommandation finale intelligente */}
       <div style={{
-        background: r.efficiencyPct < 75 ? "rgba(255,85,85,0.06)" : r.efficiencyPct < 90 ? "rgba(255,181,71,0.07)" : "rgba(0,212,170,0.06)",
-        border: `1px solid ${r.efficiencyPct < 75 ? "rgba(255,85,85,0.24)" : r.efficiencyPct < 90 ? "rgba(255,181,71,0.25)" : "rgba(0,212,170,0.22)"}`,
+        background: r.efficiencyPct < 75 ? "rgba(255,85,85,0.06)" : r.efficiencyPct < 90 ? "rgba(255,181,71,0.07)" : "rgba(59,126,246,0.06)",
+        border: `1px solid ${r.efficiencyPct < 75 ? "rgba(255,85,85,0.24)" : r.efficiencyPct < 90 ? "rgba(255,181,71,0.25)" : "rgba(59,126,246,0.22)"}`,
         borderRadius: 14,
         padding: "16px 18px",
         marginBottom: 18,
@@ -694,8 +694,8 @@ function VMwareCalc({th, isMobile=false}) {
               alignItems: "center",
               padding: "8px 10px",
               borderRadius: 8,
-              background: "rgba(0,212,170,0.06)",
-              border: "1px solid rgba(0,212,170,0.22)"
+              background: "rgba(59,126,246,0.06)",
+              border: "1px solid rgba(59,126,246,0.22)"
             }}>
               <span style={{fontSize: 12, color: th.t2}}>Proxmox VE Premium</span>
               <strong style={{fontSize: 13, color: th.accent, fontFamily:"Inter, sans-serif"}}>
@@ -708,8 +708,8 @@ function VMwareCalc({th, isMobile=false}) {
             marginTop: 12,
             padding: "9px 10px",
             borderRadius: 8,
-            background: "rgba(0,153,255,0.06)",
-            border: "1px solid rgba(0,153,255,0.18)",
+            background: "rgba(99,102,241,0.06)",
+            border: "1px solid rgba(99,102,241,0.18)",
             color: th.accent2,
             fontSize: 12,
             lineHeight: 1.5
@@ -784,7 +784,7 @@ function VMwareCalc({th, isMobile=false}) {
           <RR label="Cœurs facturés"      value={fmt(r.totalBilled)+" cœurs"} color={r.surcharge?"#ffb347":th.accent} highlight/>
           <RR label="Packs 2-cœurs"       value={fmt(r.packs)+" packs"} color={th.accent}/>
         </div>
-        <div style={{borderRadius:6,border:`1px solid ${r.showOpt?"rgba(255,181,71,0.4)":th.border}`,padding:"12px 16px",background:r.showOpt?"rgba(255,181,71,0.05)":"rgba(0,212,170,0.04)"}}>
+        <div style={{borderRadius:6,border:`1px solid ${r.showOpt?"rgba(255,181,71,0.4)":th.border}`,padding:"12px 16px",background:r.showOpt?"rgba(255,181,71,0.05)":"rgba(59,126,246,0.04)"}}>
           <div style={{fontSize:10,fontWeight:600,color:th.t2,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10,fontFamily:"Inter, sans-serif"}}>Optimisation licensing</div>
           {r.showOpt?(<div><div style={{fontSize:12,color:"#ffb347",fontFamily:"Inter, sans-serif",fontWeight:600,marginBottom:6}}>CPUs a {cores} coeurs/socket - Broadcom facture 16 minimum</div><div style={{fontSize:11,color:th.t2,marginBottom:8}}>Vous payez {fmt(r.totalBilled)} coeurs pour {fmt(r.totalPhys)} coeurs physiques reels ({r.surPct}% de surcout).</div><div style={{padding:"6px 10px",background:th.bg2,borderRadius:3,fontSize:11,color:th.t1,fontFamily:"Inter, sans-serif"}}>Conseil : choisir des CPUs a 16 coeurs/socket vous donnerait plus de puissance au meme prix Broadcom.</div></div>):(<div style={{fontSize:11,color:th.accent}}>Configuration optimale - coeurs physiques 16/socket, aucun surcout Broadcom</div>)}
         </div>
@@ -851,8 +851,8 @@ function WindowsCalc({th, isMobile=false}) {
       </div>
 
       <div style={{
-        background:r.sqlWarn?"rgba(255,85,85,0.06)":r.wsEfficiency<100?"rgba(255,181,71,0.07)":"rgba(0,212,170,0.06)",
-        border:`1px solid ${r.sqlWarn?"rgba(255,85,85,0.24)":r.wsEfficiency<100?"rgba(255,181,71,0.25)":"rgba(0,212,170,0.22)"}`,
+        background:r.sqlWarn?"rgba(255,85,85,0.06)":r.wsEfficiency<100?"rgba(255,181,71,0.07)":"rgba(59,126,246,0.06)",
+        border:`1px solid ${r.sqlWarn?"rgba(255,85,85,0.24)":r.wsEfficiency<100?"rgba(255,181,71,0.25)":"rgba(59,126,246,0.22)"}`,
         borderRadius:14,
         padding:"16px 18px",
         marginBottom:18,
@@ -1151,7 +1151,7 @@ const RAID_OPTIONS = [
   { value:"none",   label:"JBOD",    minDisks:1,  effFn: n => 1 },
 ];
 
-const TYPE_COLORS = { NLSAS:"#8b90a0", SAS:"#0099ff", SSD:"#00d4aa", NVMe:"#ff6b35" };
+const TYPE_COLORS = { NLSAS:"#8b90a0", SAS:"#6366f1", SSD:"#3B7EF6", NVMe:"#ff6b35" };
 
 let _gid = 1;
 const newGroup = (form) => ({ id:_gid++, diskId:DISK_CATALOG[form][0].id, count:4, raid:"raid6", hotSpares:0 });
@@ -1495,8 +1495,8 @@ function StorageCalc({ th, isMobile=false }) {
               gridTemplateColumns:isMobile?"1fr":"1.4fr 1fr",
               gap:16,
               alignItems:"center",
-              background:globalKo?"rgba(255,85,85,0.06)":"rgba(0,212,170,0.06)",
-              border:`1px solid ${globalKo?"rgba(255,85,85,0.22)":"rgba(0,212,170,0.22)"}`,
+              background:globalKo?"rgba(255,85,85,0.06)":"rgba(59,126,246,0.06)",
+              border:`1px solid ${globalKo?"rgba(255,85,85,0.22)":"rgba(59,126,246,0.22)"}`,
               borderRadius:18,
               padding:"22px 26px",
               marginBottom:18,
@@ -1663,8 +1663,8 @@ function StorageCalc({ th, isMobile=false }) {
                       marginTop:12,
                       padding:"9px 11px",
                       borderRadius:10,
-                      background:"rgba(0,153,255,0.06)",
-                      border:"1px solid rgba(0,153,255,0.18)",
+                      background:"rgba(99,102,241,0.06)",
+                      border:"1px solid rgba(99,102,241,0.18)",
                       fontSize:11,
                       color:th.t2,
                       lineHeight:1.45
@@ -1896,8 +1896,8 @@ function StorageCalc({ th, isMobile=false }) {
                     alignItems:"flex-start",
                     padding:"10px 12px",
                     borderRadius:10,
-                    background:rec.ok?"rgba(0,212,170,0.06)":"rgba(255,181,71,0.08)",
-                    border:`1px solid ${rec.ok?"rgba(0,212,170,0.18)":"rgba(255,181,71,0.24)"}`
+                    background:rec.ok?"rgba(59,126,246,0.06)":"rgba(255,181,71,0.08)",
+                    border:`1px solid ${rec.ok?"rgba(59,126,246,0.18)":"rgba(255,181,71,0.24)"}`
                   }}>
                     <span style={{
                       width:24,
@@ -1906,7 +1906,7 @@ function StorageCalc({ th, isMobile=false }) {
                       display:"flex",
                       alignItems:"center",
                       justifyContent:"center",
-                      background:rec.ok?"rgba(0,212,170,0.12)":"rgba(255,181,71,0.14)",
+                      background:rec.ok?"rgba(59,126,246,0.12)":"rgba(255,181,71,0.14)",
                       color:rec.ok?th.accent:th.warn,
                       flexShrink:0,
                       fontWeight:900
@@ -2087,8 +2087,8 @@ function StorageCalc({ th, isMobile=false }) {
               gridTemplateColumns:isMobile?"1fr":"1.4fr 1fr",
               gap:16,
               alignItems:"center",
-              background:ok?"rgba(0,212,170,0.06)":"rgba(255,181,71,0.08)",
-              border:`1px solid ${ok?"rgba(0,212,170,0.22)":"rgba(255,181,71,0.25)"}`,
+              background:ok?"rgba(59,126,246,0.06)":"rgba(255,181,71,0.08)",
+              border:`1px solid ${ok?"rgba(59,126,246,0.22)":"rgba(255,181,71,0.25)"}`,
               borderRadius:16,
               padding:"18px 22px",
               marginBottom:18,
@@ -2259,7 +2259,7 @@ function StorageCalc({ th, isMobile=false }) {
                     </div>
                   )}
 
-                  <div style={{marginTop:8,padding:"10px 12px",background:"rgba(0,153,255,0.06)",border:"1px solid rgba(0,153,255,0.18)",borderRadius:10,fontSize:12,color:th.t2,lineHeight:1.5}}>
+                  <div style={{marginTop:8,padding:"10px 12px",background:"rgba(99,102,241,0.06)",border:"1px solid rgba(99,102,241,0.18)",borderRadius:10,fontSize:12,color:th.t2,lineHeight:1.5}}>
                     Ajustez les paramètres : les résultats se mettent à jour automatiquement.
                   </div>
                 </div>
@@ -2413,8 +2413,8 @@ function StorageCalc({ th, isMobile=false }) {
                   marginTop:18,
                   padding:"13px 14px",
                   borderRadius:12,
-                  background:ok?"rgba(0,212,170,0.08)":"rgba(255,85,85,0.08)",
-                  border:`1px solid ${ok?"rgba(0,212,170,0.22)":"rgba(255,85,85,0.22)"}`,
+                  background:ok?"rgba(59,126,246,0.08)":"rgba(255,85,85,0.08)",
+                  border:`1px solid ${ok?"rgba(59,126,246,0.22)":"rgba(255,85,85,0.22)"}`,
                   display:"flex",
                   justifyContent:"space-between",
                   alignItems:"center",
@@ -2457,8 +2457,8 @@ function StorageCalc({ th, isMobile=false }) {
                   marginTop:14,
                   padding:"10px 12px",
                   borderRadius:10,
-                  background:usedPct < 50 ? "rgba(255,181,71,0.08)" : "rgba(0,212,170,0.06)",
-                  border:`1px solid ${usedPct < 50 ? "rgba(255,181,71,0.24)" : "rgba(0,212,170,0.18)"}`,
+                  background:usedPct < 50 ? "rgba(255,181,71,0.08)" : "rgba(59,126,246,0.06)",
+                  border:`1px solid ${usedPct < 50 ? "rgba(255,181,71,0.24)" : "rgba(59,126,246,0.18)"}`,
                   fontSize:12,
                   color:th.t2,
                   lineHeight:1.5
@@ -2492,7 +2492,7 @@ function StorageCalc({ th, isMobile=false }) {
               </div>
 
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",gap:12}}>
-                <div style={{padding:"12px 14px",border:`1px solid ${ok?"rgba(0,212,170,0.22)":"rgba(255,85,85,0.22)"}`,background:ok?"rgba(0,212,170,0.06)":"rgba(255,85,85,0.06)",borderRadius:12}}>
+                <div style={{padding:"12px 14px",border:`1px solid ${ok?"rgba(59,126,246,0.22)":"rgba(255,85,85,0.22)"}`,background:ok?"rgba(59,126,246,0.06)":"rgba(255,85,85,0.06)",borderRadius:12}}>
                   <strong style={{color:ok?th.accent:th.danger,fontSize:13}}>
                     {ok ? "Le design couvre la cible" : "Le design ne couvre pas la cible"}
                   </strong>
@@ -2508,7 +2508,7 @@ function StorageCalc({ th, isMobile=false }) {
                   </div>
                 </div>
 
-                <div style={{padding:"12px 14px",border:"1px solid rgba(0,153,255,0.22)",background:"rgba(0,153,255,0.06)",borderRadius:12}}>
+                <div style={{padding:"12px 14px",border:"1px solid rgba(99,102,241,0.22)",background:"rgba(99,102,241,0.06)",borderRadius:12}}>
                   <strong style={{color:th.accent2,fontSize:13}}>Surveillez la croissance</strong>
                   <div style={{fontSize:12,color:th.t2,marginTop:6,lineHeight:1.5}}>
                     Revalidez le projet à 6 / 12 mois ou lors d’une évolution applicative.
@@ -2611,8 +2611,8 @@ function StorageCalc({ th, isMobile=false }) {
                 fontSize:12,
                 fontWeight:900,
                 color:margin>=0?th.accent:th.danger,
-                background:margin>=0?"rgba(0,212,170,0.10)":"rgba(255,85,85,0.10)",
-                border:`1px solid ${margin>=0?"rgba(0,212,170,0.22)":"rgba(255,85,85,0.22)"}`,
+                background:margin>=0?"rgba(59,126,246,0.10)":"rgba(255,85,85,0.10)",
+                border:`1px solid ${margin>=0?"rgba(59,126,246,0.22)":"rgba(255,85,85,0.22)"}`,
                 borderRadius:999,
                 padding:"5px 8px"
               }}>
@@ -2692,8 +2692,8 @@ function StorageCalc({ th, isMobile=false }) {
               gridTemplateColumns:isMobile?"1fr":"1.4fr 1fr",
               gap:18,
               alignItems:"center",
-              background:hciOk?"rgba(0,212,170,0.06)":"rgba(255,85,85,0.07)",
-              border:`1px solid ${hciOk?"rgba(0,212,170,0.22)":"rgba(255,85,85,0.25)"}`,
+              background:hciOk?"rgba(59,126,246,0.06)":"rgba(255,85,85,0.07)",
+              border:`1px solid ${hciOk?"rgba(59,126,246,0.22)":"rgba(255,85,85,0.25)"}`,
               borderRadius:18,
               padding:"22px 26px",
               marginBottom:18,
@@ -2729,7 +2729,7 @@ function StorageCalc({ th, isMobile=false }) {
                     marginTop:10,
                     padding:"6px 10px",
                     borderRadius:999,
-                    background:hciOk?"rgba(0,212,170,0.10)":"rgba(255,85,85,0.10)",
+                    background:hciOk?"rgba(59,126,246,0.10)":"rgba(255,85,85,0.10)",
                     color:hciOk?th.accent:th.danger,
                     fontSize:12,
                     fontWeight:900
@@ -2934,8 +2934,8 @@ function StorageCalc({ th, isMobile=false }) {
                     marginTop:12,
                     padding:"10px 12px",
                     borderRadius:10,
-                    background:"rgba(0,153,255,0.06)",
-                    border:"1px solid rgba(0,153,255,0.18)",
+                    background:"rgba(99,102,241,0.06)",
+                    border:"1px solid rgba(99,102,241,0.18)",
                     fontSize:11,
                     color:th.t2,
                     lineHeight:1.45
@@ -2969,8 +2969,8 @@ function StorageCalc({ th, isMobile=false }) {
                   marginTop:16,
                   padding:"14px 16px",
                   borderRadius:14,
-                  background:hciOk?"rgba(0,212,170,0.08)":"rgba(255,85,85,0.08)",
-                  border:`1px solid ${hciOk?"rgba(0,212,170,0.22)":"rgba(255,85,85,0.22)"}`,
+                  background:hciOk?"rgba(59,126,246,0.08)":"rgba(255,85,85,0.08)",
+                  border:`1px solid ${hciOk?"rgba(59,126,246,0.22)":"rgba(255,85,85,0.22)"}`,
                   display:"flex",
                   gap:12,
                   alignItems:"center"
@@ -3135,9 +3135,9 @@ function VeeamCalc({th, isMobile=false}) {
 // ─── Compute & HCI Planning v3 ───────────────────────────────────────────────
 
 const HCI_PROFILES = {
-  vsan:         { label:"VMware vSAN",           color:"#0099ff", overhead:0.25, minNodes:4, metadataReserve:0.07, defaultDedup:2.0,
+  vsan:         { label:"VMware vSAN",           color:"#6366f1", overhead:0.25, minNodes:4, metadataReserve:0.07, defaultDedup:2.0,
     resiliency:[{id:"ftt1r1",label:"FTT=1 RAID-1",factor:2},{id:"ftt1r5",label:"FTT=1 RAID-5",factor:1.33},{id:"ftt2r1",label:"FTT=2 RAID-1",factor:3},{id:"ftt2r6",label:"FTT=2 RAID-6",factor:1.5}] },
-  nutanix:      { label:"Nutanix AHV",            color:"#00d4aa", overhead:0.20, minNodes:3, metadataReserve:0.05, defaultDedup:3.0,
+  nutanix:      { label:"Nutanix AHV",            color:"#3B7EF6", overhead:0.20, minNodes:3, metadataReserve:0.05, defaultDedup:3.0,
     resiliency:[{id:"rf2",label:"RF2 (1 panne)",factor:2},{id:"rf3",label:"RF3 (2 pannes)",factor:3}] },
   azurestackhci:{ label:"Hyper-V / Azure Stack HCI", color:"#ff6b35", overhead:0.25, minNodes:2, metadataReserve:0.08, defaultDedup:2.0,
     resiliency:[{id:"2way",label:"2-way mirror",factor:2},{id:"3way",label:"3-way mirror",factor:3},{id:"rs42",label:"RS 4+2",factor:1.5}] },
@@ -3526,8 +3526,8 @@ function SwitchCalc({ th, isMobile=false }) {
           {recos.map((r,i)=>(
             <div key={i} style={{
               display:"flex",alignItems:"flex-start",gap:8,padding:"8px 10px",borderRadius:4,
-              background:r.type==="ok"?"rgba(0,212,170,0.06)":r.type==="warn"?"rgba(255,181,71,0.08)":"rgba(0,153,255,0.06)",
-              border:`1px solid ${r.type==="ok"?"rgba(0,212,170,0.2)":r.type==="warn"?"rgba(255,181,71,0.25)":"rgba(0,153,255,0.2)"}`,
+              background:r.type==="ok"?"rgba(59,126,246,0.06)":r.type==="warn"?"rgba(255,181,71,0.08)":"rgba(99,102,241,0.06)",
+              border:`1px solid ${r.type==="ok"?"rgba(59,126,246,0.2)":r.type==="warn"?"rgba(255,181,71,0.25)":"rgba(99,102,241,0.2)"}`,
             }}>
               <span style={{fontSize:13,flexShrink:0}}>{r.type==="ok"?"✓":r.type==="warn"?"⚠":"ℹ"}</span>
               <span style={{fontSize:11,color:th.t1,lineHeight:1.5}}>{r.msg}</span>
@@ -3578,8 +3578,8 @@ function SizingHub() {
       )}
 
       {/* Sidebar */}
-      <div style={{width:isMobile?232:232,minWidth:isMobile?232:232,background:th.bg1,borderRight:`1px solid ${th.border}`,display:"flex",flexDirection:"column",padding:"18px 12px",transition:"all 0.3s",position:isMobile?"fixed":"sticky",top:0,left:0,height:"100vh",zIndex:999,transform:isMobile&&!menuOpen?"translateX(-100%)":"translateX(0)",overflowY:"auto",boxSizing:"border-box"}}>
-        <div style={{padding:"0 4px 18px",borderBottom:`1px solid ${th.border}`,marginBottom:14}}>
+      <div style={{width:isMobile?232:232,minWidth:isMobile?232:232,background:th.sidebarBg,borderRight:"1px solid rgba(255,255,255,0.08)",display:"flex",flexDirection:"column",padding:"18px 12px",transition:"all 0.3s",position:isMobile?"fixed":"sticky",top:0,left:0,height:"100vh",zIndex:999,transform:isMobile&&!menuOpen?"translateX(-100%)":"translateX(0)",overflowY:"auto",boxSizing:"border-box"}}>
+        <div style={{padding:"0 4px 18px",borderBottom:"1px solid rgba(255,255,255,0.08)",marginBottom:14}}>
           <div style={{
             display:"flex",
             alignItems:"center",
@@ -3589,12 +3589,12 @@ function SizingHub() {
               width:34,
               height:34,
               borderRadius:10,
-              background:`${th.accent}16`,
-              border:`1px solid ${th.border2}`,
+              background:"rgba(79,142,247,0.2)",
+              border:"1px solid rgba(79,142,247,0.35)",
               display:"flex",
               alignItems:"center",
               justifyContent:"center",
-              color:th.accent,
+              color:"#4F8EF7",
               fontWeight:800,
               fontSize:15
             }}>
@@ -3604,14 +3604,14 @@ function SizingHub() {
               <div style={{
                 fontSize:16,
                 fontWeight:800,
-                color:th.t1,
+                color:"#ffffff",
                 letterSpacing:"0.02em"
               }}>
                 SizingHub
               </div>
               <div style={{
                 fontSize:10,
-                color:th.t3,
+                color:"rgba(255,255,255,0.45)",
                 marginTop:2,
                 letterSpacing:"0.02em"
               }}>
@@ -3625,7 +3625,7 @@ function SizingHub() {
             <div style={{
               padding:"12px 8px 6px",
               fontSize:10,
-              color:th.t3,
+              color:"rgba(255,255,255,0.35)",
               textTransform:"uppercase",
               letterSpacing:"0.12em",
               fontWeight:700
@@ -3642,10 +3642,11 @@ function SizingHub() {
                 cursor:"pointer",
                 fontSize:13,
                 fontWeight:active===t.id?700:500,
-                color:active===t.id?th.accent:th.t2,
+                color:active===t.id?"#ffffff":"rgba(255,255,255,0.6)",
                 borderRadius:10,
-                background:active===t.id?`${th.accent}12`:"transparent",
-                border:`1px solid ${active===t.id?th.border2:"transparent"}`,
+                background:active===t.id?"rgba(79,142,247,0.18)":"transparent",
+                border:`1px solid ${active===t.id?"rgba(79,142,247,0.35)":"transparent"}`,
+                position:"relative",
                 transition:"all 0.15s"
               }}>
                 <span style={{
@@ -3655,9 +3656,10 @@ function SizingHub() {
                   display:"flex",
                   alignItems:"center",
                   justifyContent:"center",
-                  background:active===t.id?`${th.accent}18`:th.bg2,
-                  color:active===t.id?th.accent:th.t3,
-                  border:`1px solid ${active===t.id?th.border2:th.border}`,
+                  background:active===t.id?"rgba(79,142,247,0.25)":"rgba(255,255,255,0.07)",
+                  color:active===t.id?"#4F8EF7":"rgba(255,255,255,0.45)",
+                  border:`1px solid ${active===t.id?"rgba(79,142,247,0.4)":"rgba(255,255,255,0.1)"}`,
+                  flexShrink:0,
                   flexShrink:0
                 }}>
                   <t.icon size={15} strokeWidth={2.1} />
@@ -3668,11 +3670,11 @@ function SizingHub() {
           </div>
         ))}
         {/* Toggle dark/light */}
-        <div style={{marginTop:"auto",padding:"14px 4px 0",borderTop:`1px solid ${th.border}`}}>
-          <button onClick={()=>setDark(d=>!d)} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"10px 0",borderRadius:10,cursor:"pointer",fontSize:12,fontWeight:600,background:th.bg2,border:`1px solid ${th.border}`,color:th.t2,transition:"all 0.2s"}}>
+        <div style={{marginTop:"auto",padding:"14px 4px 0",borderTop:"1px solid rgba(255,255,255,0.08)"}}>
+          <button onClick={()=>setDark(d=>!d)} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"10px 0",borderRadius:10,cursor:"pointer",fontSize:12,fontWeight:600,background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.1)",color:"rgba(255,255,255,0.6)",transition:"all 0.2s"}}>
             {dark?<><Sun size={13}/>Light mode</>:<><Moon size={13}/>Dark mode</>}
           </button>
-          <div style={{textAlign:"center",fontSize:10,color:th.t3,marginTop:12,letterSpacing:"0.04em"}}>by Francis B.</div>
+          <div style={{textAlign:"center",fontSize:10,color:"rgba(255,255,255,0.3)",marginTop:12,letterSpacing:"0.04em"}}>by Francis B.</div>
         </div>
       </div>
       {/* Main */}
