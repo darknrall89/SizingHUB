@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import AuditCalc from "./AuditCalc.jsx";
 import SwitchFabric from "./SwitchFabric.jsx";
 import ComputeCalc from "./ComputeCalc.jsx";
+import PreSalesAssistant from "./PreSalesAssistant.jsx";
 import {
   Server, HardDrive, Cloud, Cpu, Database, Network, FileSearch,
   BarChart2, Shield, CheckCircle, AlertTriangle,
@@ -3542,6 +3543,7 @@ function SwitchCalc({ th, isMobile=false }) {
 
 // ─── App Shell ────────────────────────────────────────────────────────────────
 const TOOLS=[
+  {id:"presales", label:"Pre-Sales Assistant", icon:FileSearch, section:"PRÉ-VENTE",    comp:PreSalesAssistant, badge:"Pre-Sales", sub:"Qualification · Variantes · Export", fullscreen:true},
   {id:"audit",   label:"Infrastructure Audit", icon:FileSearch, section:"ANALYSE",      comp:AuditCalc,   badge:"Audit",     sub:"RVTools · CVE · Analyse IA"},
   {id:"vmware",  label:"VMware / VCF",         icon:Cpu,        section:"SIZING CIBLE", comp:VMwareCalc,  badge:"VVF / VCF", sub:"VVF · VCF · Licence par cœur"},
   {id:"compute", label:"Compute",              icon:BarChart2,  section:"SIZING CIBLE", comp:ComputeCalc, badge:"Compute",   sub:"Serveurs · HA · Sizing"},
@@ -3564,7 +3566,7 @@ function SizingHub() {
   const sections=[...new Set(TOOLS.map(t=>t.section))];
 
   return (
-    <div style={{fontFamily:"'Inter',system-ui,sans-serif",background:th.bg0,color:th.t1,minHeight:"100vh",display:"flex",transition:"background 0.2s,color 0.2s",position:"relative"}}>
+    <div style={{fontFamily:"'Inter',system-ui,sans-serif",background:th.bg0,color:th.t1,height:"100vh",overflow:"hidden",display:"flex",transition:"background 0.2s,color 0.2s",position:"relative"}}>
       {/* Burger button mobile */}
       {isMobile&&(
         <button onClick={()=>setMenuOpen(m=>!m)} style={{position:"fixed",top:12,left:12,zIndex:1000,background:th.bg1,border:`1px solid ${th.border}`,borderRadius:6,padding:"8px",cursor:"pointer",color:th.t1,display:"flex",alignItems:"center",justifyContent:"center"}}>
@@ -3678,16 +3680,14 @@ function SizingHub() {
         </div>
       </div>
       {/* Main */}
-      <div style={{flex:1,overflowY:"auto",background:th.bg0,transition:"background 0.2s",marginLeft:isMobile?0:undefined}}>
-        <div style={{padding:isMobile?"60px 12px 12px":28}}>
-          <PageHeader
-            title={tool.label}
-            subtitle={tool.sub}
-            badge={tool.badge}
-            th={th}
-          />
-          <ActiveComp th={th} isMobile={isMobile} />
-        </div>
+      <div style={{flex:1,overflow:"hidden",background:th.bg0,transition:"background 0.2s",marginLeft:isMobile?0:undefined,display:"flex",flexDirection:"column"}}>
+        {tool.fullscreen
+          ? <ActiveComp th={th} isMobile={isMobile} />
+          : <div style={{padding:isMobile?"60px 12px 12px":28,overflowY:"auto",flex:1}}>
+              <PageHeader title={tool.label} subtitle={tool.sub} badge={tool.badge} th={th} />
+              <ActiveComp th={th} isMobile={isMobile} />
+            </div>
+        }
       </div>
     </div>
   );
