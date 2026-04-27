@@ -3542,13 +3542,13 @@ function SwitchCalc({ th, isMobile=false }) {
 
 // ─── App Shell ────────────────────────────────────────────────────────────────
 const TOOLS=[
-  {id:"vmware",  label:"VMware / VCF",     icon:Cpu,      section:"VIRTUALISATION", comp:VMwareCalc,  badge:"VVF / VCF", sub:"VVF · VCF · Licence par cœur"},
-  {id:"windows", label:"Windows & SQL",    icon:Server,   section:"MICROSOFT",      comp:WindowsCalc, badge:"Microsoft", sub:"Packs 2-cœurs · DC / STD"},
-  {id:"m365",    label:"Microsoft 365",    icon:Cloud,    section:"MICROSOFT",      comp:M365Calc,    badge:"M365",      sub:"Sizing par profil utilisateur"},
-  {id:"storage", label:"Capacity Planning",icon:HardDrive,section:"STOCKAGE",       comp:StorageCalc, badge:"Storage",   sub:"SAN · NAS · IOPS · RAID"},
-  {id:"veeam",   label:"Veeam Backup",     icon:Shield,   section:"BACKUP",         comp:VeeamCalc,   badge:"Veeam v12", sub:"VBR · Cloud Connect · BaaS"},
-  {id:"compute", label:"Compute",    icon:BarChart2,section:"COMPUTE",        comp:ComputeCalc, badge:"Compute",   sub:"Serveurs · HA · Sizing"},
-  {id:"audit",   label:"Infrastructure Audit", icon:FileSearch, section:"IMPORT",  comp:AuditCalc,  badge:"Audit",    sub:"RVTools · CVE · Analyse IA"},
+  {id:"audit",   label:"Infrastructure Audit", icon:FileSearch, section:"ANALYSE",      comp:AuditCalc,   badge:"Audit",     sub:"RVTools · CVE · Analyse IA"},
+  {id:"vmware",  label:"VMware / VCF",         icon:Cpu,        section:"SIZING CIBLE", comp:VMwareCalc,  badge:"VVF / VCF", sub:"VVF · VCF · Licence par cœur"},
+  {id:"compute", label:"Compute",              icon:BarChart2,  section:"SIZING CIBLE", comp:ComputeCalc, badge:"Compute",   sub:"Serveurs · HA · Sizing"},
+  {id:"storage", label:"Capacity Planning",    icon:HardDrive,  section:"SIZING CIBLE", comp:StorageCalc, badge:"Storage",   sub:"SAN · NAS · IOPS · RAID"},
+  {id:"veeam",   label:"Veeam Backup",         icon:Shield,     section:"SIZING CIBLE", comp:VeeamCalc,   badge:"Veeam v12", sub:"VBR · Cloud Connect · BaaS"},
+  {id:"windows", label:"Windows & SQL",        icon:Server,     section:"SIZING CIBLE", comp:WindowsCalc, badge:"Microsoft", sub:"Packs 2-cœurs · DC / STD"},
+  {id:"m365",    label:"Microsoft 365",        icon:Cloud,      section:"SIZING CIBLE", comp:M365Calc,    badge:"M365",      sub:"Sizing par profil utilisateur"},
 ];
 
 export default 
