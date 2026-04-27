@@ -42,44 +42,42 @@ async function extractText(file) {
 }
 
 // ─── APPEL API ANTHROPIC ──────────────────────────────────────────────────────
+// ─── API BACKEND ─────────────────────────────────────────────────────────────
+const API_BASE = "http://192.168.1.110:3001";
+
 async function analyzeWithClaude(project, extractedFiles) {
-  const filesContent = extractedFiles
-    .filter(f => f.extracted.text)
-    .map(f => `\n\n=== FICHIER: ${f.name} (${f.extracted.type.toUpperCase()}) ===\n${f.extracted.text.slice(0, 8000)}`)
-    .join("");
-  const prompt = `Tu es un expert avant-vente IT. Analyse les documents fournis pour le projet "${project.name}" du client "${project.client}".
-${project.context ? `Contexte additionnel: ${project.context}` : ""}
-${filesContent}
-
-Réponds UNIQUEMENT en JSON valide:
-{
-  "synthesis": "Résumé exécutif 3-4 phrases",
-  "enjeux": ["enjeu 1", "enjeu 2", "enjeu 3"],
-  "tags": ["tag1", "tag2", "tag3", "tag4"],
-  "axes": [
-    { "ico": "⏱", "label": "Disponibilité & Continuité", "sub": "PRA/PCA, RPO, RTO", "prio": "high" },
-    { "ico": "🔒", "label": "Sécurité", "sub": "Segmentation, conformité", "prio": "high" },
-    { "ico": "🌐", "label": "Réseau & Connectivité", "sub": "MPLS, VPN", "prio": "med" },
-    { "ico": "🖥", "label": "Infrastructure existante", "sub": "Capacité, obsolescence", "prio": "med" },
-    { "ico": "☁️", "label": "Cloud & Hébergement", "sub": "Stratégie cloud", "prio": "low" }
-  ],
-  "alerts": [{ "type": "warn", "text": "Point d attention détecté" }],
-  "data": { "vmCount": null, "totalRAM_GB": null, "totalCPU_cores": null, "totalStorage_TB": null }
-}
-Prio: high/med/low. data: valeurs numériques si trouvées sinon null. JSON uniquement.`;
-
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
+  const files = extractedFiles.map(f => ({
+    name: f.name,
+    type: f.extracted.type,
+    text: f.extracted.text,
+  }));
+  const response = await fetch(`${API_BASE}/api/analyze`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 1500,
-      messages: [{ role: "user", content: prompt }],
-    }),
+    body: JSON.stringify({ project, files }),
   });
-  const data = await response.json();
-  const raw = data.content?.[0]?.text || "";
-  return JSON.parse(raw.replace(/```json|```/g, "").trim());
+  if (!response.ok) throw new Error(await response.text());
+  return response.json();
+}
+
+async function fetchQuestions(project, analysis) {
+  const response = await fetch(`${API_BASE}/api/questions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project, analysis }),
+  });
+  if (!response.ok) throw new Error(await response.text());
+  return response.json();
+}
+
+async function fetchVariants(project, analysis, questions) {
+  const response = await fetch(`${API_BASE}/api/variants`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project, analysis, questions }),
+  });
+  if (!response.ok) throw new Error(await response.text());
+  return response.json();
 }
 
 // ─── CONSTANTES ───────────────────────────────────────────────────────────────
