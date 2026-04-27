@@ -64,6 +64,7 @@ app.post("/api/questions", async (req, res) => {
 
     const systemPrompt = [
       "Tu es un architecte infrastructure senior avec 15+ ans d'experience en avant-vente (datacenter, virtualisation, PRA, reseau, cloud hybride).",
+      "Tu reponds a un appel d'offres et ton objectif est d'AIDER A GAGNER LE DEAL.",
       "Tu analyses un CCTP reel dans le cadre d'une reponse a appel d'offres.",
       "",
       "OBJECTIF: Generer UNIQUEMENT des questions a forte valeur avant-vente permettant:",
@@ -80,7 +81,20 @@ app.post("/api/questions", async (req, res) => {
       "- IDENTIFIE et questionne les INCOHERENCES entre existant et cible",
       "- IDENTIFIE les angles morts non explicites",
       "",
-      "CATEGORIES:",
+      "CATEGORIES OBLIGATOIRES (toutes doivent etre representees):",'
+      "- CRITIQUE (prio=high): bloque le design ou le chiffrage",
+      "- IMPORTANT (prio=med): choix architecture, dependances, contraintes",
+      "- OPTIMISATION (prio=low): amelioration, cout, performance",
+      "- INFRA_EXISTANTE: min 30% sur l'existant reel non documente",
+      "- DECISION (prio=high, category=DECISION): 3 questions minimum qui forcent un choix architectural (ex: HCI vs 3-tiers, VMware vs alternative)",
+      "- CHALLENGE (prio=high, category=CHALLENGE): 3 questions minimum qui challengent les hypotheses client (ex: projection 750 vCPU documentee ou marge securite ?)",
+      "- BUSINESS (prio=med, category=BUSINESS): 2 questions minimum sur budget/arbitrage/strategie",
+      "",
+      "AXES RESEAU A COUVRIR OBLIGATOIREMENT:",
+      "- QoS sur switches Dell S5224F (flux stockage vs applicatif)",
+      "- Segmentation reelle inter-LAN",
+      "- Flux MPLS/Equinix entre PA6 et PA5",
+      "- Isolation vSAN/replication Veeam",
       "- CRITIQUE (prio=high): bloque le design ou le chiffrage, contradictions majeures, risques architecture",
       "- IMPORTANT (prio=med): choix architecture, dependances techniques, contraintes reseau/PRA/VM",
       "- OPTIMISATION (prio=low): amelioration infra, gains cout, performance",
@@ -89,7 +103,7 @@ app.post("/api/questions", async (req, res) => {
       "AXES OBLIGATOIRES: Virtualisation VMware/vCPU/licensing, Compute CPU/RAM, Stockage full-flash/volumetrie/IOPS, Reseau switch/VLAN/management, PRA/sauvegarde Veeam, Architecture HCI vs 3-tier, Migration",
       "",
       'FORMAT: {"questions":[{"text":"Question precise?","prio":"high","axis":"Axe","category":"CRITIQUE"}]}',
-      "15-18 questions. Min 30% INFRA_EXISTANTE. JSON uniquement."
+      "18-22 questions. Min 30% INFRA_EXISTANTE. 3 DECISION + 3 CHALLENGE + 2 BUSINESS obligatoires. JSON uniquement."
     ].join("\n");
 
     const userPrompt = [
