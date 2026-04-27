@@ -60,11 +60,12 @@ async function analyzeWithClaude(project, extractedFiles) {
   return response.json();
 }
 
-async function fetchQuestions(project, analysis) {
+async function fetchQuestions(project, analysis, extractedFiles = []) {
+  const files = extractedFiles.map(f => ({ name: f.name, type: f.extracted.type, text: f.extracted.text }));
   const response = await fetch(`${API_BASE}/api/questions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ project, analysis }),
+    body: JSON.stringify({ project, analysis, files }),
   });
   if (!response.ok) throw new Error(await response.text());
   return response.json();
@@ -634,6 +635,7 @@ function Step2Analysis({ state, setState, onNext, onPrev }) {
       }
       setPhase("analyzing");
       const result = await analyzeWithClaude(state.project, extracted);
+      setState(prev => ({ ...prev, extractedFiles: extracted }));
       setState(prev => ({ ...prev, analysis: result }));
       setPhase("done");
     } catch (e) {
@@ -890,6 +892,215 @@ function Step2Analysis({ state, setState, onNext, onPrev }) {
   );
 }
 
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ÉTAPE 3 — Questions client
+// ═══════════════════════════════════════════════════════════════════════════════
+function Step3Questions({ state, setState, onNext, onPrev }) {
+  const [phase,     setPhase]     = useState("idle");
+  const [errorMsg,  setErrorMsg]  = useState("");
+  const [tab,       setTab]       = useState("all");
+  const [bookmarks, setBookmarks] = useState(new Set());
+
+  const questions = state.questions || [];
+
+  const runFetch = async () => {
+    try {
+      setPhase("loading");
+      const result = await fetchQuestions(state.project, state.analysis, state.extractedFiles || []);
+      setState(prev => ({ ...prev, questions: result.questions || [] }));
+      setPhase("done");
+    } catch (e) {
+      setErrorMsg(e.message);
+      setPhase("error");
+    }
+  };
+
+  const toggleBm = (i) => setBookmarks(prev => {
+    const next = new Set(prev);
+    next.has(i) ? next.delete(i) : next.add(i);
+    return next;
+  });
+
+  const filtered = tab === "prio"
+    ? questions.filter(q => q.prio === "high")
+    : tab === "bookmarked"
+    ? questions.filter((_, i) => bookmarks.has(i))
+    : questions;
+
+  const card = {
+    background: "#fff", border: "1px solid rgba(0,0,0,0.08)",
+    borderRadius: 12, boxShadow: "0 1px 3px rgba(0,0,0,0.04)", overflow: "hidden",
+  };
+
+  if (phase === "idle" && questions.length === 0) {
+    return (
+      <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 340px", gap: 16, padding: 16, background: "#F4F6FA" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14, overflowY: "auto" }}>
+          <div style={card}>
+            <div style={{ padding: "11px 16px", borderBottom: "1px solid rgba(0,0,0,0.07)" }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#0F172A" }}>Synthèse — Étape 2</span>
+            </div>
+            <div style={{ padding: 14, fontSize: 13, color: "#475569", lineHeight: 1.7 }}>{state.analysis?.synthesis}</div>
+          </div>
+          <div style={{ ...card, background: "rgba(37,99,235,0.03)", border: "1px solid rgba(37,99,235,0.15)" }}>
+            <div style={{ padding: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#0F172A", marginBottom: 6 }}>Ce que Claude va générer</div>
+              {["15 questions techniques et contextualisées", "Référençant des éléments concrets du dossier", "Incohérences et angles morts identifiés", "Filtrables par priorité et sauvegardables"].map((item, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+                  <CheckCircle size={13} style={{ color: "#059669", flexShrink: 0 }} />
+                  <span style={{ fontSize: 12, color: "#475569" }}>{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={card}>
+            <div style={{ padding: "11px 14px", borderBottom: "1px solid rgba(0,0,0,0.07)" }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: "#0F172A" }}>Axes identifiés</span>
+            </div>
+            <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 6 }}>
+              {(state.analysis?.axes || []).map((ax, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 10px", borderRadius: 8, background: "#F8F9FC", border: "1px solid rgba(0,0,0,0.07)" }}>
+                  <span style={{ fontSize: 14 }}>{ax.ico}</span>
+                  <span style={{ fontSize: 12, fontWeight: 500, color: "#0F172A", flex: 1 }}>{ax.label}</span>
+                  <PrioBadge level={ax.prio} />
+                </div>
+              ))}
+            </div>
+          </div>
+          <button onClick={runFetch} style={{ padding: "13px 0", borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer", border: "none", background: "#2563EB", color: "#fff", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+            ✦ Générer les questions <ArrowRight size={14} />
+          </button>
+          <button onClick={onPrev} style={{ padding: "9px 0", borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: "pointer", border: "1px solid rgba(0,0,0,0.1)", background: "#fff", color: "#475569", fontFamily: "inherit" }}>← Retour à l'analyse</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (phase === "loading") {
+    return (
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", background: "#F4F6FA", flexDirection: "column", gap: 20 }}>
+        <div style={{ width: 64, height: 64, borderRadius: 16, background: "rgba(37,99,235,0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ width: 32, height: 32, border: "3px solid rgba(37,99,235,0.2)", borderTop: "3px solid #2563EB", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+        </div>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 16, fontWeight: 600, color: "#0F172A", marginBottom: 6 }}>Génération des questions...</div>
+          <div style={{ fontSize: 13, color: "#94A3B8" }}>Claude analyse les axes et génère des questions ciblées</div>
+        </div>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  if (phase === "error") {
+    return (
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", background: "#F4F6FA", flexDirection: "column", gap: 12 }}>
+        <div style={{ fontSize: 32 }}>❌</div>
+        <div style={{ fontSize: 15, fontWeight: 600, color: "#DC2626" }}>Erreur</div>
+        <div style={{ fontSize: 12, color: "#94A3B8" }}>{errorMsg}</div>
+        <button onClick={() => setPhase("idle")} style={{ padding: "8px 20px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", border: "none", background: "#2563EB", color: "#fff", fontFamily: "inherit" }}>Réessayer</button>
+      </div>
+    );
+  }
+
+  const TABS = [
+    { id: "all",        label: "Toutes",       count: questions.length },
+    { id: "prio",       label: "Prioritaires", count: questions.filter(q => q.prio === "high").length },
+    { id: "bookmarked", label: "Sauvegardées", count: bookmarks.size },
+  ];
+
+  return (
+    <div style={{ flex: 1, overflow: "hidden", display: "grid", gridTemplateColumns: "1fr 260px", gap: 14, padding: 14, background: "#F4F6FA" }}>
+      <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <div style={{ ...card, display: "flex", flexDirection: "column", height: "100%" }}>
+          <div style={{ padding: "11px 16px", borderBottom: "1px solid rgba(0,0,0,0.07)", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "#0F172A" }}>Questions à poser au client</span>
+            <button onClick={() => { setState(prev => ({ ...prev, questions: [] })); setPhase("idle"); }} style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 11px", borderRadius: 6, fontSize: 11, fontWeight: 500, cursor: "pointer", border: "1px solid rgba(0,0,0,0.08)", background: "#fff", color: "#475569", fontFamily: "inherit" }}>↺ Regénérer</button>
+          </div>
+          <div style={{ padding: "10px 14px 0", display: "flex", gap: 4, flexShrink: 0 }}>
+            {TABS.map(t => (
+              <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: "5px 12px", borderRadius: 99, fontSize: 11, fontWeight: 500, cursor: "pointer", border: "1px solid", borderColor: tab === t.id ? "#2563EB" : "rgba(0,0,0,0.08)", background: tab === t.id ? "#2563EB" : "#fff", color: tab === t.id ? "#fff" : "#475569", fontFamily: "inherit" }}>
+                {t.label} ({t.count})
+              </button>
+            ))}
+          </div>
+          <div style={{ padding: "10px 14px", flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 5 }}>
+            {filtered.length === 0 && (
+              <div style={{ textAlign: "center", padding: 40, color: "#94A3B8", fontSize: 13 }}>
+                {tab === "bookmarked" ? "Aucune question sauvegardée" : "Aucune question"}
+              </div>
+            )}
+            {filtered.map((q, i) => {
+              const realIdx = questions.indexOf(q);
+              const bm = bookmarks.has(realIdx);
+              const dot = PRIO_STYLES[q.prio] || PRIO_STYLES.med;
+              return (
+                <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "11px 13px", borderRadius: 8, border: "1px solid rgba(0,0,0,0.07)", background: "#fff" }}>
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: dot.color, flexShrink: 0, marginTop: 5 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, color: "#0F172A", lineHeight: 1.55 }}>{q.text}</div>
+                    {q.axis && <div style={{ fontSize: 10, color: "#94A3B8", marginTop: 3 }}>{q.axis}</div>}
+                  </div>
+                  <PrioBadge level={q.prio} />
+                  <div onClick={() => toggleBm(realIdx)} style={{ flexShrink: 0, cursor: "pointer", padding: 2, color: bm ? "#2563EB" : "#CBD5E1" }}>
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill={bm ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M4 2h8v12l-4-3-4 3V2z"/>
+                    </svg>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ padding: "10px 14px", borderTop: "1px solid rgba(0,0,0,0.07)", flexShrink: 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: 11, color: "#94A3B8" }}>{bookmarks.size} sauvegardée{bookmarks.size > 1 ? "s" : ""}</span>
+            <button style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 6, fontSize: 11, fontWeight: 500, cursor: "pointer", border: "1px solid rgba(0,0,0,0.08)", background: "#fff", color: "#475569", fontFamily: "inherit" }}>
+              <ArrowRight size={11} /> Exporter la liste
+            </button>
+          </div>
+        </div>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, overflowY: "auto" }}>
+        <div style={card}>
+          <div style={{ padding: "11px 14px", borderBottom: "1px solid rgba(0,0,0,0.07)" }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: "#0F172A" }}>Répartition par axe</span>
+          </div>
+          <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 5 }}>
+            {(state.analysis?.axes || []).map((ax, i) => {
+              const count = questions.filter(q => q.axis === ax.label).length;
+              return (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 6, background: "#F8F9FC" }}>
+                  <span style={{ fontSize: 13 }}>{ax.ico}</span>
+                  <span style={{ fontSize: 11, color: "#475569", flex: 1 }}>{ax.label}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "#2563EB" }}>{count}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        <div style={card}>
+          <div style={{ padding: "11px 14px", borderBottom: "1px solid rgba(0,0,0,0.07)" }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: "#0F172A" }}>Points d'attention</span>
+          </div>
+          <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 6 }}>
+            {(state.analysis?.alerts || []).map((al, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 7, padding: "7px 9px", borderRadius: 6, fontSize: 11, lineHeight: 1.45, background: al.type === "warn" ? "rgba(217,119,6,0.07)" : "rgba(37,99,235,0.07)", border: "1px solid " + (al.type === "warn" ? "rgba(217,119,6,0.2)" : "rgba(37,99,235,0.2)") }}>
+                <AlertTriangle size={11} style={{ color: al.type === "warn" ? "#D97706" : "#2563EB", flexShrink: 0, marginTop: 1 }} />
+                <span style={{ color: "#475569" }}>{al.text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <button onClick={onNext} style={{ padding: "11px 0", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", border: "none", background: "#2563EB", color: "#fff", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+          Cadre de solution <ArrowRight size={13} />
+        </button>
+        <button onClick={onPrev} style={{ padding: "9px 0", borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: "pointer", border: "1px solid rgba(0,0,0,0.1)", background: "#fff", color: "#475569", fontFamily: "inherit" }}>← Retour à l'analyse</button>
+      </div>
+    </div>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // PLACEHOLDERS étapes 2 → 5
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -976,7 +1187,10 @@ export default function PreSalesAssistant({ th, isMobile = false }) {
       {currentStep === 2 && (
         <Step2Analysis state={state} setState={setState} onNext={next} onPrev={prev} />
       )}
-      {currentStep >= 3 && (
+      {currentStep === 3 && (
+        <Step3Questions state={state} setState={setState} onNext={next} onPrev={prev} />
+      )}
+      {currentStep >= 4 && (
         <StepPlaceholder step={currentStepData} onNext={next} onPrev={prev} />
       )}
 
