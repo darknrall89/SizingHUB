@@ -29,7 +29,7 @@ async function extractText(file) {
   if (mime.includes("spreadsheet") || mime.includes("excel")) {
     const wb = XLSX.read(buf, { type: "array" });
     const text = wb.SheetNames.slice(0, 10).map(name => {
-      const rows = XLSX.utils.sheet_to_json(wb.Sheets[name], { defval: "" }).slice(0, 200);
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[name], { defval: "" }).slice(0, 500);
       return `=== Feuille: ${name} ===\n` + rows.map(r => Object.values(r).join(" | ")).join("\n");
     }).join("\n\n");
     return { type: "xlsx", text, sheets: wb.SheetNames };

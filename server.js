@@ -21,7 +21,7 @@ app.post("/api/analyze", async (req, res) => {
 
     const filesContent = files
       .filter(f => f.text)
-      .map(f => `\n\n=== FICHIER: ${f.name} (${f.type.toUpperCase()}) ===\n${f.text.slice(0, 8000)}`)
+      .map(f => `\n\n=== FICHIER: ${f.name} (${f.type.toUpperCase()}) ===\n${f.text.slice(0, 40000)}`)
       .join("");
 
     const prompt = `Tu es un expert avant-vente IT. Analyse les documents fournis pour le projet "${project.name}" du client "${project.client}".
