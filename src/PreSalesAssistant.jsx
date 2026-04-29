@@ -43,7 +43,7 @@ async function extractText(file) {
 
 // ─── APPEL API ANTHROPIC ──────────────────────────────────────────────────────
 // ─── API BACKEND ─────────────────────────────────────────────────────────────
-const API_BASE = "http://192.168.1.110:3001";
+const API_BASE = import.meta.env.VITE_API_URL || "https://sizinghub-api.onrender.com";
 
 async function analyzeWithClaude(project, extractedFiles) {
   const files = extractedFiles.map(f => ({
