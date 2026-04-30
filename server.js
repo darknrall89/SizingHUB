@@ -293,40 +293,94 @@ app.post("/api/understand", async (req, res) => {
 
 app.post("/api/variants", async (req, res) => {
   try {
-    const { project, analysis, questions } = req.body;
+    const { project, analysis, understanding, questions, answers = {} } = req.body;
 
-    const prompt = `Tu es un expert avant-vente IT.
-Génère 3 variantes de solution pour le projet "${project.name}" (client: ${project.client}).
+    const answeredQuestions = (questions || [])
+      .map((q, i) => answers[i] ? "Q: " + q.text + "\nR: " + answers[i] : null)
+      .filter(Boolean)
+      .join("\n\n");
 
-Synthèse: ${analysis.synthesis}
-Enjeux: ${analysis.enjeux.join(", ")}
+    const systemPrompt = [
+      "Tu es un architecte infrastructure senior avec 15+ ans d'experience en avant-vente.",
+      "Tu dois generer 3 variantes de solution adaptees au projet, scorees et comparables.",
+      "",
+      "REGLES:",
+      "- Les variantes doivent etre REELLEMENT DIFFERENTES (pas juste des variantes de prix)",
+      "- Chaque variante doit tenir compte des reponses du client si disponibles",
+      "- Le score doit refleter l'adequation reelle au besoin specifique du projet",
+      "- La variante recommandee doit etre clairement justifiee",
+      "- Les pros/cons doivent etre specifiques au contexte, pas generiques",
+      "",
+      'FORMAT JSON STRICT:',
+      '{',
+      '  "variants": [',
+      '    {',
+      '      "id": "v1",',
+      '      "title": "Titre court de la variante",',
+      '      "subtitle": "Sous-titre descriptif",',
+      '      "description": "Description 2-3 phrases du concept architectural",',
+      '      "architecture": {',
+      '        "servers": "Description precise des serveurs proposes",',
+      '        "storage": "Description precise du stockage propose",',
+      '        "network": "Description precise du reseau propose",',
+      '        "virtualization": "Hyperviseur et licences proposes",',
+      '        "backup": "Solution de sauvegarde proposee"',
+      '      },',
+      '      "scores": {',
+      '        "adequation": 85,',
+      '        "complexity_infra": 60,',
+      '        "complexity_deploy": 50,',
+      '        "cost_index": 70',
+      '      },',
+      '      "global_score": 78,',
+      '      "pros": ["avantage specifique 1", "avantage specifique 2"],',
+      '      "cons": ["inconvenient specifique 1", "inconvenient specifique 2"],',
+      '      "risks": ["risque identifie 1"],',
+      '      "recommended": false,',
+      '      "recommendation_reason": "Pourquoi recommander ou non cette variante"',
+      '    }',
+      '  ],',
+      '  "recommendation_summary": "Synthese de la recommandation finale en 2-3 phrases"',
+      '}',
+      "",
+      "adequation: adéquation au besoin (100=parfait)",
+      "complexity_infra: complexite infrastructure (100=tres complexe)",
+      "complexity_deploy: complexite deploiement (100=tres complexe)",
+      "cost_index: index de cout relatif (100=le plus cher)",
+      "global_score: score global adequation/complexite/cout (100=meilleur)",
+      "Une seule variante avec recommended=true.",
+      "JSON uniquement."
+    ].join("\n");
 
-Réponds UNIQUEMENT en JSON:
-{
-  "variants": [
-    {
-      "title": "On-Premises renforcé",
-      "description": "Description courte de la variante",
-      "score": 85,
-      "complexity_infra": 70,
-      "complexity_deploy": 60,
-      "axes": ["Infrastructure", "Sécurité"],
-      "pros": ["avantage 1", "avantage 2"],
-      "cons": ["inconvénient 1"],
-      "recommended": true
-    }
-  ]
-}
-Génère 3 variantes (On-Prem, Cloud/Hybride, Infogérance). Score 0-100. recommended: true pour la meilleure. JSON uniquement.`;
+    const userPrompt = [
+      "Projet: " + project.name + " | Client: " + project.client,
+      project.context ? "Contexte: " + project.context : "",
+      "",
+      "TYPE DE PROJET: " + (analysis.projectType || "ENTERPRISE_DC"),
+      "",
+      "SYNTHESE:",
+      analysis.synthesis,
+      "",
+      "COMPREHENSION PROJET:",
+      understanding ? JSON.stringify(understanding, null, 2) : "Non disponible",
+      "",
+      answeredQuestions ? "REPONSES CLIENT:\n" + answeredQuestions : "Aucune reponse client disponible",
+      "",
+      "Genere 3 variantes de solution adaptees a ce projet specifique."
+    ].join("\n");
 
     const message = await anthropic.messages.create({
       model: "claude-sonnet-4-5",
-      max_tokens: 2000,
-      messages: [{ role: "user", content: prompt }],
+      max_tokens: 4000,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userPrompt }],
     });
 
-    const raw    = message.content[0].text;
-    const clean  = raw.replace(/```json|```/g, "").trim();
+    const raw = message.content[0].text;
+    let clean = raw.replace(/```json|```/g, "").trim();
+    const start = clean.indexOf("{");
+    const end = clean.lastIndexOf("}");
+    if (start !== -1 && end !== -1) clean = clean.slice(start, end + 1);
     const result = JSON.parse(clean);
     res.json(result);
   } catch (err) {
@@ -334,6 +388,7 @@ Génère 3 variantes (On-Prem, Cloud/Hybride, Infogérance). Score 0-100. recomm
     res.status(500).json({ error: err.message });
   }
 });
+
 
 // ─── GET /api/health ──────────────────────────────────────────────────────────
 app.get("/api/health", (req, res) => res.json({ status: "ok", version: "1.0.0" }));

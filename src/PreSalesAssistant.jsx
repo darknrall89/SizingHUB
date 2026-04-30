@@ -82,11 +82,11 @@ async function fetchQuestions(project, analysis, extractedFiles = [], understand
   return response.json();
 }
 
-async function fetchVariants(project, analysis, questions) {
+async function fetchVariants(project, analysis, understanding, questions, answers) {
   const response = await fetch(`${API_BASE}/api/variants`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ project, analysis, questions }),
+    body: JSON.stringify({ project, analysis, understanding, questions, answers }),
   });
   if (!response.ok) throw new Error(await response.text());
   return response.json();
@@ -1445,6 +1445,299 @@ function Step3Questions({ state, setState, onNext, onPrev }) {
   );
 }
 
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ÉTAPE 5 — Cadre de solution (variantes)
+// ═══════════════════════════════════════════════════════════════════════════════
+function Step4Variants({ state, setState, onNext, onPrev }) {
+  const [phase,    setPhase]    = useState("idle");
+  const [errorMsg, setErrorMsg] = useState("");
+  const [selected, setSelected] = useState(null);
+
+  const variants = state.variants || [];
+  const summary  = state.variantSummary || "";
+
+  const runFetch = async () => {
+    try {
+      setPhase("loading");
+      const result = await fetchVariants(
+        state.project, state.analysis, state.understanding,
+        state.questions, state.answers || {}
+      );
+      setState(prev => ({ ...prev, variants: result.variants || [], variantSummary: result.recommendation_summary || "" }));
+      const rec = (result.variants || []).findIndex(v => v.recommended);
+      setSelected(rec >= 0 ? rec : 0);
+      setPhase("done");
+    } catch (e) {
+      setErrorMsg(e.message);
+      setPhase("error");
+    }
+  };
+
+  const card = {
+    background: "#fff", border: "1px solid rgba(0,0,0,0.08)",
+    borderRadius: 12, boxShadow: "0 1px 3px rgba(0,0,0,0.04)", overflow: "hidden",
+  };
+
+  const ScoreBar = ({ label, value, color = "#2563EB", invert = false }) => {
+    const display = invert ? 100 - value : value;
+    const c = display >= 70 ? "#059669" : display >= 40 ? "#D97706" : "#DC2626";
+    return (
+      <div style={{ marginBottom: 8 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+          <span style={{ fontSize: 11, color: "#475569" }}>{label}</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color: c }}>{display}/100</span>
+        </div>
+        <div style={{ height: 5, background: "#F1F5F9", borderRadius: 99, overflow: "hidden" }}>
+          <div style={{ width: display + "%", height: "100%", background: c, borderRadius: 99, transition: "width .5s" }} />
+        </div>
+      </div>
+    );
+  };
+
+  // ── Idle ──────────────────────────────────────────────────────────────────
+  if (phase === "idle" && variants.length === 0) {
+    const answersCount = Object.keys(state.answers || {}).length;
+    return (
+      <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 340px", gap: 16, padding: 16, background: "#F4F6FA" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14, overflowY: "auto" }}>
+          <div style={card}>
+            <div style={{ padding: "11px 16px", borderBottom: "1px solid rgba(0,0,0,0.07)" }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#0F172A" }}>Synthèse de qualification</span>
+            </div>
+            <div style={{ padding: 14, fontSize: 13, color: "#475569", lineHeight: 1.7 }}>{state.analysis?.synthesis}</div>
+          </div>
+          {answersCount > 0 && (
+            <div style={{ ...card, background: "rgba(5,150,105,0.03)", border: "1px solid rgba(5,150,105,0.15)" }}>
+              <div style={{ padding: "11px 16px", borderBottom: "1px solid rgba(5,150,105,0.1)" }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#059669" }}>✓ {answersCount} réponse{answersCount > 1 ? "s" : ""} client intégrée{answersCount > 1 ? "s" : ""}</span>
+              </div>
+              <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 6 }}>
+                {(state.questions || []).map((q, i) => state.answers?.[i] ? (
+                  <div key={i} style={{ padding: "7px 10px", background: "#fff", borderRadius: 7, border: "1px solid rgba(5,150,105,0.15)" }}>
+                    <div style={{ fontSize: 11, color: "#475569", marginBottom: 3 }}>{q.text}</div>
+                    <div style={{ fontSize: 12, fontWeight: 500, color: "#059669" }}>→ {state.answers[i]}</div>
+                  </div>
+                ) : null)}
+              </div>
+            </div>
+          )}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ ...card, background: "rgba(37,99,235,0.03)", border: "1px solid rgba(37,99,235,0.15)" }}>
+            <div style={{ padding: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#0F172A", marginBottom: 6 }}>Ce que Claude va générer</div>
+              {["3 variantes architecturales différentes", "Scores d'adéquation, complexité et coût", "Pros/cons spécifiques au contexte", "Recommandation motivée", "Architectures détaillées (serveurs, stockage, réseau)"].map((item, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+                  <CheckCircle size={13} style={{ color: "#059669", flexShrink: 0 }} />
+                  <span style={{ fontSize: 12, color: "#475569" }}>{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <button onClick={runFetch} style={{
+            padding: "13px 0", borderRadius: 10, fontSize: 13, fontWeight: 600,
+            cursor: "pointer", border: "none", background: "#2563EB", color: "#fff",
+            fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+          }}>
+            ✦ Générer le cadre de solution <ArrowRight size={14} />
+          </button>
+          <button onClick={onPrev} style={{
+            padding: "9px 0", borderRadius: 8, fontSize: 12, fontWeight: 500,
+            cursor: "pointer", border: "1px solid rgba(0,0,0,0.1)", background: "#fff",
+            color: "#475569", fontFamily: "inherit",
+          }}>← Retour aux questions</button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Loading ────────────────────────────────────────────────────────────────
+  if (phase === "loading") {
+    return (
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", background: "#F4F6FA", flexDirection: "column", gap: 20 }}>
+        <div style={{ width: 64, height: 64, borderRadius: 16, background: "rgba(37,99,235,0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ width: 32, height: 32, border: "3px solid rgba(37,99,235,0.2)", borderTop: "3px solid #2563EB", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+        </div>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 16, fontWeight: 600, color: "#0F172A", marginBottom: 6 }}>Génération du cadre de solution...</div>
+          <div style={{ fontSize: 13, color: "#94A3B8" }}>Claude analyse le projet et génère les variantes architecturales</div>
+        </div>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  // ── Error ──────────────────────────────────────────────────────────────────
+  if (phase === "error") {
+    return (
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", background: "#F4F6FA", flexDirection: "column", gap: 12 }}>
+        <div style={{ fontSize: 32 }}>❌</div>
+        <div style={{ fontSize: 15, fontWeight: 600, color: "#DC2626" }}>Erreur</div>
+        <div style={{ fontSize: 12, color: "#94A3B8" }}>{errorMsg}</div>
+        <button onClick={() => setPhase("idle")} style={{ padding: "8px 20px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", border: "none", background: "#2563EB", color: "#fff", fontFamily: "inherit" }}>Réessayer</button>
+      </div>
+    );
+  }
+
+  // ── Done : affichage des variantes ─────────────────────────────────────────
+  const v = selected !== null ? variants[selected] : null;
+  return (
+    <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column", gap: 0, background: "#F4F6FA" }}>
+
+      {/* Tabs variantes */}
+      <div style={{ display: "flex", gap: 10, padding: "12px 16px 0", flexShrink: 0 }}>
+        {variants.map((vr, i) => (
+          <div key={i} onClick={() => setSelected(i)} style={{
+            flex: 1, padding: "10px 14px", borderRadius: "10px 10px 0 0", cursor: "pointer",
+            background: selected === i ? "#fff" : "rgba(255,255,255,0.5)",
+            border: "1px solid rgba(0,0,0,0.08)", borderBottom: selected === i ? "1px solid #fff" : "1px solid rgba(0,0,0,0.08)",
+            position: "relative", transition: "all .15s",
+          }}>
+            {vr.recommended && (
+              <div style={{ position: "absolute", top: -8, right: 10, fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 99, background: "#2563EB", color: "#fff" }}>RECOMMANDÉ</div>
+            )}
+            <div style={{ fontSize: 12, fontWeight: 700, color: selected === i ? "#0F172A" : "#475569" }}>{vr.title}</div>
+            <div style={{ fontSize: 10, color: "#94A3B8", marginTop: 2 }}>{vr.subtitle}</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: selected === i ? "#2563EB" : "#94A3B8", marginTop: 4 }}>{vr.global_score}<span style={{ fontSize: 10, fontWeight: 500 }}>/100</span></div>
+          </div>
+        ))}
+      </div>
+
+      {/* Contenu variante sélectionnée */}
+      {v && (
+        <div style={{ flex: 1, overflow: "hidden", display: "grid", gridTemplateColumns: "1fr 1fr 280px", gap: 14, padding: "0 16px 16px", marginTop: -1 }}>
+
+          {/* Col 1 : Description + Architecture */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, overflowY: "auto", paddingTop: 14 }}>
+            <div style={card}>
+              <div style={{ padding: "11px 14px", borderBottom: "1px solid rgba(0,0,0,0.07)" }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#0F172A" }}>Description</span>
+              </div>
+              <div style={{ padding: 14, fontSize: 13, color: "#475569", lineHeight: 1.7 }}>{v.description}</div>
+            </div>
+            <div style={card}>
+              <div style={{ padding: "11px 14px", borderBottom: "1px solid rgba(0,0,0,0.07)" }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#0F172A" }}>Architecture proposée</span>
+              </div>
+              <div style={{ padding: 14 }}>
+                {[
+                  { label: "Serveurs",        value: v.architecture?.servers },
+                  { label: "Stockage",        value: v.architecture?.storage },
+                  { label: "Réseau",          value: v.architecture?.network },
+                  { label: "Virtualisation",  value: v.architecture?.virtualization },
+                  { label: "Sauvegarde",      value: v.architecture?.backup },
+                ].filter(r => r.value).map((row, i) => (
+                  <div key={i} style={{ display: "flex", gap: 10, padding: "7px 0", borderBottom: i < 4 ? "1px solid rgba(0,0,0,0.05)" : "none" }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: "#94A3B8", minWidth: 90, flexShrink: 0 }}>{row.label}</span>
+                    <span style={{ fontSize: 12, color: "#0F172A", lineHeight: 1.5, flex: 1 }}>{row.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Col 2 : Pros / Cons / Risques */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, overflowY: "auto", paddingTop: 14 }}>
+            <div style={card}>
+              <div style={{ padding: "11px 14px", borderBottom: "1px solid rgba(0,0,0,0.07)" }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#0F172A" }}>Avantages</span>
+              </div>
+              <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 6 }}>
+                {(v.pros || []).map((p, i) => (
+                  <div key={i} style={{ display: "flex", gap: 8, padding: "6px 10px", background: "rgba(5,150,105,0.06)", borderRadius: 7, border: "1px solid rgba(5,150,105,0.15)" }}>
+                    <span style={{ color: "#059669", flexShrink: 0 }}>✓</span>
+                    <span style={{ fontSize: 12, color: "#475569" }}>{p}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div style={card}>
+              <div style={{ padding: "11px 14px", borderBottom: "1px solid rgba(0,0,0,0.07)" }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#0F172A" }}>Inconvénients</span>
+              </div>
+              <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 6 }}>
+                {(v.cons || []).map((c, i) => (
+                  <div key={i} style={{ display: "flex", gap: 8, padding: "6px 10px", background: "rgba(217,119,6,0.06)", borderRadius: 7, border: "1px solid rgba(217,119,6,0.15)" }}>
+                    <span style={{ color: "#D97706", flexShrink: 0 }}>⚠</span>
+                    <span style={{ fontSize: 12, color: "#475569" }}>{c}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {v.risks?.length > 0 && (
+              <div style={card}>
+                <div style={{ padding: "11px 14px", borderBottom: "1px solid rgba(0,0,0,0.07)" }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "#0F172A" }}>Risques</span>
+                </div>
+                <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 6 }}>
+                  {v.risks.map((r, i) => (
+                    <div key={i} style={{ display: "flex", gap: 8, padding: "6px 10px", background: "rgba(220,38,38,0.06)", borderRadius: 7, border: "1px solid rgba(220,38,38,0.15)" }}>
+                      <span style={{ color: "#DC2626", flexShrink: 0 }}>!</span>
+                      <span style={{ fontSize: 12, color: "#475569" }}>{r}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Col 3 : Scores + Navigation */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, overflowY: "auto", paddingTop: 14 }}>
+            <div style={card}>
+              <div style={{ padding: "11px 14px", borderBottom: "1px solid rgba(0,0,0,0.07)" }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#0F172A" }}>Scores</span>
+              </div>
+              <div style={{ padding: 14 }}>
+                <div style={{ textAlign: "center", marginBottom: 14 }}>
+                  <div style={{ fontSize: 36, fontWeight: 800, color: "#2563EB" }}>{v.global_score}</div>
+                  <div style={{ fontSize: 11, color: "#94A3B8" }}>Score global /100</div>
+                </div>
+                <ScoreBar label="Adéquation besoins" value={v.scores?.adequation || 0} />
+                <ScoreBar label="Simplicité infra" value={v.scores?.complexity_infra || 0} invert />
+                <ScoreBar label="Facilité déploiement" value={v.scores?.complexity_deploy || 0} invert />
+                <ScoreBar label="Optimisation coût" value={v.scores?.cost_index || 0} invert />
+              </div>
+            </div>
+
+            {v.recommended && (
+              <div style={{ padding: "10px 12px", background: "rgba(37,99,235,0.06)", borderRadius: 8, border: "1px solid rgba(37,99,235,0.2)", fontSize: 12, color: "#475569", lineHeight: 1.5 }}>
+                <div style={{ fontWeight: 600, color: "#2563EB", marginBottom: 4 }}>💡 Pourquoi cette variante ?</div>
+                {v.recommendation_reason}
+              </div>
+            )}
+
+            {summary && (
+              <div style={{ padding: "10px 12px", background: "#F8F9FC", borderRadius: 8, border: "1px solid rgba(0,0,0,0.07)", fontSize: 12, color: "#475569", lineHeight: 1.5 }}>
+                <div style={{ fontWeight: 600, color: "#0F172A", marginBottom: 4 }}>Synthèse</div>
+                {summary}
+              </div>
+            )}
+
+            <button onClick={onNext} style={{
+              padding: "11px 0", borderRadius: 8, fontSize: 12, fontWeight: 600,
+              cursor: "pointer", border: "none", background: "#2563EB", color: "#fff",
+              fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+            }}>
+              Rendu final <ArrowRight size={13} />
+            </button>
+            <button onClick={() => { setState(prev => ({ ...prev, variants: [], variantSummary: "" })); setPhase("idle"); }} style={{
+              padding: "8px 0", borderRadius: 8, fontSize: 11, fontWeight: 500,
+              cursor: "pointer", border: "1px solid rgba(0,0,0,0.1)", background: "#fff",
+              color: "#475569", fontFamily: "inherit",
+            }}>↺ Regénérer</button>
+            <button onClick={onPrev} style={{
+              padding: "8px 0", borderRadius: 8, fontSize: 11, fontWeight: 500,
+              cursor: "pointer", border: "1px solid rgba(0,0,0,0.1)", background: "#fff",
+              color: "#475569", fontFamily: "inherit",
+            }}>← Retour aux questions</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // PLACEHOLDERS étapes 2 → 5
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1538,7 +1831,10 @@ export default function PreSalesAssistant({ th, isMobile = false }) {
       {currentStep === 4 && (
         <Step3Questions state={state} setState={setState} onNext={next} onPrev={prev} />
       )}
-      {currentStep >= 5 && (
+      {currentStep === 5 && (
+        <Step4Variants state={state} setState={setState} onNext={next} onPrev={prev} />
+      )}
+      {currentStep >= 6 && (
         <StepPlaceholder step={currentStepData} onNext={next} onPrev={prev} />
       )}
 
