@@ -73,9 +73,10 @@ JSON uniquement.`;
 // Retourne: { questions: [{ text, prio, axis }] }
 app.post("/api/questions", async (req, res) => {
   try {
-    const { project, analysis, files = [] } = req.body;
+    const { project, analysis, files = [], understanding = null } = req.body;
     console.log("Files reçus:", files.length, files.map(f => f.name + " - " + (f.text || "").length + " chars"));
     console.log("Project type:", analysis.projectType);
+    console.log("Understanding:", understanding ? "disponible" : "absent");
 
     const rawContent = files
       .filter(f => f.text)
@@ -177,6 +178,11 @@ app.post("/api/questions", async (req, res) => {
       "CONTENU BRUT DES DOCUMENTS (lis attentivement avant de generer les questions):",
       rawContent,
       "",
+      understanding ? "\n\nFICHE DE COMPREHENSION PROJET (BASE POUR LES QUESTIONS):" : "",
+      understanding ? JSON.stringify(understanding, null, 2) : "",
+      "",
+      understanding ? "IMPORTANT: Ne pose PAS de questions sur les knownFacts ci-dessus. Concentre-toi sur les blindSpots, inconsistencies et riskAreas." : "",
+      "",
       "Genere des questions pointues adaptees au type de projet " + projectType + "."
     ].join("
 ");
@@ -205,6 +211,95 @@ app.post("/api/questions", async (req, res) => {
 // ─── POST /api/variants ───────────────────────────────────────────────────────
 // Reçoit : { project, analysis, questions }
 // Retourne: { variants: [{ title, description, score, complexity, axes, pros, cons }] }
+app.post("/api/understand", async (req, res) => {
+  try {
+    const { project, analysis, files = [] } = req.body;
+
+    const rawContent = files
+      .filter(f => f.text)
+      .map(f => "\n\n=== FICHIER: " + f.name + " ===\n" + f.text.slice(0, 60000))
+      .join("");
+
+    const systemPrompt = [
+      "Tu es un architecte infrastructure senior avec 15+ ans d'experience en avant-vente.",
+      "Tu dois produire une FICHE DE COMPREHENSION PROJET avant de generer des questions.",
+      "Cette fiche servira de base pour generer des questions pertinentes.",
+      "",
+      "INSTRUCTIONS:",
+      "- Lis TOUT le contenu des documents fournis",
+      "- Identifie ce qui EST explicitement dans les documents (ne pas poser de questions sur ces points)",
+      "- Identifie ce qui MANQUE ou est ambigu (angles morts = futurs questions)",
+      "- Sois factuel et precis",
+      "",
+      'FORMAT JSON STRICT:',
+      '{',
+      '  "projectType": "CRITICAL_INDUSTRIAL",',
+      '  "projectSummary": "Description precise du projet en 2-3 phrases",',
+      '  "existingArch": {',
+      '    "servers": "Description precise des serveurs existants",',
+      '    "storage": "Description precise du stockage existant",',
+      '    "network": "Description precise du reseau existant",',
+      '    "virtualization": "Hyperviseur, version, nombre VMs",',
+      '    "backup": "Solution de sauvegarde existante"',
+      '  },',
+      '  "targetArch": {',
+      '    "servers": "Ce qui est demande pour les serveurs",',
+      '    "storage": "Ce qui est demande pour le stockage",',
+      '    "network": "Ce qui est demande pour le reseau",',
+      '    "virtualization": "Hyperviseur cible demande",',
+      '    "backup": "Sauvegarde cible demandee"',
+      '  },',
+      '  "knownFacts": [',
+      '    "Fait 1 clairement documente",',
+      '    "Fait 2 clairement documente"',
+      '  ],',
+      '  "blindSpots": [',
+      '    "Element manquant ou ambigu 1",',
+      '    "Element manquant ou ambigu 2"',
+      '  ],',
+      '  "inconsistencies": [',
+      '    "Incoherence detectee entre X et Y"',
+      '  ],',
+      '  "riskAreas": [',
+      '    "Zone de risque identifiee"',
+      '  ]',
+      '}',
+      "JSON uniquement, aucun texte avant ou apres."
+    ].join("\n");
+
+    const userPrompt = [
+      "Projet: " + project.name + " | Client: " + project.client,
+      project.context ? "Contexte: " + project.context : "",
+      "",
+      "SYNTHESE ETAPE 2:",
+      analysis.synthesis,
+      "",
+      "CONTENU BRUT DES DOCUMENTS:",
+      rawContent,
+      "",
+      "Produis la fiche de comprehension projet."
+    ].join("\n");
+
+    const message = await anthropic.messages.create({
+      model: "claude-sonnet-4-5",
+      max_tokens: 3000,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userPrompt }],
+    });
+
+    const raw = message.content[0].text;
+    let clean = raw.replace(/```json|```/g, "").trim();
+    const start = clean.indexOf("{");
+    const end = clean.lastIndexOf("}");
+    if (start !== -1 && end !== -1) clean = clean.slice(start, end + 1);
+    const result = JSON.parse(clean);
+    res.json(result);
+  } catch (err) {
+    console.error("Erreur /api/understand:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post("/api/variants", async (req, res) => {
   try {
     const { project, analysis, questions } = req.body;

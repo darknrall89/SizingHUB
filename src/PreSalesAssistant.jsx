@@ -60,12 +60,23 @@ async function analyzeWithClaude(project, extractedFiles) {
   return response.json();
 }
 
-async function fetchQuestions(project, analysis, extractedFiles = []) {
+async function fetchUnderstanding(project, analysis, extractedFiles = []) {
+  const files = extractedFiles.map(f => ({ name: f.name, type: f.extracted.type, text: f.extracted.text }));
+  const response = await fetch(`${API_BASE}/api/understand`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project, analysis, files }),
+  });
+  if (!response.ok) throw new Error(await response.text());
+  return response.json();
+}
+
+async function fetchQuestions(project, analysis, extractedFiles = [], understanding = null) {
   const files = extractedFiles.map(f => ({ name: f.name, type: f.extracted.type, text: f.extracted.text }));
   const response = await fetch(`${API_BASE}/api/questions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ project, analysis, files }),
+    body: JSON.stringify({ project, analysis, files, understanding }),
   });
   if (!response.ok) throw new Error(await response.text());
   return response.json();
@@ -84,11 +95,12 @@ async function fetchVariants(project, analysis, questions) {
 // ─── CONSTANTES ───────────────────────────────────────────────────────────────
 
 const STEPS = [
-  { id: 1, label: "Upload & Contexte",  sub: "Documents et informations"      },
-  { id: 2, label: "Analyse & Synthèse", sub: "Lecture du dossier"             },
-  { id: 3, label: "Questions client",   sub: "Axes & points de clarification" },
-  { id: 4, label: "Cadre de solution",  sub: "Variantes & recommandation"     },
-  { id: 5, label: "Rendu final",        sub: "Export PowerPoint"              },
+  { id: 1, label: "Upload & Contexte",       sub: "Documents et informations"      },
+  { id: 2, label: "Analyse & Synthèse",      sub: "Lecture du dossier"             },
+  { id: 3, label: "Compréhension projet",    sub: "Fiche structurée & angles morts" },
+  { id: 4, label: "Questions client",        sub: "Axes & points de clarification" },
+  { id: 5, label: "Cadre de solution",       sub: "Variantes & recommandation"     },
+  { id: 6, label: "Rendu final",             sub: "Export PowerPoint"              },
 ];
 
 // Types de fichiers acceptés + rendu visuel
@@ -119,11 +131,12 @@ const fmtSize = (bytes) => {
 //   variants:  { title, score, axes, selected }[]  ← étape 4
 // }
 const INITIAL_STATE = {
-  project:   { name: "", client: "", context: "" },
-  files:     [],
-  analysis:  null,
-  questions: [],
-  variants:  [],
+  project:      { name: "", client: "", context: "" },
+  files:        [],
+  analysis:     null,
+  understanding: null,
+  questions:    [],
+  variants:     [],
 };
 
 // ─── STEPPER ──────────────────────────────────────────────────────────────────
@@ -893,6 +906,237 @@ function Step2Analysis({ state, setState, onNext, onPrev }) {
 }
 
 
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ÉTAPE 3 — Compréhension projet (fiche structurée)
+// ═══════════════════════════════════════════════════════════════════════════════
+function Step2bUnderstanding({ state, setState, onNext, onPrev }) {
+  const [phase, setPhase] = useState("idle");
+  const [errorMsg, setErrorMsg] = useState("");
+
+  const understanding = state.understanding;
+
+  const runFetch = async () => {
+    try {
+      setPhase("loading");
+      const result = await fetchUnderstanding(state.project, state.analysis, state.extractedFiles || []);
+      setState(prev => ({ ...prev, understanding: result }));
+      setPhase("done");
+    } catch (e) {
+      setErrorMsg(e.message);
+      setPhase("error");
+    }
+  };
+
+  const card = {
+    background: "#fff", border: "1px solid rgba(0,0,0,0.08)",
+    borderRadius: 12, boxShadow: "0 1px 3px rgba(0,0,0,0.04)", overflow: "hidden",
+  };
+
+  const Section = ({ title, items, color = "#2563EB", bg = "rgba(37,99,235,0.06)", icon = "•" }) => (
+    items && items.length > 0 ? (
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>{title}</div>
+        {items.map((item, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "6px 10px", borderRadius: 6, background: bg, border: "1px solid " + color.replace(")", ",0.15)").replace("rgb", "rgba"), marginBottom: 4 }}>
+            <span style={{ color, flexShrink: 0, fontSize: 12 }}>{icon}</span>
+            <span style={{ fontSize: 12, color: "#475569", lineHeight: 1.5 }}>{item}</span>
+          </div>
+        ))}
+      </div>
+    ) : null
+  );
+
+  const ArchRow = ({ label, value }) => value && value !== "Non documenté" ? (
+    <div style={{ display: "flex", gap: 10, padding: "6px 0", borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
+      <span style={{ fontSize: 11, fontWeight: 600, color: "#94A3B8", minWidth: 100, flexShrink: 0 }}>{label}</span>
+      <span style={{ fontSize: 12, color: "#0F172A", lineHeight: 1.5 }}>{value}</span>
+    </div>
+  ) : null;
+
+  if (phase === "idle" && !understanding) {
+    return (
+      <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 340px", gap: 16, padding: 16, background: "#F4F6FA" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14, overflowY: "auto" }}>
+          <div style={card}>
+            <div style={{ padding: "11px 16px", borderBottom: "1px solid rgba(0,0,0,0.07)" }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#0F172A" }}>Synthèse — Étape 2</span>
+            </div>
+            <div style={{ padding: 14, fontSize: 13, color: "#475569", lineHeight: 1.7 }}>{state.analysis?.synthesis}</div>
+          </div>
+          <div style={{ ...card, background: "rgba(37,99,235,0.03)", border: "1px solid rgba(37,99,235,0.15)" }}>
+            <div style={{ padding: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#0F172A", marginBottom: 6 }}>Ce que Claude va produire</div>
+              {[
+                "Fiche de compréhension structurée du projet",
+                "Architecture existante lue et documentée",
+                "Architecture cible demandée",
+                "Faits connus (ne seront PAS posés en questions)",
+                "Angles morts et incohérences détectés",
+                "Zones de risque identifiées"
+              ].map((item, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+                  <CheckCircle size={13} style={{ color: "#059669", flexShrink: 0 }} />
+                  <span style={{ fontSize: 12, color: "#475569" }}>{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={card}>
+            <div style={{ padding: "11px 14px", borderBottom: "1px solid rgba(0,0,0,0.07)" }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: "#0F172A" }}>Type détecté</span>
+            </div>
+            <div style={{ padding: 14 }}>
+              {(() => {
+                const types = {
+                  ENTERPRISE_DC: { label: "Enterprise Datacenter", color: "#2563EB", bg: "rgba(37,99,235,0.08)", icon: "🏢" },
+                  CRITICAL_INDUSTRIAL: { label: "Infra critique industrielle", color: "#DC2626", bg: "rgba(220,38,38,0.08)", icon: "⚡" },
+                  SMB: { label: "PME / Mid-market", color: "#059669", bg: "rgba(5,150,105,0.08)", icon: "🏪" },
+                  CLOUD_MIGRATION: { label: "Migration Cloud", color: "#7C3AED", bg: "rgba(124,58,237,0.08)", icon: "☁️" },
+                  HARDWARE_ACQUISITION: { label: "Acquisition matérielle", color: "#D97706", bg: "rgba(217,119,6,0.08)", icon: "🖥" },
+                };
+                const t = types[state.analysis?.projectType] || types.ENTERPRISE_DC;
+                return (
+                  <div style={{ padding: "10px 12px", borderRadius: 8, background: t.bg, border: "1px solid " + t.color + "30", display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ fontSize: 24 }}>{t.icon}</span>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: t.color }}>{t.label}</div>
+                      <div style={{ fontSize: 10, color: "#94A3B8", marginTop: 2 }}>{state.analysis?.projectType}</div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+          <button onClick={runFetch} style={{
+            padding: "13px 0", borderRadius: 10, fontSize: 13, fontWeight: 600,
+            cursor: "pointer", border: "none", background: "#2563EB", color: "#fff",
+            fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+          }}>
+            ✦ Analyser la compréhension <ArrowRight size={14} />
+          </button>
+          <button onClick={onPrev} style={{
+            padding: "9px 0", borderRadius: 8, fontSize: 12, fontWeight: 500,
+            cursor: "pointer", border: "1px solid rgba(0,0,0,0.1)", background: "#fff",
+            color: "#475569", fontFamily: "inherit",
+          }}>← Retour à l'analyse</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (phase === "loading") {
+    return (
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", background: "#F4F6FA", flexDirection: "column", gap: 20 }}>
+        <div style={{ width: 64, height: 64, borderRadius: 16, background: "rgba(37,99,235,0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ width: 32, height: 32, border: "3px solid rgba(37,99,235,0.2)", borderTop: "3px solid #2563EB", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+        </div>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 16, fontWeight: 600, color: "#0F172A", marginBottom: 6 }}>Lecture approfondie en cours...</div>
+          <div style={{ fontSize: 13, color: "#94A3B8" }}>Claude lit et structure la compréhension du projet</div>
+        </div>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  if (phase === "error") {
+    return (
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", background: "#F4F6FA", flexDirection: "column", gap: 12 }}>
+        <div style={{ fontSize: 32 }}>❌</div>
+        <div style={{ fontSize: 15, fontWeight: 600, color: "#DC2626" }}>Erreur</div>
+        <div style={{ fontSize: 12, color: "#94A3B8" }}>{errorMsg}</div>
+        <button onClick={() => setPhase("idle")} style={{ padding: "8px 20px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", border: "none", background: "#2563EB", color: "#fff", fontFamily: "inherit" }}>Réessayer</button>
+      </div>
+    );
+  }
+
+  const u = understanding;
+  return (
+    <div style={{ flex: 1, overflow: "hidden", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, padding: 14, background: "#F4F6FA" }}>
+
+      {/* Colonne gauche */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, overflowY: "auto" }}>
+
+        {/* Type + Résumé */}
+        <div style={card}>
+          <div style={{ padding: "11px 14px", borderBottom: "1px solid rgba(0,0,0,0.07)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: "#0F172A" }}>Compréhension projet</span>
+            {u.projectType && (
+              <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 99, background: "rgba(37,99,235,0.1)", color: "#2563EB" }}>{u.projectType}</span>
+            )}
+          </div>
+          <div style={{ padding: 14, fontSize: 13, color: "#475569", lineHeight: 1.7 }}>{u.projectSummary}</div>
+        </div>
+
+        {/* Architecture existante */}
+        <div style={card}>
+          <div style={{ padding: "11px 14px", borderBottom: "1px solid rgba(0,0,0,0.07)" }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: "#0F172A" }}>Architecture existante lue</span>
+          </div>
+          <div style={{ padding: 14 }}>
+            <ArchRow label="Serveurs" value={u.existingArch?.servers} />
+            <ArchRow label="Stockage" value={u.existingArch?.storage} />
+            <ArchRow label="Réseau" value={u.existingArch?.network} />
+            <ArchRow label="Virtua." value={u.existingArch?.virtualization} />
+            <ArchRow label="Backup" value={u.existingArch?.backup} />
+          </div>
+        </div>
+
+        {/* Architecture cible */}
+        <div style={card}>
+          <div style={{ padding: "11px 14px", borderBottom: "1px solid rgba(0,0,0,0.07)" }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: "#0F172A" }}>Architecture cible demandée</span>
+          </div>
+          <div style={{ padding: 14 }}>
+            <ArchRow label="Serveurs" value={u.targetArch?.servers} />
+            <ArchRow label="Stockage" value={u.targetArch?.storage} />
+            <ArchRow label="Réseau" value={u.targetArch?.network} />
+            <ArchRow label="Virtua." value={u.targetArch?.virtualization} />
+            <ArchRow label="Backup" value={u.targetArch?.backup} />
+          </div>
+        </div>
+      </div>
+
+      {/* Colonne droite */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, overflowY: "auto" }}>
+
+        <div style={card}>
+          <div style={{ padding: "11px 14px", borderBottom: "1px solid rgba(0,0,0,0.07)" }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: "#0F172A" }}>Analyse</span>
+          </div>
+          <div style={{ padding: 14 }}>
+            <Section title="✅ Faits connus (pas de questions)" items={u.knownFacts} color="#059669" bg="rgba(5,150,105,0.06)" icon="✓" />
+            <Section title="🔍 Angles morts détectés" items={u.blindSpots} color="#2563EB" bg="rgba(37,99,235,0.06)" icon="?" />
+            <Section title="⚠️ Incohérences" items={u.inconsistencies} color="#D97706" bg="rgba(217,119,6,0.06)" icon="!" />
+            <Section title="🔴 Zones de risque" items={u.riskAreas} color="#DC2626" bg="rgba(220,38,38,0.06)" icon="⚠" />
+          </div>
+        </div>
+
+        <button onClick={onNext} style={{
+          padding: "11px 0", borderRadius: 8, fontSize: 12, fontWeight: 600,
+          cursor: "pointer", border: "none", background: "#2563EB", color: "#fff",
+          fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+        }}>
+          Générer les questions <ArrowRight size={13} />
+        </button>
+        <button onClick={() => { setState(prev => ({ ...prev, understanding: null })); setPhase("idle"); }} style={{
+          padding: "8px 0", borderRadius: 8, fontSize: 11, fontWeight: 500,
+          cursor: "pointer", border: "1px solid rgba(0,0,0,0.1)", background: "#fff",
+          color: "#475569", fontFamily: "inherit",
+        }}>↺ Relancer la compréhension</button>
+        <button onClick={onPrev} style={{
+          padding: "8px 0", borderRadius: 8, fontSize: 11, fontWeight: 500,
+          cursor: "pointer", border: "1px solid rgba(0,0,0,0.1)", background: "#fff",
+          color: "#475569", fontFamily: "inherit",
+        }}>← Retour à l'analyse</button>
+      </div>
+    </div>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // ÉTAPE 3 — Questions client
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -907,7 +1151,7 @@ function Step3Questions({ state, setState, onNext, onPrev }) {
   const runFetch = async () => {
     try {
       setPhase("loading");
-      const result = await fetchQuestions(state.project, state.analysis, state.extractedFiles || []);
+      const result = await fetchQuestions(state.project, state.analysis, state.extractedFiles || [], state.understanding);
       setState(prev => ({ ...prev, questions: result.questions || [] }));
       setPhase("done");
     } catch (e) {
@@ -1158,10 +1402,11 @@ export default function PreSalesAssistant({ th, isMobile = false }) {
 
   const CONTINUE_LABELS = {
     1: "Lancer l'analyse",
-    2: "Voir les questions client",
-    3: "Voir le cadre de solution",
-    4: "Générer le rendu final",
-    5: "Terminer",
+    2: "Analyser la compréhension",
+    3: "Voir les questions client",
+    4: "Voir le cadre de solution",
+    5: "Générer le rendu final",
+    6: "Terminer",
   };
 
   const currentStepData = STEPS.find(s => s.id === currentStep);
@@ -1188,9 +1433,12 @@ export default function PreSalesAssistant({ th, isMobile = false }) {
         <Step2Analysis state={state} setState={setState} onNext={next} onPrev={prev} />
       )}
       {currentStep === 3 && (
+        <Step2bUnderstanding state={state} setState={setState} onNext={next} onPrev={prev} />
+      )}
+      {currentStep === 4 && (
         <Step3Questions state={state} setState={setState} onNext={next} onPrev={prev} />
       )}
-      {currentStep >= 4 && (
+      {currentStep >= 5 && (
         <StepPlaceholder step={currentStepData} onNext={next} onPrev={prev} />
       )}
 
