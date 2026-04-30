@@ -2156,8 +2156,8 @@ export default function PreSalesAssistant({ th, isMobile = false }) {
       {currentStep === 5 && (
         <Step4Variants state={state} setState={setState} onNext={next} onPrev={prev} />
       )}
-      {currentStep >= 6 && (
-        <StepPlaceholder step={currentStepData} onNext={next} onPrev={prev} />
+      {currentStep === 6 && (
+        <Step5Final state={state} onPrev={prev} />
       )}
 
       <BottomBar
