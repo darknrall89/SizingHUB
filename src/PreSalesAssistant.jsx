@@ -907,6 +907,79 @@ function Step2Analysis({ state, setState, onNext, onPrev }) {
 
 
 
+
+// ─── Modal de réponse ────────────────────────────────────────────────────────
+function AnswerModal({ question, answer, onSave, onClose }) {
+  const [text, setText] = useState(answer || "");
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 1000,
+      display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+    }} onClick={onClose}>
+      <div style={{
+        background: "#fff", borderRadius: 14, width: "100%", maxWidth: 560,
+        boxShadow: "0 20px 60px rgba(0,0,0,0.15)", overflow: "hidden",
+      }} onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div style={{ padding: "14px 18px", borderBottom: "1px solid rgba(0,0,0,0.07)", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#2563EB", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 5 }}>Question client</div>
+            <div style={{ fontSize: 13, color: "#0F172A", lineHeight: 1.55, fontWeight: 500 }}>{question.text}</div>
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#94A3B8", fontSize: 18, flexShrink: 0, padding: 2 }}>✕</button>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: 18 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "#475569", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
+            Réponse / Notes AV
+          </div>
+          <textarea
+            autoFocus
+            value={text}
+            onChange={e => setText(e.target.value)}
+            placeholder="Saisir la réponse du client ou vos notes... (optionnel)"
+            style={{
+              width: "100%", minHeight: 120, padding: "10px 12px",
+              borderRadius: 8, border: "1px solid rgba(0,0,0,0.12)",
+              fontSize: 13, color: "#0F172A", fontFamily: "inherit",
+              lineHeight: 1.6, resize: "vertical", outline: "none",
+              background: "#F8F9FC", boxSizing: "border-box",
+            }}
+            onFocus={e => e.target.style.borderColor = "#2563EB"}
+            onBlur={e => e.target.style.borderColor = "rgba(0,0,0,0.12)"}
+          />
+          <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 6 }}>
+            💡 Cette réponse influencera les variantes de solution à l'étape suivante
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: "12px 18px", borderTop: "1px solid rgba(0,0,0,0.07)", display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          {answer && (
+            <button onClick={() => { onSave(""); onClose(); }} style={{
+              padding: "7px 14px", borderRadius: 7, fontSize: 12, fontWeight: 500,
+              cursor: "pointer", border: "1px solid rgba(220,38,38,0.2)",
+              background: "rgba(220,38,38,0.05)", color: "#DC2626", fontFamily: "inherit",
+            }}>Effacer</button>
+          )}
+          <button onClick={onClose} style={{
+            padding: "7px 14px", borderRadius: 7, fontSize: 12, fontWeight: 500,
+            cursor: "pointer", border: "1px solid rgba(0,0,0,0.1)",
+            background: "#fff", color: "#475569", fontFamily: "inherit",
+          }}>Annuler</button>
+          <button onClick={() => { onSave(text); onClose(); }} style={{
+            padding: "7px 16px", borderRadius: 7, fontSize: 12, fontWeight: 600,
+            cursor: "pointer", border: "none", background: "#2563EB",
+            color: "#fff", fontFamily: "inherit",
+          }}>Enregistrer</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // ÉTAPE 3 — Compréhension projet (fiche structurée)
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1145,8 +1218,17 @@ function Step3Questions({ state, setState, onNext, onPrev }) {
   const [errorMsg,  setErrorMsg]  = useState("");
   const [tab,       setTab]       = useState("all");
   const [bookmarks, setBookmarks] = useState(new Set());
+  const [answers,   setAnswers]   = useState(state.answers || {});
+  const [modalQ,    setModalQ]    = useState(null); // question ouverte dans le modal
 
   const questions = state.questions || [];
+
+  const saveAnswer = (idx, text) => {
+    const next = { ...answers, [idx]: text };
+    if (!text) delete next[idx];
+    setAnswers(next);
+    setState(prev => ({ ...prev, answers: next }));
+  };
 
   const runFetch = async () => {
     try {
@@ -1170,6 +1252,8 @@ function Step3Questions({ state, setState, onNext, onPrev }) {
     ? questions.filter(q => q.prio === "high")
     : tab === "bookmarked"
     ? questions.filter((_, i) => bookmarks.has(i))
+    : tab === "answered"
+    ? questions.filter((_, i) => answers[i])
     : questions;
 
   const card = {
@@ -1252,6 +1336,7 @@ function Step3Questions({ state, setState, onNext, onPrev }) {
   const TABS = [
     { id: "all",        label: "Toutes",       count: questions.length },
     { id: "prio",       label: "Prioritaires", count: questions.filter(q => q.prio === "high").length },
+    { id: "answered",   label: "Répondues",    count: Object.keys(answers).length },
     { id: "bookmarked", label: "Sauvegardées", count: bookmarks.size },
   ];
 
@@ -1297,8 +1382,18 @@ function Step3Questions({ state, setState, onNext, onPrev }) {
               );
             })}
           </div>
+          {modalQ && (
+            <AnswerModal
+              question={modalQ.q}
+              answer={answers[modalQ.idx]}
+              onSave={text => saveAnswer(modalQ.idx, text)}
+              onClose={() => setModalQ(null)}
+            />
+          )}
           <div style={{ padding: "10px 14px", borderTop: "1px solid rgba(0,0,0,0.07)", flexShrink: 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: 11, color: "#94A3B8" }}>{bookmarks.size} sauvegardée{bookmarks.size > 1 ? "s" : ""}</span>
+            <span style={{ fontSize: 11, color: "#94A3B8" }}>
+              {Object.keys(answers).length} réponse{Object.keys(answers).length > 1 ? "s" : ""} · {bookmarks.size} sauvegardée{bookmarks.size > 1 ? "s" : ""}
+            </span>
             <button style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 6, fontSize: 11, fontWeight: 500, cursor: "pointer", border: "1px solid rgba(0,0,0,0.08)", background: "#fff", color: "#475569", fontFamily: "inherit" }}>
               <ArrowRight size={11} /> Exporter la liste
             </button>
