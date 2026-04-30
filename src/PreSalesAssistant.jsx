@@ -82,6 +82,16 @@ async function fetchQuestions(project, analysis, extractedFiles = [], understand
   return response.json();
 }
 
+async function fetchPptxContent(project, analysis, understanding, questions, answers, selectedVariant, allVariants) {
+  const response = await fetch(`${API_BASE}/api/generate-pptx-content`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project, analysis, understanding, questions, answers, selectedVariant, allVariants }),
+  });
+  if (!response.ok) throw new Error(await response.text());
+  return response.json();
+}
+
 async function fetchVariants(project, analysis, understanding, questions, answers) {
   const response = await fetch(`${API_BASE}/api/variants`, {
     method: "POST",
@@ -1734,6 +1744,318 @@ function Step4Variants({ state, setState, onNext, onPrev }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ÉTAPE 6 — Rendu final (export PPTX)
+// ═══════════════════════════════════════════════════════════════════════════════
+function Step5Final({ state, onPrev }) {
+  const variants = state.variants || [];
+  const recIdx   = variants.findIndex(v => v.recommended);
+  const [selectedIdx, setSelectedIdx] = useState(recIdx >= 0 ? recIdx : 0);
+  const [phase,       setPhase]       = useState("idle");
+  const [errorMsg,    setErrorMsg]    = useState("");
+  const selectedVariant = variants[selectedIdx];
+
+  const C = {
+    navy:"1B2B4B", blue:"2563EB", blueL:"EFF6FF", white:"FFFFFF",
+    grey:"F4F6FA", greyD:"475569", greyM:"94A3B8", dark:"0F172A",
+    green:"059669", orange:"D97706", red:"DC2626",
+  };
+
+  const buildPPTX = async (content) => {
+    const PptxGenJS = (await import("pptxgenjs")).default;
+    const prs = new PptxGenJS();
+    prs.layout = "LAYOUT_WIDE";
+    const aS = (bg) => { const s = prs.addSlide(); s.background = { color: bg || C.white }; return s; };
+    const R = (s,x,y,w,h,fill) => s.addShape(prs.ShapeType.rect,{x,y,w,h,fill:{color:fill},line:{color:fill}});
+    const T = (s,text,x,y,w,h,o={}) => s.addText(String(text||""),{x,y,w,h,wrap:true,fontFace:"Calibri",fontSize:o.sz||13,bold:o.b||false,color:o.c||C.dark,align:o.a||"left",valign:o.v||"top",italic:o.i||false});
+
+    // Slide 1 Couverture
+    { const s=aS(C.navy); R(s,0,5.5,13.33,2,C.blue);
+      T(s,"PROPOSITION TECHNIQUE",0.7,1.0,12,0.4,{sz:11,c:C.greyM,b:true});
+      T(s,content.slide_cover?.title||state.project.name,0.7,1.5,11.5,1.4,{sz:34,b:true,c:C.white});
+      T(s,content.slide_cover?.subtitle||"",0.7,3.2,11,0.7,{sz:15,c:C.greyM});
+      T(s,"Client : "+state.project.client,0.7,4.1,8,0.4,{sz:13,c:C.greyM});
+      T(s,new Date().toLocaleDateString("fr-FR",{year:"numeric",month:"long"}),0.7,5.7,6,0.4,{sz:11,c:C.white});
+      T(s,"SizingHub Pre-Sales Assistant",7,5.7,6,0.4,{sz:11,c:C.white,a:"right"}); }
+
+    // Slide 2 Contexte
+    { const s=aS(); R(s,0,0,13.33,0.75,C.navy);
+      T(s,"Contexte & Situation",0.4,0.13,12,0.5,{sz:20,b:true,c:C.white});
+      T(s,content.slide_context?.intro||"",0.4,0.95,12.5,0.8,{sz:14,c:C.dark,b:true});
+      T(s,content.slide_context?.situation||"",0.4,1.9,12.5,1.2,{sz:13,c:C.greyD});
+      R(s,0.4,3.3,12.5,0.06,C.blue);
+      T(s,"Le défi",0.4,3.5,12,0.35,{sz:12,b:true,c:C.blue});
+      T(s,content.slide_context?.challenge||"",0.4,3.95,12.5,1.0,{sz:13,c:C.dark}); }
+
+    // Slide 3 Enjeux
+    { const s=aS(); R(s,0,0,13.33,0.75,C.navy);
+      T(s,"Enjeux identifiés",0.4,0.13,12,0.5,{sz:20,b:true,c:C.white});
+      T(s,content.slide_enjeux?.intro||"",0.4,0.95,12.5,0.55,{sz:13,c:C.greyD,i:true});
+      (content.slide_enjeux?.items||state.analysis?.enjeux||[]).slice(0,5).forEach((e,i)=>{
+        R(s,0.4,1.65+i*1.0,0.65,0.8,C.blue);
+        T(s,String(i+1),0.4,1.67+i*1.0,0.65,0.7,{sz:18,b:true,c:C.white,a:"center"});
+        R(s,1.15,1.65+i*1.0,11.75,0.8,i%2===0?C.grey:C.white);
+        T(s,e,1.3,1.7+i*1.0,11.45,0.7,{sz:12,c:C.dark,v:"middle"}); }); }
+
+    // Slide 4 Solution
+    { const s=aS(); R(s,0,0,13.33,0.75,C.blue);
+      T(s,"Notre solution : "+(content.slide_solution?.titre_variante||selectedVariant.title),0.4,0.13,12.5,0.5,{sz:17,b:true,c:C.white});
+      T(s,content.slide_solution?.pitch||"",0.4,0.95,12.5,1.0,{sz:14,b:true,c:C.dark});
+      T(s,content.slide_solution?.architecture_narrative||"",0.4,2.1,7.5,1.4,{sz:12,c:C.greyD});
+      (content.slide_solution?.differenciants||[]).slice(0,3).forEach((d,i)=>{
+        R(s,0.4+i*4.3,3.75,4.0,1.5,C.navy);
+        T(s,d,0.55+i*4.3,3.85,3.7,1.3,{sz:11,c:C.white,v:"middle"}); });
+      const sc=selectedVariant.scores||{};
+      [{l:"Adéquation",v:sc.adequation||0},{l:"Simplicité",v:100-(sc.complexity_infra||0)},{l:"Déploiement",v:100-(sc.complexity_deploy||0)},{l:"Coût",v:100-(sc.cost_index||0)}]
+        .forEach((s2,i)=>{ R(s,8.1+i*1.3,2.1,1.1,1.5,C.navy);
+          T(s,s2.v+"",8.1+i*1.3,2.15,1.1,0.9,{sz:18,b:true,c:C.white,a:"center"});
+          T(s,s2.l,8.1+i*1.3,3.0,1.1,0.5,{sz:8,c:C.greyM,a:"center"}); }); }
+
+    // Slide 5 Architecture
+    { const s=aS(); R(s,0,0,13.33,0.75,C.navy);
+      T(s,"Architecture technique détaillée",0.4,0.13,12,0.5,{sz:20,b:true,c:C.white});
+      const arch=selectedVariant.architecture||{};
+      [["Serveurs",arch.servers],["Stockage",arch.storage],["Réseau",arch.network],["Virtualisation",arch.virtualization],["Sauvegarde",arch.backup]]
+        .filter(a=>a[1]).forEach(([lbl,val],i)=>{
+          const col=i%2,row=Math.floor(i/2);
+          R(s,0.4+col*6.6,1.0+row*2.15,6.2,1.9,col===0?C.grey:C.blueL);
+          T(s,lbl,0.6+col*6.6,1.1+row*2.15,5.8,0.38,{sz:11,b:true,c:C.blue});
+          T(s,val,0.6+col*6.6,1.55+row*2.15,5.8,1.2,{sz:11,c:C.dark}); }); }
+
+    // Slide 6 Bénéfices
+    { const s=aS(); R(s,0,0,13.33,0.75,C.navy);
+      T(s,"Bénéfices pour "+state.project.client,0.4,0.13,12,0.5,{sz:20,b:true,c:C.white});
+      T(s,content.slide_benefits?.intro||"",0.4,0.95,12.5,0.55,{sz:13,c:C.greyD,i:true});
+      (content.slide_benefits?.benefits||[]).slice(0,4).forEach((b,i)=>{
+        const col=i%2,row=Math.floor(i/2);
+        R(s,0.4+col*6.6,1.65+row*2.5,6.2,2.3,col===0?"F0FDF4":C.blueL);
+        T(s,b.title,0.6+col*6.6,1.8+row*2.5,5.8,0.45,{sz:13,b:true,c:col===0?C.green:C.blue});
+        T(s,b.desc,0.6+col*6.6,2.3+row*2.5,5.8,1.5,{sz:11,c:C.dark}); }); }
+
+    // Slide 7 Risques
+    { const s=aS(); R(s,0,0,13.33,0.75,C.navy);
+      T(s,"Risques & mitigations",0.4,0.13,12,0.5,{sz:20,b:true,c:C.white});
+      T(s,content.slide_risks?.intro||"",0.4,0.95,12.5,0.5,{sz:13,c:C.greyD,i:true});
+      (content.slide_risks?.items||[]).slice(0,4).forEach((r,i)=>{
+        R(s,0.4,1.6+i*1.4,5.8,1.2,"FEF2F2");
+        T(s,"⚠ "+(r.risk||""),0.55,1.65+i*1.4,5.5,1.0,{sz:11,c:C.red,v:"middle"});
+        R(s,6.4,1.6+i*1.4,6.5,1.2,"F0FDF4");
+        T(s,"✓ "+(r.mitigation||""),6.55,1.65+i*1.4,6.2,1.0,{sz:11,c:C.green,v:"middle"}); }); }
+
+    // Slide 8 Q&R
+    const answeredQs=(state.questions||[]).filter((_,i)=>state.answers?.[i]);
+    if(answeredQs.length>0){ const s=aS(); R(s,0,0,13.33,0.75,C.navy);
+      T(s,"Points de qualification client",0.4,0.13,12,0.5,{sz:20,b:true,c:C.white});
+      answeredQs.slice(0,4).forEach((q,i)=>{
+        const idx=(state.questions||[]).indexOf(q);
+        R(s,0.4,0.95+i*1.55,12.5,1.4,i%2===0?C.grey:C.blueL);
+        T(s,q.text.slice(0,140),0.55,1.0+i*1.55,12.1,0.55,{sz:11,c:C.greyD,i:true});
+        T(s,"→ "+state.answers[idx],0.55,1.6+i*1.55,12.1,0.6,{sz:12,b:true,c:C.dark}); }); }
+
+    // Slide 9 Prochaines étapes
+    { const s=aS(); R(s,0,0,13.33,0.75,C.navy);
+      T(s,"Prochaines étapes",0.4,0.13,12,0.5,{sz:20,b:true,c:C.white});
+      T(s,content.slide_next_steps?.intro||"",0.4,0.95,12.5,0.5,{sz:13,c:C.greyD,i:true});
+      (content.slide_next_steps?.steps||[]).slice(0,4).forEach((step,i)=>{
+        const cols=["1B2B4B","2563EB","1D4ED8","1E40AF"];
+        R(s,0.4+i*3.25,1.65,3.05,4.6,cols[i]);
+        T(s,String(i+1),0.4+i*3.25,1.8,3.05,0.7,{sz:28,b:true,c:C.white,a:"center"});
+        T(s,step.step||"",0.5+i*3.25,2.6,2.85,0.5,{sz:12,b:true,c:C.white,a:"center"});
+        T(s,step.desc||"",0.5+i*3.25,3.2,2.85,1.5,{sz:10,c:C.greyM,a:"center"});
+        T(s,step.delai||"",0.5+i*3.25,5.5,2.85,0.4,{sz:10,c:C.white,a:"center",b:true}); }); }
+
+    // Slide 10 Conclusion
+    { const s=aS(C.navy); R(s,0,3.1,13.33,0.07,C.blue);
+      T(s,content.slide_conclusion?.pitch_final||"",0.7,1.0,11.9,1.8,{sz:26,b:true,c:C.white});
+      T(s,content.slide_conclusion?.call_to_action||"",0.7,3.4,11.9,1.0,{sz:16,c:C.greyM});
+      R(s,3.5,4.8,6.3,0.8,C.blue);
+      T(s,state.project.client+" — "+state.project.name,3.5,4.88,6.3,0.65,{sz:13,b:true,c:C.white,a:"center"});
+      T(s,"SizingHub Pre-Sales Assistant",0.7,6.8,12,0.35,{sz:10,c:"4A5568",a:"center"}); }
+
+    const fn=(state.project.name||"proposition").replace(/[^a-zA-Z0-9]/g,"_")+"_SizingHub.pptx";
+    await prs.writeFile({fileName:fn});
+  };
+
+  const generate = async () => {
+    try {
+      setPhase("generating_content"); setErrorMsg("");
+      const content = await fetchPptxContent(
+        state.project,state.analysis,state.understanding,
+        state.questions,state.answers||{},selectedVariant,state.variants
+      );
+      setPhase("generating_pptx");
+      await buildPPTX(content);
+      setPhase("done");
+    } catch(e) { console.error(e); setErrorMsg(e.message); setPhase("error"); }
+  };
+
+  const card = { background:"#fff",border:"1px solid rgba(0,0,0,0.08)",borderRadius:12,boxShadow:"0 1px 3px rgba(0,0,0,0.04)",overflow:"hidden" };
+
+  return (
+    <div style={{flex:1,display:"grid",gridTemplateColumns:"1fr 380px",gap:16,padding:16,background:"#F4F6FA",overflow:"hidden"}}>
+      <div style={{display:"flex",flexDirection:"column",gap:14,overflowY:"auto"}}>
+
+        {/* Sélection variante */}
+        <div style={card}>
+          <div style={{padding:"11px 16px",borderBottom:"1px solid rgba(0,0,0,0.07)"}}>
+            <span style={{fontSize:13,fontWeight:600,color:"#0F172A"}}>Sélectionner la variante à présenter</span>
+          </div>
+          <div style={{padding:14,display:"flex",flexDirection:"column",gap:8}}>
+            {variants.map((v,i)=>(
+              <div key={i} onClick={()=>setSelectedIdx(i)} style={{
+                display:"flex",alignItems:"center",gap:12,padding:"12px 14px",
+                borderRadius:10,cursor:"pointer",transition:"all .15s",
+                border:selectedIdx===i?"2px solid #2563EB":"1px solid rgba(0,0,0,0.08)",
+                background:selectedIdx===i?"rgba(37,99,235,0.04)":"#fff",
+              }}>
+                <div style={{width:18,height:18,borderRadius:"50%",flexShrink:0,border:selectedIdx===i?"5px solid #2563EB":"2px solid #CBD5E1",background:"#fff",transition:"all .15s"}} />
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <span style={{fontSize:13,fontWeight:600,color:"#0F172A"}}>{v.title}</span>
+                    {v.recommended&&<span style={{fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:99,background:"#2563EB",color:"#fff"}}>RECOMMANDÉE</span>}
+                  </div>
+                  <div style={{fontSize:11,color:"#94A3B8",marginTop:2}}>{v.subtitle}</div>
+                </div>
+                <div style={{fontSize:20,fontWeight:800,color:selectedIdx===i?"#2563EB":"#94A3B8",flexShrink:0}}>
+                  {v.global_score}<span style={{fontSize:11,fontWeight:400}}>/100</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Aperçu variante */}
+        {selectedVariant&&(
+          <div style={{...card,border:"1px solid rgba(37,99,235,0.2)"}}>
+            <div style={{padding:"11px 16px",borderBottom:"1px solid rgba(37,99,235,0.1)",background:"rgba(37,99,235,0.04)"}}>
+              <span style={{fontSize:12,fontWeight:600,color:"#2563EB"}}>Aperçu — {selectedVariant.title}</span>
+            </div>
+            <div style={{padding:14}}>
+              <div style={{fontSize:12,color:"#475569",lineHeight:1.6,marginBottom:10}}>{selectedVariant.description}</div>
+              {(selectedVariant.pros||[]).slice(0,3).map((p,i)=>(
+                <div key={i} style={{fontSize:11,color:"#059669",marginBottom:3}}>✓ {p}</div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Plan des slides */}
+        <div style={card}>
+          <div style={{padding:"11px 16px",borderBottom:"1px solid rgba(0,0,0,0.07)"}}>
+            <span style={{fontSize:13,fontWeight:600,color:"#0F172A"}}>Contenu du PowerPoint (10 slides)</span>
+          </div>
+          <div style={{padding:14}}>
+            {[
+              {n:"1",t:"Couverture",d:"Titre, client, date"},
+              {n:"2",t:"Contexte & Situation",d:"Narrative enrichie par Claude"},
+              {n:"3",t:"Enjeux identifiés",d:"Enjeux enrichis et contextualisés"},
+              {n:"4",t:"Solution retenue",d:"Pitch + différenciants + scores"},
+              {n:"5",t:"Architecture technique",d:"Serveurs, stockage, réseau, virtua."},
+              {n:"6",t:"Bénéfices client",d:"Bénéfices spécifiques au contexte"},
+              {n:"7",t:"Risques & mitigations",d:"Transparence + mesures correctives"},
+              {n:"8",t:"Q&R client",d:"Réponses enregistrées"},
+              {n:"9",t:"Prochaines étapes",d:"Plan d\'action avec délais"},
+              {n:"10",t:"Conclusion",d:"Message de clôture + call to action"},
+            ].map((item,i)=>(
+              <div key={i} style={{display:"flex",gap:10,padding:"5px 0",borderBottom:"1px solid rgba(0,0,0,0.04)"}}>
+                <span style={{fontSize:10,fontWeight:700,color:"#2563EB",minWidth:22,flexShrink:0}}>{item.n}</span>
+                <div>
+                  <span style={{fontSize:12,fontWeight:600,color:"#0F172A"}}>{item.t}</span>
+                  <span style={{fontSize:11,color:"#94A3B8",marginLeft:6}}>{item.d}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Colonne droite */}
+      <div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div style={card}>
+          <div style={{padding:"11px 16px",borderBottom:"1px solid rgba(0,0,0,0.07)"}}>
+            <span style={{fontSize:13,fontWeight:600,color:"#0F172A"}}>Export PowerPoint</span>
+          </div>
+          <div style={{padding:16}}>
+            {phase==="done"?(
+              <div style={{textAlign:"center",padding:"24px 0"}}>
+                <div style={{fontSize:48,marginBottom:12}}>✅</div>
+                <div style={{fontSize:16,fontWeight:600,color:"#059669",marginBottom:6}}>PowerPoint généré !</div>
+                <div style={{fontSize:12,color:"#94A3B8",marginBottom:20,lineHeight:1.6}}>Fichier téléchargé dans vos Téléchargements.</div>
+                <button onClick={()=>setPhase("idle")} style={{padding:"8px 20px",borderRadius:8,fontSize:12,fontWeight:500,cursor:"pointer",border:"1px solid rgba(0,0,0,0.1)",background:"#fff",color:"#475569",fontFamily:"inherit"}}>↺ Regénérer</button>
+              </div>
+            ):phase==="error"?(
+              <div style={{textAlign:"center",padding:"16px 0"}}>
+                <div style={{fontSize:32,marginBottom:8}}>❌</div>
+                <div style={{fontSize:14,fontWeight:600,color:"#DC2626",marginBottom:6}}>Erreur</div>
+                <div style={{fontSize:11,color:"#94A3B8",marginBottom:16}}>{errorMsg}</div>
+                <button onClick={()=>setPhase("idle")} style={{padding:"8px 20px",borderRadius:8,fontSize:12,fontWeight:600,cursor:"pointer",border:"none",background:"#2563EB",color:"#fff",fontFamily:"inherit"}}>Réessayer</button>
+              </div>
+            ):(
+              <div style={{display:"flex",flexDirection:"column",gap:14}}>
+                {[
+                  {id:"generating_content",label:"Génération du contenu par Claude",desc:"Narratif enrichi et contextualisé"},
+                  {id:"generating_pptx",label:"Mise en forme PowerPoint",desc:"10 slides professionnelles"},
+                ].map((step)=>{
+                  const isActive=phase===step.id;
+                  const isDone=phase==="done"||(phase==="generating_pptx"&&step.id==="generating_content");
+                  return (
+                    <div key={step.id} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 12px",borderRadius:8,background:isActive?"rgba(37,99,235,0.06)":"#F8F9FC",border:isActive?"1px solid rgba(37,99,235,0.2)":"1px solid rgba(0,0,0,0.07)"}}>
+                      <div style={{width:28,height:28,borderRadius:"50%",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",background:isDone?"#059669":isActive?"#2563EB":"#E2E8F0"}}>
+                        {isDone?<span style={{color:"#fff",fontSize:14}}>✓</span>:isActive?<div style={{width:14,height:14,border:"2px solid rgba(255,255,255,0.3)",borderTop:"2px solid #fff",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>:<span style={{color:"#94A3B8",fontSize:12}}>○</span>}
+                      </div>
+                      <div>
+                        <div style={{fontSize:12,fontWeight:600,color:isActive?"#2563EB":"#0F172A"}}>{step.label}</div>
+                        <div style={{fontSize:10,color:"#94A3B8"}}>{step.desc}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+                <div style={{fontSize:12,color:"#475569",lineHeight:1.6}}>
+                  Contenu généré par Claude puis mis en forme automatiquement.
+                </div>
+                <button onClick={generate} disabled={phase!=="idle"||!selectedVariant} style={{
+                  padding:"13px 0",borderRadius:10,fontSize:13,fontWeight:600,
+                  cursor:phase==="idle"?"pointer":"wait",border:"none",
+                  background:phase==="idle"?"#2563EB":"#E2E8F0",
+                  color:phase==="idle"?"#fff":"#94A3B8",
+                  fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",gap:8,
+                }}>
+                  {phase==="idle"?"📥 Générer le PowerPoint":"⏳ Génération en cours..."}
+                </button>
+                <style>{"@keyframes spin { to { transform: rotate(360deg); } }"}</style>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div style={card}>
+          <div style={{padding:"11px 14px",borderBottom:"1px solid rgba(0,0,0,0.07)"}}>
+            <span style={{fontSize:12,fontWeight:600,color:"#0F172A"}}>Données incluses</span>
+          </div>
+          <div style={{padding:14}}>
+            {[
+              {label:"Fichiers analysés",value:(state.files?.length||0)+" doc(s)"},
+              {label:"Questions générées",value:state.questions?.length||0},
+              {label:"Réponses client",value:Object.keys(state.answers||{}).length},
+              {label:"Variante sélectionnée",value:selectedVariant?.title||"—"},
+            ].map((row,i)=>(
+              <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid rgba(0,0,0,0.05)"}}>
+                <span style={{fontSize:11,color:"#94A3B8"}}>{row.label}</span>
+                <span style={{fontSize:11,fontWeight:600,color:"#0F172A"}}>{row.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <button onClick={onPrev} style={{padding:"9px 0",borderRadius:8,fontSize:12,fontWeight:500,cursor:"pointer",border:"1px solid rgba(0,0,0,0.1)",background:"#fff",color:"#475569",fontFamily:"inherit"}}>
+          ← Retour au cadre de solution
+        </button>
+      </div>
     </div>
   );
 }

@@ -394,6 +394,117 @@ app.post("/api/variants", async (req, res) => {
 
 
 // ─── GET /api/health ──────────────────────────────────────────────────────────
+app.post("/api/generate-pptx-content", async (req, res) => {
+  try {
+    const { project, analysis, understanding, questions, answers = {}, selectedVariant, allVariants } = req.body;
+
+    const answeredQs = (questions || [])
+      .map((q, i) => answers[i] ? "Q: " + q.text + "\nR: " + answers[i] : null)
+      .filter(Boolean)
+      .join("\n\n");
+
+    const systemPrompt = [
+      "Tu es un expert avant-vente IT qui redige des propositions techniques professionnelles.",
+      "Tu dois generer le contenu narratif enrichi d'un PowerPoint de proposition commerciale.",
+      "Le contenu doit etre : professionnel, precis, adapte au client, et directement utilisable.",
+      "Chaque slide doit avoir un contenu substantiel et specifique au projet - jamais generique.",
+      "",
+      'FORMAT JSON STRICT:',
+      '{',
+      '  "slide_cover": {',
+      '    "title": "Titre principal de la proposition",',
+      '    "subtitle": "Sous-titre contextuel"',
+      '  },',
+      '  "slide_context": {',
+      '    "intro": "Phrase d\'accroche sur le contexte client (2-3 phrases)",',
+      '    "situation": "Description precise de la situation actuelle",',
+      '    "challenge": "Le defi principal que cette proposition adresse"',
+      '  },',
+      '  "slide_enjeux": {',
+      '    "intro": "Phrase introductive des enjeux",',
+      '    "items": ["enjeu enrichi 1", "enjeu enrichi 2", "enjeu enrichi 3"]',
+      '  },',
+      '  "slide_solution": {',
+      '    "titre_variante": "Titre de la variante retenue",',
+      '    "pitch": "Pitch de la solution en 2-3 phrases percutantes",',
+      '    "differenciants": ["differenciant 1", "differenciant 2", "differenciant 3"],',
+      '    "architecture_narrative": "Description narrative de l\'architecture proposee"',
+      '  },',
+      '  "slide_benefits": {',
+      '    "intro": "Pourquoi cette solution est la meilleure pour ce client",',
+      '    "benefits": [',
+      '      { "title": "Titre benefice", "desc": "Description specifique au contexte client" }',
+      '    ]',
+      '  },',
+      '  "slide_risks": {',
+      '    "intro": "Transparence sur les points de vigilance",',
+      '    "items": [{ "risk": "Risque identifie", "mitigation": "Mesure de mitigation proposee" }]',
+      '  },',
+      '  "slide_next_steps": {',
+      '    "intro": "Prochaines etapes pour avancer",',
+      '    "steps": [',
+      '      { "step": "Etape 1", "desc": "Description", "delai": "Delai estime" }',
+      '    ]',
+      '  },',
+      '  "slide_conclusion": {',
+      '    "pitch_final": "Message de cloture percutant (1-2 phrases)",',
+      '    "call_to_action": "Action concrete proposee au client"',
+      '  }',
+      '}',
+      "JSON uniquement. Contenu specifique et professionnel, jamais generique."
+    ].join("\n");
+
+    const userPrompt = [
+      "Projet: " + project.name + " | Client: " + project.client,
+      project.context ? "Contexte: " + project.context : "",
+      "",
+      "TYPE: " + (analysis.projectType || "ENTERPRISE_DC"),
+      "SYNTHESE: " + analysis.synthesis,
+      "",
+      "ENJEUX: " + (analysis.enjeux || []).join(", "),
+      "",
+      "VARIANTE RETENUE: " + selectedVariant.title,
+      "Description: " + selectedVariant.description,
+      "Score: " + selectedVariant.global_score + "/100",
+      "Architecture serveurs: " + (selectedVariant.architecture?.servers || ""),
+      "Architecture stockage: " + (selectedVariant.architecture?.storage || ""),
+      "Architecture reseau: " + (selectedVariant.architecture?.network || ""),
+      "Virtualisation: " + (selectedVariant.architecture?.virtualization || ""),
+      "Sauvegarde: " + (selectedVariant.architecture?.backup || ""),
+      "Avantages: " + (selectedVariant.pros || []).join(", "),
+      "Inconvenients: " + (selectedVariant.cons || []).join(", "),
+      "Risques: " + (selectedVariant.risks || []).join(", "),
+      "Raison recommandation: " + (selectedVariant.recommendation_reason || ""),
+      "",
+      answeredQs ? "REPONSES CLIENT:\n" + answeredQs : "",
+      "",
+      "COMPREHENSION PROJET:",
+      understanding ? "Angles morts: " + (understanding.blindSpots || []).join(", ") : "",
+      understanding ? "Risques: " + (understanding.riskAreas || []).join(", ") : "",
+      "",
+      "Genere le contenu narratif enrichi et professionnel pour ce PowerPoint."
+    ].join("\n");
+
+    const message = await anthropic.messages.create({
+      model: "claude-sonnet-4-5",
+      max_tokens: 4000,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userPrompt }],
+    });
+
+    const raw = message.content[0].text;
+    let clean = raw.replace(/```json|```/g, "").trim();
+    const start = clean.indexOf("{");
+    const end = clean.lastIndexOf("}");
+    if (start !== -1 && end !== -1) clean = clean.slice(start, end + 1);
+    const result = JSON.parse(clean);
+    res.json(result);
+  } catch (err) {
+    console.error("Erreur /api/generate-pptx-content:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get("/api/health", (req, res) => res.json({ status: "ok", version: "1.0.0" }));
 
 app.listen(port, "0.0.0.0", () => console.log(`SizingHub API → http://localhost:${port}`));
