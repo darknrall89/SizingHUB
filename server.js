@@ -80,18 +80,12 @@ app.post("/api/questions", async (req, res) => {
 
     const rawContent = files
       .filter(f => f.text)
-      .map(f => "
-
-=== FICHIER: " + f.name + " ===
-" + f.text.slice(0, 60000))
+      .map(f => "\n\n=== FICHIER: " + f.name + " ===\n" + f.text.slice(0, 60000))
       .join("");
 
-    const enjeux = (analysis.enjeux || []).join("
-");
-    const axes = (analysis.axes || []).map(a => "- " + a.label + " (" + a.prio + "): " + a.sub).join("
-");
-    const alerts = (analysis.alerts || []).map(a => a.text).join("
-");
+    const enjeux = (analysis.enjeux || []).join("\n");
+    const axes = (analysis.axes || []).map(a => "- " + a.label + " (" + a.prio + "): " + a.sub).join("\n");
+    const alerts = (analysis.alerts || []).map(a => a.text).join("\n");
     const data = JSON.stringify(analysis.data || {});
     const projectType = analysis.projectType || "ENTERPRISE_DC";
 
@@ -125,8 +119,7 @@ app.post("/api/questions", async (req, res) => {
       ]
     };
 
-    const specializedContext = (SPECIALIZED_CONTEXTS[projectType] || SPECIALIZED_CONTEXTS.ENTERPRISE_DC).join("
-");
+    const specializedContext = (SPECIALIZED_CONTEXTS[projectType] || SPECIALIZED_CONTEXTS.ENTERPRISE_DC).join("\n");
 
     const systemPrompt = [
       "Tu es un architecte infrastructure senior avec 15+ ans d'experience en avant-vente.",
@@ -153,8 +146,7 @@ app.post("/api/questions", async (req, res) => {
       "",
       'FORMAT: {"questions":[{"text":"Question precise?","prio":"high","axis":"Axe","category":"CRITIQUE"}]}',
       "15-18 questions. JSON uniquement."
-    ].join("
-");
+    ].join("\n");
 
     const userPrompt = [
       "Projet: " + project.name + " | Client: " + project.client,
@@ -184,8 +176,7 @@ app.post("/api/questions", async (req, res) => {
       understanding ? "IMPORTANT: Ne pose PAS de questions sur les knownFacts ci-dessus. Concentre-toi sur les blindSpots, inconsistencies et riskAreas." : "",
       "",
       "Genere des questions pointues adaptees au type de projet " + projectType + "."
-    ].join("
-");
+    ].join("\n");
 
     const message = await anthropic.messages.create({
       model: "claude-sonnet-4-5",
