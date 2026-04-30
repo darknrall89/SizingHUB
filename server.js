@@ -21,7 +21,7 @@ app.post("/api/analyze", async (req, res) => {
 
     const filesContent = files
       .filter(f => f.text)
-      .map(f => `\n\n=== FICHIER: ${f.name} (${f.type.toUpperCase()}) ===\n${f.text.slice(0, 40000)}`)
+      .map(f => `\n\n=== FICHIER: ${f.name} (${f.type.toUpperCase()}) ===\n${f.text.slice(0, 60000)}`)
       .join("");
 
     const prompt = `Tu es un expert avant-vente IT. Analyse les documents fournis pour le projet "${project.name}" du client "${project.client}".
@@ -43,7 +43,14 @@ Réponds UNIQUEMENT en JSON valide avec cette structure:
   "alerts": [{ "type": "warn", "text": "Point d'attention détecté" }],
   "data": { "vmCount": null, "totalRAM_GB": null, "totalCPU_cores": null, "totalStorage_TB": null }
 }
-Prio: high/med/low. data: valeurs numériques si trouvées sinon null. JSON uniquement.`;
+Prio: high/med/low. data: valeurs numériques si trouvées sinon null.
+projectType: classe le projet parmi ces types:
+- ENTERPRISE_DC: grand datacenter, infra complexe, >50 VMs, multi-sites
+- CRITICAL_INDUSTRIAL: infra critique industrielle (SCADA, OT, télégestion, énergie, santé)
+- SMB: PME, petite infra, <20 VMs, budget limité
+- CLOUD_MIGRATION: migration cloud, hybride, SaaS
+- HARDWARE_ACQUISITION: achat matériel simple, peu de VMs, cluster minimaliste
+JSON uniquement.`;
 
     const message = await anthropic.messages.create({
       model: "claude-sonnet-4-20250514",
@@ -66,32 +73,126 @@ Prio: high/med/low. data: valeurs numériques si trouvées sinon null. JSON uniq
 // Retourne: { questions: [{ text, prio, axis }] }
 app.post("/api/questions", async (req, res) => {
   try {
-    const { project, analysis } = req.body;
+    const { project, analysis, files = [] } = req.body;
+    console.log("Files reçus:", files.length, files.map(f => f.name + " - " + (f.text || "").length + " chars"));
+    console.log("Project type:", analysis.projectType);
 
-    const prompt = `Tu es un expert avant-vente IT. 
-Génère 12 questions précises à poser au client pour qualifier le projet "${project.name}" (client: ${project.client}).
+    const rawContent = files
+      .filter(f => f.text)
+      .map(f => "
 
-Contexte du projet:
-${analysis.synthesis}
+=== FICHIER: " + f.name + " ===
+" + f.text.slice(0, 60000))
+      .join("");
 
-Axes identifiés: ${analysis.axes.map(a => a.label).join(", ")}
+    const enjeux = (analysis.enjeux || []).join("
+");
+    const axes = (analysis.axes || []).map(a => "- " + a.label + " (" + a.prio + "): " + a.sub).join("
+");
+    const alerts = (analysis.alerts || []).map(a => a.text).join("
+");
+    const data = JSON.stringify(analysis.data || {});
+    const projectType = analysis.projectType || "ENTERPRISE_DC";
 
-Réponds UNIQUEMENT en JSON:
-{
-  "questions": [
-    { "text": "Question précise ?", "prio": "high", "axis": "Disponibilité & Continuité" }
-  ]
-}
-Génère exactement 12 questions. Prio: high (4), med (5), low (3). JSON uniquement.`;
+    // Prompts spécialisés par type de projet
+    const SPECIALIZED_CONTEXTS = {
+      ENTERPRISE_DC: [
+        "CONTEXTE: Grand datacenter d'entreprise, infra complexe, potentiellement >50 VMs, multi-sites.",
+        "FOCUS OBLIGATOIRE: VMware licensing (cœurs, sockets), capacity planning détaillé, PRA/PCA, réseau (VLAN, QoS, uplinks), stockage (IOPS, dédup, tiering), migration à chaud.",
+        "CHALLENGE: Incohérences chiffrées, contradictions capacity planning vs licensing, risques migration."
+      ],
+      CRITICAL_INDUSTRIAL: [
+        "CONTEXTE: Infrastructure critique industrielle (SCADA, OT, télégestion, énergie, santé). Qualité et disponibilité > volume.",
+        "FOCUS OBLIGATOIRE: Continuité opérationnelle (impact métier en cas de panne), protocoles industriels (SCADA/OPC/Modbus), contraintes datacenter spécifiques (EDF, santé...), sécurité OT/IT, HA avec peu de nœuds (quorum, split-brain), latence temps réel.",
+        "CHALLENGE: Architecture minimaliste (2 nœuds = vrais risques), dépendances terrain, certifications sectorielles, contraintes réglementaires spécifiques.",
+        "NE PAS DEMANDER: Les spécifications techniques déjà présentes dans le CCTP (CPU, RAM, stockage si mentionnés)."
+      ],
+      SMB: [
+        "CONTEXTE: PME, petite infrastructure, budget contraint, équipe IT réduite.",
+        "FOCUS OBLIGATOIRE: Simplicité d'administration, coût total (TCO), support constructeur, évolutivité simple, sauvegarde basique.",
+        "CHALLENGE: Capacités équipe interne, budget réel, risques de surstockage ou sous-dimensionnement."
+      ],
+      CLOUD_MIGRATION: [
+        "CONTEXTE: Migration vers le cloud ou architecture hybride.",
+        "FOCUS OBLIGATOIRE: Stratégie de migration (lift & shift vs refactoring), dépendances applicatives, coûts cloud vs on-prem, latence, souveraineté des données, réversibilité.",
+        "CHALLENGE: Applications non cloud-ready, coûts cachés, dépendances réseau, conformité RGPD."
+      ],
+      HARDWARE_ACQUISITION: [
+        "CONTEXTE: Acquisition matérielle simple, cluster minimaliste, peu de VMs.",
+        "FOCUS OBLIGATOIRE: Compatibilité avec l'existant (hyperviseur, réseau, firewall), contraintes physiques datacenter, support constructeur, évolutivité matérielle.",
+        "CHALLENGE: Adéquation specs demandées vs usage réel, risques HA avec peu de nœuds, contraintes intégration site."
+      ]
+    };
+
+    const specializedContext = (SPECIALIZED_CONTEXTS[projectType] || SPECIALIZED_CONTEXTS.ENTERPRISE_DC).join("
+");
+
+    const systemPrompt = [
+      "Tu es un architecte infrastructure senior avec 15+ ans d'experience en avant-vente.",
+      "Tu analyses un CCTP reel dans le cadre d'une reponse a appel d'offres.",
+      "",
+      "TYPE DE PROJET DETECTE: " + projectType,
+      specializedContext,
+      "",
+      "REGLES ABSOLUES:",
+      "- NE genere PAS de questions generiques applicables a n'importe quel projet",
+      "- NE pose PAS de questions dont la reponse est deja clairement dans le document",
+      "- NE reformule PAS le document",
+      "- CHAQUE question reference un element CONCRET et PRECIS du document",
+      "- IDENTIFIE les incoherences entre existant et cible",
+      "- IDENTIFIE les angles morts non explicites",
+      "- Chaque question doit DEBLOQUER une decision technique en RDV client",
+      "",
+      "CATEGORIES OBLIGATOIRES:",
+      "- CRITIQUE (prio=high, 5 questions): bloque le design ou le chiffrage",
+      "- IMPORTANT (prio=med, 6 questions): choix architecture, dependances, contraintes",
+      "- OPTIMISATION (prio=low, 4 questions): amelioration, cout, performance",
+      "- DECISION (prio=high, 3 questions): force un choix architectural cle",
+      "- CHALLENGE (prio=high, 2 questions): challenge une hypothese client",
+      "",
+      'FORMAT: {"questions":[{"text":"Question precise?","prio":"high","axis":"Axe","category":"CRITIQUE"}]}',
+      "15-18 questions. JSON uniquement."
+    ].join("
+");
+
+    const userPrompt = [
+      "Projet: " + project.name + " | Client: " + project.client,
+      project.context ? "Contexte AV: " + project.context : "",
+      "",
+      "SYNTHESE:",
+      analysis.synthesis,
+      "",
+      "ENJEUX:",
+      enjeux,
+      "",
+      "AXES:",
+      axes,
+      "",
+      "DONNEES EXTRAITES:",
+      data,
+      "",
+      "ALERTES:",
+      alerts,
+      "",
+      "CONTENU BRUT DES DOCUMENTS (lis attentivement avant de generer les questions):",
+      rawContent,
+      "",
+      "Genere des questions pointues adaptees au type de projet " + projectType + "."
+    ].join("
+");
 
     const message = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 2000,
-      messages: [{ role: "user", content: prompt }],
+      model: "claude-sonnet-4-5",
+      max_tokens: 4000,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userPrompt }],
     });
 
-    const raw    = message.content[0].text;
-    const clean  = raw.replace(/```json|```/g, "").trim();
+    const raw = message.content[0].text;
+    let clean = raw.replace(/```json|```/g, "").trim();
+    const start = clean.indexOf("{");
+    const end = clean.lastIndexOf("}");
+    if (start !== -1 && end !== -1) clean = clean.slice(start, end + 1);
     const result = JSON.parse(clean);
     res.json(result);
   } catch (err) {
@@ -99,6 +200,7 @@ Génère exactement 12 questions. Prio: high (4), med (5), low (3). JSON uniquem
     res.status(500).json({ error: err.message });
   }
 });
+
 
 // ─── POST /api/variants ───────────────────────────────────────────────────────
 // Reçoit : { project, analysis, questions }
