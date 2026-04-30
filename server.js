@@ -362,7 +362,7 @@ app.post("/api/variants", async (req, res) => {
       analysis.synthesis,
       "",
       "COMPREHENSION PROJET:",
-      understanding ? JSON.stringify(understanding, null, 2) : "Non disponible",
+      understanding ? JSON.stringify({ projectType: understanding.projectType, projectSummary: understanding.projectSummary, blindSpots: understanding.blindSpots, inconsistencies: understanding.inconsistencies, riskAreas: understanding.riskAreas }, null, 2) : "Non disponible",
       "",
       answeredQuestions ? "REPONSES CLIENT:\n" + answeredQuestions : "Aucune reponse client disponible",
       "",
@@ -371,7 +371,7 @@ app.post("/api/variants", async (req, res) => {
 
     const message = await anthropic.messages.create({
       model: "claude-sonnet-4-5",
-      max_tokens: 4000,
+      max_tokens: 8000,
       system: systemPrompt,
       messages: [{ role: "user", content: userPrompt }],
     });
