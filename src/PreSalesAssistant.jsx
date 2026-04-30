@@ -1021,9 +1021,9 @@ function Step2bUnderstanding({ state, setState, onNext, onPrev }) {
   );
 
   const ArchRow = ({ label, value }) => value && value !== "Non documenté" ? (
-    <div style={{ display: "flex", gap: 10, padding: "6px 0", borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
-      <span style={{ fontSize: 11, fontWeight: 600, color: "#94A3B8", minWidth: 100, flexShrink: 0 }}>{label}</span>
-      <span style={{ fontSize: 12, color: "#0F172A", lineHeight: 1.5 }}>{value}</span>
+    <div style={{ display: "flex", gap: 10, padding: "7px 0", borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
+      <span style={{ fontSize: 11, fontWeight: 600, color: "#94A3B8", minWidth: 80, flexShrink: 0 }}>{label}</span>
+      <span style={{ fontSize: 12, color: "#0F172A", lineHeight: 1.6, wordBreak: "break-word", flex: 1 }}>{value}</span>
     </div>
   ) : null;
 
@@ -1366,11 +1366,16 @@ function Step3Questions({ state, setState, onNext, onPrev }) {
               const bm = bookmarks.has(realIdx);
               const dot = PRIO_STYLES[q.prio] || PRIO_STYLES.med;
               return (
-                <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "11px 13px", borderRadius: 8, border: "1px solid rgba(0,0,0,0.07)", background: "#fff" }}>
-                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: dot.color, flexShrink: 0, marginTop: 5 }} />
+                <div key={i} onClick={() => setModalQ({ q, idx: realIdx })} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "11px 13px", borderRadius: 8, cursor: "pointer", transition: "all .15s", border: answers[realIdx] ? "1px solid rgba(5,150,105,0.25)" : "1px solid rgba(0,0,0,0.07)", background: answers[realIdx] ? "rgba(5,150,105,0.04)" : "#fff" }}>
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: answers[realIdx] ? "#059669" : dot.color, flexShrink: 0, marginTop: 5 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 12, color: "#0F172A", lineHeight: 1.55 }}>{q.text}</div>
                     {q.axis && <div style={{ fontSize: 10, color: "#94A3B8", marginTop: 3 }}>{q.axis}</div>}
+                    {answers[realIdx] && (
+                      <div style={{ fontSize: 11, color: "#059669", marginTop: 5, padding: "4px 8px", background: "rgba(5,150,105,0.08)", borderRadius: 5, lineHeight: 1.4 }}>
+                        ✓ {answers[realIdx]}
+                      </div>
+                    )}
                   </div>
                   <PrioBadge level={q.prio} />
                   <div onClick={() => toggleBm(realIdx)} style={{ flexShrink: 0, cursor: "pointer", padding: 2, color: bm ? "#2563EB" : "#CBD5E1" }}>
