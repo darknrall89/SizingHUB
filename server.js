@@ -2,65 +2,103 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import Anthropic from "@anthropic-ai/sdk";
+import multer from "multer";
 
 dotenv.config();
 
-const app  = express();
-const port = process.env.PORT || 3001;
+const app       = express();
+const port      = process.env.PORT || 3001;
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const upload    = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
 app.use(cors());
-app.use(express.json({ limit: "10mb" }));
+app.use(express.json({ limit: "5mb" }));
 
-// ─── POST /api/analyze ────────────────────────────────────────────────────────
-// Reçoit : { project, files: [{ name, type, text }] }
-// Retourne: { synthesis, enjeux, tags, axes, alerts, data }
+// ─── POST /api/upload ─────────────────────────────────────────────────────────
+// Reçoit : multipart/form-data avec un ou plusieurs fichiers
+// Retourne: [{ file_id, name, size, type }]
+app.post("/api/upload", upload.array("files", 10), async (req, res) => {
+  try {
+    const results = [];
+    for (const file of req.files) {
+      const blob = new Blob([file.buffer], { type: file.mimetype });
+      const uploaded = await anthropic.beta.files.upload(
+        { file: new File([blob], file.originalname, { type: file.mimetype }) },
+        { headers: { "anthropic-beta": "files-api-2025-04-14" } }
+      );
+      results.push({ file_id: uploaded.id, name: file.originalname, size: file.size, type: file.mimetype });
+    }
+    res.json({ files: results });
+  } catch (err) {
+    console.error("Erreur /api/upload:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── POST /api/analyze ───────────────────────────────────────────────────────
+// Reçoit : { project, files: [{ file_id, name, type }] }
+// Retourne: { synthesis, enjeux, tags, axes, alerts, data, projectType, understanding }
 app.post("/api/analyze", async (req, res) => {
   try {
     const { project, files } = req.body;
 
-    const filesContent = files
-      .filter(f => f.text)
-      .map(f => `\n\n=== FICHIER: ${f.name} (${f.type.toUpperCase()}) ===\n${f.text.slice(0, 60000)}`)
-      .join("");
+    const fileContents = files.map(f => {
+      if (f.type === "application/pdf" || f.type.includes("wordprocessingml") || f.type.includes("msword")) {
+        return { type: "document", source: { type: "file", file_id: f.file_id }, title: f.name };
+      }
+      return null;
+    }).filter(Boolean);
 
-    const prompt = `Tu es un expert avant-vente IT. Analyse les documents fournis pour le projet "${project.name}" du client "${project.client}".
-${project.context ? `\nContexte additionnel: ${project.context}` : ""}
-${filesContent}
+    const textFiles = files.filter(f =>
+      f.type.includes("spreadsheet") || f.type.includes("excel") || f.type === "text/plain"
+    );
 
-Réponds UNIQUEMENT en JSON valide avec cette structure:
-{
-  "synthesis": "Résumé exécutif 3-4 phrases",
-  "enjeux": ["enjeu 1", "enjeu 2", "enjeu 3"],
-  "tags": ["tag1", "tag2", "tag3", "tag4"],
-  "axes": [
-    { "ico": "⏱", "label": "Disponibilité & Continuité", "sub": "PRA/PCA, RPO, RTO", "prio": "high" },
-    { "ico": "🔒", "label": "Sécurité", "sub": "Segmentation, conformité", "prio": "high" },
-    { "ico": "🌐", "label": "Réseau & Connectivité", "sub": "MPLS, VPN", "prio": "med" },
-    { "ico": "🖥", "label": "Infrastructure existante", "sub": "Capacité, obsolescence", "prio": "med" },
-    { "ico": "☁️", "label": "Cloud & Hébergement", "sub": "Stratégie cloud", "prio": "low" }
-  ],
-  "alerts": [{ "type": "warn", "text": "Point d'attention détecté" }],
-  "data": { "vmCount": null, "totalRAM_GB": null, "totalCPU_cores": null, "totalStorage_TB": null }
-}
-Prio: high/med/low. data: valeurs numériques si trouvées sinon null.
-projectType: classe le projet parmi ces types:
-- ENTERPRISE_DC: grand datacenter, infra complexe, >50 VMs, multi-sites
-- CRITICAL_INDUSTRIAL: infra critique industrielle (SCADA, OT, télégestion, énergie, santé)
-- SMB: PME, petite infra, <20 VMs, budget limité
-- CLOUD_MIGRATION: migration cloud, hybride, SaaS
-- HARDWARE_ACQUISITION: achat matériel simple, peu de VMs, cluster minimaliste
-JSON uniquement.`;
+    const prompt = [
+      "Tu es un architecte infrastructure senior avec 15+ ans d'experience en avant-vente.",
+      "Projet: " + project.name + " | Client: " + project.client,
+      project.context ? "Contexte: " + project.context : "",
+      textFiles.length > 0 ? "Fichiers non-PDF joints: " + textFiles.map(f => f.name).join(", ") : "",
+      "",
+      "Analyse TOUS les documents fournis et reponds en JSON strict:",
+      '{',
+      '  "synthesis": "Synthese executive 3-4 phrases",',
+      '  "enjeux": ["enjeu 1", "enjeu 2", "enjeu 3"],',
+      '  "tags": ["tag1", "tag2", "tag3"],',
+      '  "projectType": "ENTERPRISE_DC|CRITICAL_INDUSTRIAL|SMB|CLOUD_MIGRATION|HARDWARE_ACQUISITION",',
+      '  "axes": [{ "ico": "⏱", "label": "Axe", "sub": "detail", "prio": "high|med|low" }],',
+      '  "alerts": [{ "type": "warn|info", "text": "point attention" }],',
+      '  "data": { "vmCount": null, "totalRAM_GB": null, "totalCPU_cores": null, "totalStorage_TB": null },',
+      '  "understanding": {',
+      '    "projectSummary": "Resume precis du projet",',
+      '    "existingArch": { "servers": "", "storage": "", "network": "", "virtualization": "", "backup": "" },',
+      '    "targetArch": { "servers": "", "storage": "", "network": "", "virtualization": "", "backup": "" },',
+      '    "knownFacts": ["fait documente 1", "fait documente 2"],',
+      '    "blindSpots": ["element manquant 1", "element manquant 2"],',
+      '    "inconsistencies": ["incoherence detectee"],',
+      '    "riskAreas": ["zone de risque"]',
+      '  }',
+      '}',
+      "JSON uniquement."
+    ].join("\n");
 
     const message = await anthropic.messages.create({
       model: "claude-sonnet-4-5",
-      max_tokens: 1500,
-      messages: [{ role: "user", content: prompt }],
+      max_tokens: 4000,
+      messages: [{
+        role: "user",
+        content: [
+          ...fileContents,
+          { type: "text", text: prompt }
+        ]
+      }],
+      betas: ["files-api-2025-04-14"],
     });
 
     const raw   = message.content[0].text;
     const clean = raw.replace(/```json|```/g, "").trim();
-    const result = JSON.parse(clean);
+    const start = clean.indexOf("{");
+    const end   = clean.lastIndexOf("}");
+    const result = JSON.parse(clean.slice(start, end + 1));
     res.json(result);
   } catch (err) {
     console.error("Erreur /api/analyze:", err.message);
@@ -68,129 +106,69 @@ JSON uniquement.`;
   }
 });
 
-// ─── POST /api/questions ──────────────────────────────────────────────────────
-// Reçoit : { project, analysis }
-// Retourne: { questions: [{ text, prio, axis }] }
+// ─── POST /api/questions ─────────────────────────────────────────────────────
+// Reçoit : { project, analysis, files }
+// Retourne: { questions: [{ text, prio, axis, category }] }
 app.post("/api/questions", async (req, res) => {
   try {
-    const { project, analysis, files = [], understanding = null } = req.body;
-    console.log("Files reçus:", files.length, files.map(f => f.name + " - " + (f.text || "").length + " chars"));
-    console.log("Project type:", analysis.projectType);
-    console.log("Understanding:", understanding ? "disponible" : "absent");
+    const { project, analysis, files = [] } = req.body;
 
-    const rawContent = files
-      .filter(f => f.text)
-      .map(f => "\n\n=== FICHIER: " + f.name + " ===\n" + f.text.slice(0, 60000))
-      .join("");
+    const fileContents = files.map(f => {
+      if (f.type === "application/pdf" || f.type.includes("wordprocessingml")) {
+        return { type: "document", source: { type: "file", file_id: f.file_id }, title: f.name };
+      }
+      return null;
+    }).filter(Boolean);
 
-    const enjeux = (analysis.enjeux || []).join("\n");
-    const axes = (analysis.axes || []).map(a => "- " + a.label + " (" + a.prio + "): " + a.sub).join("\n");
-    const alerts = (analysis.alerts || []).map(a => a.text).join("\n");
-    const data = JSON.stringify(analysis.data || {});
-    const projectType = analysis.projectType || "ENTERPRISE_DC";
-
-    // Prompts spécialisés par type de projet
-    const SPECIALIZED_CONTEXTS = {
-      ENTERPRISE_DC: [
-        "CONTEXTE: Grand datacenter d'entreprise, infra complexe, potentiellement >50 VMs, multi-sites.",
-        "FOCUS OBLIGATOIRE: VMware licensing (cœurs, sockets), capacity planning détaillé, PRA/PCA, réseau (VLAN, QoS, uplinks), stockage (IOPS, dédup, tiering), migration à chaud.",
-        "CHALLENGE: Incohérences chiffrées, contradictions capacity planning vs licensing, risques migration."
-      ],
-      CRITICAL_INDUSTRIAL: [
-        "CONTEXTE: Infrastructure critique industrielle (SCADA, OT, télégestion, énergie, santé). Qualité et disponibilité > volume.",
-        "FOCUS OBLIGATOIRE: Continuité opérationnelle (impact métier en cas de panne), protocoles industriels (SCADA/OPC/Modbus), contraintes datacenter spécifiques (EDF, santé...), sécurité OT/IT, HA avec peu de nœuds (quorum, split-brain), latence temps réel.",
-        "CHALLENGE: Architecture minimaliste (2 nœuds = vrais risques), dépendances terrain, certifications sectorielles, contraintes réglementaires spécifiques.",
-        "NE PAS DEMANDER: Les spécifications techniques déjà présentes dans le CCTP (CPU, RAM, stockage si mentionnés)."
-      ],
-      SMB: [
-        "CONTEXTE: PME, petite infrastructure, budget contraint, équipe IT réduite.",
-        "FOCUS OBLIGATOIRE: Simplicité d'administration, coût total (TCO), support constructeur, évolutivité simple, sauvegarde basique.",
-        "CHALLENGE: Capacités équipe interne, budget réel, risques de surstockage ou sous-dimensionnement."
-      ],
-      CLOUD_MIGRATION: [
-        "CONTEXTE: Migration vers le cloud ou architecture hybride.",
-        "FOCUS OBLIGATOIRE: Stratégie de migration (lift & shift vs refactoring), dépendances applicatives, coûts cloud vs on-prem, latence, souveraineté des données, réversibilité.",
-        "CHALLENGE: Applications non cloud-ready, coûts cachés, dépendances réseau, conformité RGPD."
-      ],
-      HARDWARE_ACQUISITION: [
-        "CONTEXTE: Acquisition matérielle simple, cluster minimaliste, peu de VMs.",
-        "FOCUS OBLIGATOIRE: Compatibilité avec l'existant (hyperviseur, réseau, firewall), contraintes physiques datacenter, support constructeur, évolutivité matérielle.",
-        "CHALLENGE: Adéquation specs demandées vs usage réel, risques HA avec peu de nœuds, contraintes intégration site."
-      ]
+    const SPECIALIZED = {
+      CRITICAL_INDUSTRIAL: "Infrastructure critique industrielle (SCADA, OT, telégestion). Focus: continuite operationnelle, protocoles industriels, HA avec peu de noeuds, latence temps reel, certifications sectorielles.",
+      ENTERPRISE_DC: "Grand datacenter entreprise. Focus: VMware licensing, capacity planning, PRA/PCA, reseau VLAN/QoS, stockage IOPS, migration.",
+      SMB: "PME petite infrastructure. Focus: simplicite, TCO, support constructeur, evolutivite.",
+      CLOUD_MIGRATION: "Migration cloud hybride. Focus: strategie migration, dependances applicatives, couts, souverainete.",
+      HARDWARE_ACQUISITION: "Acquisition materielle. Focus: compatibilite existant, contraintes datacenter, support, evolutivite.",
     };
-
-    const specializedContext = (SPECIALIZED_CONTEXTS[projectType] || SPECIALIZED_CONTEXTS.ENTERPRISE_DC).join("\n");
 
     const systemPrompt = [
       "Tu es un architecte infrastructure senior avec 15+ ans d'experience en avant-vente.",
-      "Tu analyses un CCTP reel dans le cadre d'une reponse a appel d'offres.",
-      "",
-      "TYPE DE PROJET DETECTE: " + projectType,
-      specializedContext,
+      "TYPE DE PROJET: " + (analysis.projectType || "ENTERPRISE_DC"),
+      SPECIALIZED[analysis.projectType] || SPECIALIZED.ENTERPRISE_DC,
       "",
       "REGLES ABSOLUES:",
-      "- NE genere PAS de questions generiques applicables a n'importe quel projet",
-      "- NE pose PAS de questions dont la reponse est deja clairement dans le document",
-      "- NE reformule PAS le document",
-      "- CHAQUE question reference un element CONCRET et PRECIS du document",
+      "- NE pose PAS de questions dont la reponse est deja clairement dans les documents",
+      "- CHAQUE question reference un element CONCRET du document",
       "- IDENTIFIE les incoherences entre existant et cible",
-      "- IDENTIFIE les angles morts non explicites",
-      "- Chaque question doit DEBLOQUER une decision technique en RDV client",
+      "- Chaque question doit DEBLOQUER une decision technique en RDV",
       "",
-      "CATEGORIES OBLIGATOIRES:",
-      "- CRITIQUE (prio=high, 5 questions): bloque le design ou le chiffrage",
-      "- IMPORTANT (prio=med, 6 questions): choix architecture, dependances, contraintes",
-      "- OPTIMISATION (prio=low, 4 questions): amelioration, cout, performance",
-      "- DECISION (prio=high, 3 questions): force un choix architectural cle",
-      "- CHALLENGE (prio=high, 2 questions): challenge une hypothese client",
+      "CATEGORIES (toutes requises):",
+      "- CRITIQUE (prio=high, 5): bloque le design ou le chiffrage",
+      "- IMPORTANT (prio=med, 5): choix architecture, dependances",
+      "- DECISION (prio=high, 3): force un choix architectural",
+      "- CHALLENGE (prio=high, 2): challenge une hypothese client",
+      "- OPTIMISATION (prio=low, 3): amelioration, cout, perf",
       "",
-      'FORMAT: {"questions":[{"text":"Question precise?","prio":"high","axis":"Axe","category":"CRITIQUE"}]}',
-      "15-18 questions. JSON uniquement."
-    ].join("\n");
-
-    const userPrompt = [
-      "Projet: " + project.name + " | Client: " + project.client,
-      project.context ? "Contexte AV: " + project.context : "",
-      "",
-      "SYNTHESE:",
-      analysis.synthesis,
-      "",
-      "ENJEUX:",
-      enjeux,
-      "",
-      "AXES:",
-      axes,
-      "",
-      "DONNEES EXTRAITES:",
-      data,
-      "",
-      "ALERTES:",
-      alerts,
-      "",
-      "CONTENU BRUT DES DOCUMENTS (lis attentivement avant de generer les questions):",
-      rawContent,
-      "",
-      understanding ? "\n\nFICHE DE COMPREHENSION PROJET (BASE POUR LES QUESTIONS):" : "",
-      understanding ? JSON.stringify(understanding, null, 2) : "",
-      "",
-      understanding ? "IMPORTANT: Ne pose PAS de questions sur les knownFacts ci-dessus. Concentre-toi sur les blindSpots, inconsistencies et riskAreas." : "",
-      "",
-      "Genere des questions pointues adaptees au type de projet " + projectType + "."
+      'FORMAT: {"questions":[{"text":"?","prio":"high","axis":"Axe","category":"CRITIQUE"}]}',
+      "18 questions max. JSON uniquement."
     ].join("\n");
 
     const message = await anthropic.messages.create({
       model: "claude-sonnet-4-5",
       max_tokens: 4000,
       system: systemPrompt,
-      messages: [{ role: "user", content: userPrompt }],
+      messages: [{
+        role: "user",
+        content: [
+          ...fileContents,
+          { type: "text", text: "Projet: " + project.name + " | Client: " + project.client + "\n\nFICHE DE COMPREHENSION:\n" + JSON.stringify(analysis.understanding, null, 2) + "\n\nFAITS CONNUS (ne pas poser de questions sur ces points):\n" + (analysis.understanding?.knownFacts || []).join("\n") + "\n\nGenere des questions pointues basees sur les zones grises et incoherences detectees." }
+        ]
+      }],
+      betas: ["files-api-2025-04-14"],
     });
 
-    const raw = message.content[0].text;
-    let clean = raw.replace(/```json|```/g, "").trim();
+    const raw   = message.content[0].text;
+    const clean = raw.replace(/```json|```/g, "").trim();
     const start = clean.indexOf("{");
-    const end = clean.lastIndexOf("}");
-    if (start !== -1 && end !== -1) clean = clean.slice(start, end + 1);
-    const result = JSON.parse(clean);
+    const end   = clean.lastIndexOf("}");
+    const result = JSON.parse(clean.slice(start, end + 1));
     res.json(result);
   } catch (err) {
     console.error("Erreur /api/questions:", err.message);
@@ -198,306 +176,109 @@ app.post("/api/questions", async (req, res) => {
   }
 });
 
-
-// ─── POST /api/variants ───────────────────────────────────────────────────────
-// Reçoit : { project, analysis, questions }
-// Retourne: { variants: [{ title, description, score, complexity, axes, pros, cons }] }
-app.post("/api/understand", async (req, res) => {
+// ─── POST /api/agenda ────────────────────────────────────────────────────────
+// Reçoit : { project, analysis, questions, answers, selectedVariant }
+// Retourne: { agenda: { sections: [...] } }
+app.post("/api/agenda", async (req, res) => {
   try {
-    const { project, analysis, files = [] } = req.body;
+    const { project, analysis, questions = [], answers = {}, notes = "" } = req.body;
 
-    const rawContent = files
-      .filter(f => f.text)
-      .map(f => "\n\n=== FICHIER: " + f.name + " ===\n" + f.text.slice(0, 60000))
-      .join("");
+    const answeredQs = questions
+      .map((q, i) => answers[i] ? "Q: " + q.text + "\nR: " + answers[i] : null)
+      .filter(Boolean).join("\n\n");
 
-    const systemPrompt = [
-      "Tu es un architecte infrastructure senior avec 15+ ans d'experience en avant-vente.",
-      "Tu dois produire une FICHE DE COMPREHENSION PROJET avant de generer des questions.",
-      "Cette fiche servira de base pour generer des questions pertinentes.",
+    const prompt = [
+      "Tu es un expert avant-vente IT qui redige des reponses a appel d'offres.",
+      "Genere un agenda detaille pour repondre au projet: " + project.name + " (client: " + project.client + ")",
       "",
-      "INSTRUCTIONS:",
-      "- Lis TOUT le contenu des documents fournis",
-      "- Identifie ce qui EST explicitement dans les documents (ne pas poser de questions sur ces points)",
-      "- Identifie ce qui MANQUE ou est ambigu (angles morts = futurs questions)",
-      "- Sois factuel et precis",
+      "CONTEXTE:",
+      analysis.understanding?.projectSummary || analysis.synthesis,
       "",
-      'FORMAT JSON STRICT:',
+      "ENJEUX: " + (analysis.enjeux || []).join(", "),
+      "",
+      answeredQs ? "REPONSES CLIENT:\n" + answeredQs : "",
+      notes ? "NOTES AV:\n" + notes : "",
+      "",
+      "Genere un agenda de reponse professionnel en JSON:",
       '{',
-      '  "projectType": "CRITICAL_INDUSTRIAL",',
-      '  "projectSummary": "Description precise du projet en 2-3 phrases",',
-      '  "existingArch": {',
-      '    "servers": "Description precise des serveurs existants",',
-      '    "storage": "Description precise du stockage existant",',
-      '    "network": "Description precise du reseau existant",',
-      '    "virtualization": "Hyperviseur, version, nombre VMs",',
-      '    "backup": "Solution de sauvegarde existante"',
-      '  },',
-      '  "targetArch": {',
-      '    "servers": "Ce qui est demande pour les serveurs",',
-      '    "storage": "Ce qui est demande pour le stockage",',
-      '    "network": "Ce qui est demande pour le reseau",',
-      '    "virtualization": "Hyperviseur cible demande",',
-      '    "backup": "Sauvegarde cible demandee"',
-      '  },',
-      '  "knownFacts": [',
-      '    "Fait 1 clairement documente",',
-      '    "Fait 2 clairement documente"',
+      '  "title": "Titre de la proposition",',
+      '  "sections": [',
+      '    {',
+      '      "id": "s1",',
+      '      "title": "Titre de la section",',
+      '      "objective": "Objectif de cette section",',
+      '      "content_points": ["point cle 1", "point cle 2"],',
+      '      "placeholder": "[A COMPLETER PAR LAV]",',
+      '      "duration_min": 15',
+      '    }',
       '  ],',
-      '  "blindSpots": [',
-      '    "Element manquant ou ambigu 1",',
-      '    "Element manquant ou ambigu 2"',
-      '  ],',
-      '  "inconsistencies": [',
-      '    "Incoherence detectee entre X et Y"',
-      '  ],',
-      '  "riskAreas": [',
-      '    "Zone de risque identifiee"',
-      '  ]',
+      '  "total_duration_min": 90,',
+      '  "preparation_tips": ["conseil 1", "conseil 2"]',
       '}',
-      "JSON uniquement, aucun texte avant ou apres."
-    ].join("\n");
-
-    const userPrompt = [
-      "Projet: " + project.name + " | Client: " + project.client,
-      project.context ? "Contexte: " + project.context : "",
-      "",
-      "SYNTHESE ETAPE 2:",
-      analysis.synthesis,
-      "",
-      "CONTENU BRUT DES DOCUMENTS:",
-      rawContent,
-      "",
-      "Produis la fiche de comprehension projet."
+      "Genere 6-8 sections. JSON uniquement."
     ].join("\n");
 
     const message = await anthropic.messages.create({
       model: "claude-sonnet-4-5",
       max_tokens: 3000,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userPrompt }],
+      messages: [{ role: "user", content: prompt }],
     });
 
-    const raw = message.content[0].text;
-    let clean = raw.replace(/```json|```/g, "").trim();
+    const raw   = message.content[0].text;
+    const clean = raw.replace(/```json|```/g, "").trim();
     const start = clean.indexOf("{");
-    const end = clean.lastIndexOf("}");
-    if (start !== -1 && end !== -1) clean = clean.slice(start, end + 1);
-    const result = JSON.parse(clean);
+    const end   = clean.lastIndexOf("}");
+    const result = JSON.parse(clean.slice(start, end + 1));
     res.json(result);
   } catch (err) {
-    console.error("Erreur /api/understand:", err.message);
+    console.error("Erreur /api/agenda:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
 
-app.post("/api/variants", async (req, res) => {
-  try {
-    const { project, analysis, understanding, questions, answers = {} } = req.body;
-
-    const answeredQuestions = (questions || [])
-      .map((q, i) => answers[i] ? "Q: " + q.text + "\nR: " + answers[i] : null)
-      .filter(Boolean)
-      .join("\n\n");
-
-    const systemPrompt = [
-      "Tu es un architecte infrastructure senior avec 15+ ans d'experience en avant-vente.",
-      "Tu dois generer 3 variantes de solution adaptees au projet, scorees et comparables.",
-      "",
-      "REGLES:",
-      "- Les variantes doivent etre REELLEMENT DIFFERENTES dans leur APPROCHE ARCHITECTURALE (pas la technologie)",
-      "- RESPECTE ABSOLUMENT les contraintes du CCTP : si VMware est obligatoire, toutes les variantes utilisent VMware. Si 2 noeuds sont demandes, propose des variantes autour de 2 noeuds (ou justifie explicitement pourquoi 3).",
-      "- NE propose PAS de technologie explicitement non demandee ou incompatible avec les contraintes client",
-      "- Les variantes doivent etre des DECLINAISONS ARCHITECTURALES du meme perimetre, pas des alternatives technologiques radicales",
-      "- Chaque variante doit tenir compte des reponses du client si disponibles",
-      "- Le score doit refleter l'adequation reelle au besoin specifique du projet",
-      "- La variante recommandee doit etre clairement justifiee",
-      "- Les pros/cons doivent etre specifiques au contexte, pas generiques",
-      "",
-      'FORMAT JSON STRICT:',
-      '{',
-      '  "variants": [',
-      '    {',
-      '      "id": "v1",',
-      '      "title": "Titre court de la variante",',
-      '      "subtitle": "Sous-titre descriptif",',
-      '      "description": "Description 2-3 phrases du concept architectural",',
-      '      "architecture": {',
-      '        "servers": "Description precise des serveurs proposes",',
-      '        "storage": "Description precise du stockage propose",',
-      '        "network": "Description precise du reseau propose",',
-      '        "virtualization": "Hyperviseur et licences proposes",',
-      '        "backup": "Solution de sauvegarde proposee"',
-      '      },',
-      '      "scores": {',
-      '        "adequation": 85,',
-      '        "complexity_infra": 60,',
-      '        "complexity_deploy": 50,',
-      '        "cost_index": 70',
-      '      },',
-      '      "global_score": 78,',
-      '      "pros": ["avantage specifique 1", "avantage specifique 2"],',
-      '      "cons": ["inconvenient specifique 1", "inconvenient specifique 2"],',
-      '      "risks": ["risque identifie 1"],',
-      '      "recommended": false,',
-      '      "recommendation_reason": "Pourquoi recommander ou non cette variante"',
-      '    }',
-      '  ],',
-      '  "recommendation_summary": "Synthese de la recommandation finale en 2-3 phrases"',
-      '}',
-      "",
-      "adequation: adéquation au besoin (100=parfait)",
-      "complexity_infra: complexite infrastructure (100=tres complexe)",
-      "complexity_deploy: complexite deploiement (100=tres complexe)",
-      "cost_index: index de cout relatif (100=le plus cher)",
-      "global_score: score global adequation/complexite/cout (100=meilleur)",
-      "Une seule variante avec recommended=true.",
-      "JSON uniquement."
-    ].join("\n");
-
-    const userPrompt = [
-      "Projet: " + project.name + " | Client: " + project.client,
-      project.context ? "Contexte: " + project.context : "",
-      "",
-      "TYPE DE PROJET: " + (analysis.projectType || "ENTERPRISE_DC"),
-      "",
-      "SYNTHESE:",
-      analysis.synthesis,
-      "",
-      "COMPREHENSION PROJET:",
-      understanding ? JSON.stringify({ projectType: understanding.projectType, projectSummary: understanding.projectSummary, blindSpots: understanding.blindSpots, inconsistencies: understanding.inconsistencies, riskAreas: understanding.riskAreas }, null, 2) : "Non disponible",
-      "",
-      answeredQuestions ? "REPONSES CLIENT:\n" + answeredQuestions : "Aucune reponse client disponible",
-      "",
-      "Genere 3 variantes de solution adaptees a ce projet specifique."
-    ].join("\n");
-
-    const message = await anthropic.messages.create({
-      model: "claude-sonnet-4-5",
-      max_tokens: 8000,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userPrompt }],
-    });
-
-    const raw = message.content[0].text;
-    let clean = raw.replace(/```json|```/g, "").trim();
-    const start = clean.indexOf("{");
-    const end = clean.lastIndexOf("}");
-    if (start !== -1 && end !== -1) clean = clean.slice(start, end + 1);
-    const result = JSON.parse(clean);
-    res.json(result);
-  } catch (err) {
-    console.error("Erreur /api/variants:", err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-
-// ─── GET /api/health ──────────────────────────────────────────────────────────
+// ─── POST /api/generate-pptx-content ─────────────────────────────────────────
 app.post("/api/generate-pptx-content", async (req, res) => {
   try {
-    const { project, analysis, understanding, questions, answers = {}, selectedVariant, allVariants } = req.body;
+    const { project, analysis, questions, answers = {}, agenda } = req.body;
 
     const answeredQs = (questions || [])
       .map((q, i) => answers[i] ? "Q: " + q.text + "\nR: " + answers[i] : null)
-      .filter(Boolean)
-      .join("\n\n");
+      .filter(Boolean).join("\n\n");
 
-    const systemPrompt = [
+    const prompt = [
       "Tu es un expert avant-vente IT qui redige des propositions techniques professionnelles.",
-      "Tu dois generer le contenu narratif enrichi d'un PowerPoint de proposition commerciale.",
-      "Le contenu doit etre : professionnel, precis, adapte au client, et directement utilisable.",
-      "Chaque slide doit avoir un contenu substantiel et specifique au projet - jamais generique.",
+      "Genere le contenu narratif enrichi d'un PowerPoint pour: " + project.name + " (client: " + project.client + ")",
       "",
-      'FORMAT JSON STRICT:',
-      '{',
-      '  "slide_cover": {',
-      '    "title": "Titre principal de la proposition",',
-      '    "subtitle": "Sous-titre contextuel"',
-      '  },',
-      '  "slide_context": {',
-      '    "intro": "Phrase d\'accroche sur le contexte client (2-3 phrases)",',
-      '    "situation": "Description precise de la situation actuelle",',
-      '    "challenge": "Le defi principal que cette proposition adresse"',
-      '  },',
-      '  "slide_enjeux": {',
-      '    "intro": "Phrase introductive des enjeux",',
-      '    "items": ["enjeu enrichi 1", "enjeu enrichi 2", "enjeu enrichi 3"]',
-      '  },',
-      '  "slide_solution": {',
-      '    "titre_variante": "Titre de la variante retenue",',
-      '    "pitch": "Pitch de la solution en 2-3 phrases percutantes",',
-      '    "differenciants": ["differenciant 1", "differenciant 2", "differenciant 3"],',
-      '    "architecture_narrative": "Description narrative de l\'architecture proposee"',
-      '  },',
-      '  "slide_benefits": {',
-      '    "intro": "Pourquoi cette solution est la meilleure pour ce client",',
-      '    "benefits": [',
-      '      { "title": "Titre benefice", "desc": "Description specifique au contexte client" }',
-      '    ]',
-      '  },',
-      '  "slide_risks": {',
-      '    "intro": "Transparence sur les points de vigilance",',
-      '    "items": [{ "risk": "Risque identifie", "mitigation": "Mesure de mitigation proposee" }]',
-      '  },',
-      '  "slide_next_steps": {',
-      '    "intro": "Prochaines etapes pour avancer",',
-      '    "steps": [',
-      '      { "step": "Etape 1", "desc": "Description", "delai": "Delai estime" }',
-      '    ]',
-      '  },',
-      '  "slide_conclusion": {',
-      '    "pitch_final": "Message de cloture percutant (1-2 phrases)",',
-      '    "call_to_action": "Action concrete proposee au client"',
-      '  }',
-      '}',
-      "JSON uniquement. Contenu specifique et professionnel, jamais generique."
-    ].join("\n");
-
-    const userPrompt = [
-      "Projet: " + project.name + " | Client: " + project.client,
-      project.context ? "Contexte: " + project.context : "",
-      "",
-      "TYPE: " + (analysis.projectType || "ENTERPRISE_DC"),
       "SYNTHESE: " + analysis.synthesis,
-      "",
       "ENJEUX: " + (analysis.enjeux || []).join(", "),
-      "",
-      "VARIANTE RETENUE: " + selectedVariant.title,
-      "Description: " + selectedVariant.description,
-      "Score: " + selectedVariant.global_score + "/100",
-      "Architecture serveurs: " + (selectedVariant.architecture?.servers || ""),
-      "Architecture stockage: " + (selectedVariant.architecture?.storage || ""),
-      "Architecture reseau: " + (selectedVariant.architecture?.network || ""),
-      "Virtualisation: " + (selectedVariant.architecture?.virtualization || ""),
-      "Sauvegarde: " + (selectedVariant.architecture?.backup || ""),
-      "Avantages: " + (selectedVariant.pros || []).join(", "),
-      "Inconvenients: " + (selectedVariant.cons || []).join(", "),
-      "Risques: " + (selectedVariant.risks || []).join(", "),
-      "Raison recommandation: " + (selectedVariant.recommendation_reason || ""),
-      "",
       answeredQs ? "REPONSES CLIENT:\n" + answeredQs : "",
+      agenda ? "AGENDA:\n" + JSON.stringify(agenda) : "",
       "",
-      "COMPREHENSION PROJET:",
-      understanding ? "Angles morts: " + (understanding.blindSpots || []).join(", ") : "",
-      understanding ? "Risques: " + (understanding.riskAreas || []).join(", ") : "",
-      "",
-      "Genere le contenu narratif enrichi et professionnel pour ce PowerPoint."
+      'FORMAT JSON:',
+      '{',
+      '  "slide_cover": { "title": "", "subtitle": "" },',
+      '  "slide_context": { "intro": "", "situation": "", "challenge": "" },',
+      '  "slide_enjeux": { "intro": "", "items": [] },',
+      '  "slide_solution": { "pitch": "", "differenciants": [], "architecture_narrative": "" },',
+      '  "slide_benefits": { "intro": "", "benefits": [{ "title": "", "desc": "" }] },',
+      '  "slide_risks": { "intro": "", "items": [{ "risk": "", "mitigation": "" }] },',
+      '  "slide_next_steps": { "intro": "", "steps": [{ "step": "", "desc": "", "delai": "" }] },',
+      '  "slide_conclusion": { "pitch_final": "", "call_to_action": "" }',
+      '}',
+      "JSON uniquement."
     ].join("\n");
 
     const message = await anthropic.messages.create({
       model: "claude-sonnet-4-5",
-      max_tokens: 4000,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userPrompt }],
+      max_tokens: 3000,
+      messages: [{ role: "user", content: prompt }],
     });
 
-    const raw = message.content[0].text;
-    let clean = raw.replace(/```json|```/g, "").trim();
+    const raw   = message.content[0].text;
+    const clean = raw.replace(/```json|```/g, "").trim();
     const start = clean.indexOf("{");
-    const end = clean.lastIndexOf("}");
-    if (start !== -1 && end !== -1) clean = clean.slice(start, end + 1);
-    const result = JSON.parse(clean);
+    const end   = clean.lastIndexOf("}");
+    const result = JSON.parse(clean.slice(start, end + 1));
     res.json(result);
   } catch (err) {
     console.error("Erreur /api/generate-pptx-content:", err.message);
@@ -505,6 +286,7 @@ app.post("/api/generate-pptx-content", async (req, res) => {
   }
 });
 
-app.get("/api/health", (req, res) => res.json({ status: "ok", version: "1.0.0" }));
+// ─── GET /api/health ──────────────────────────────────────────────────────────
+app.get("/api/health", (req, res) => res.json({ status: "ok", version: "2.0.0" }));
 
-app.listen(port, "0.0.0.0", () => console.log(`SizingHub API → http://localhost:${port}`));
+app.listen(port, "0.0.0.0", () => console.log("SizingHub API v2 -> http://localhost:" + port));

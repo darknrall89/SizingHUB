@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Server, Cpu, MemoryStick, Gauge, Shield, AlertTriangle,
-  CheckCircle, TrendingUp, BarChart3
+  CheckCircle, TrendingUp, BarChart3, Zap, X, RefreshCw
 } from "lucide-react";
 
 const fmt = (n) => Number(n || 0).toLocaleString("fr-FR");
@@ -9,6 +9,8 @@ const fmt = (n) => Number(n || 0).toLocaleString("fr-FR");
 export default function ComputeCalc({ th, isMobile=false }) {
   const [compared, setCompared] = useState(false);
   const [chartView, setChartView] = useState("all");
+  const [showFailureModal, setShowFailureModal] = useState(false);
+  const [targetRatio, setTargetRatio] = useState(4);
 
   const [existing, setExisting] = useState({
     servers: 3,
@@ -16,6 +18,7 @@ export default function ComputeCalc({ th, isMobile=false }) {
     coresPerSocket: 16,
     ghz: 2.4,
     ram: 768,
+    vcpus: 519,
   });
 
   const [target, setTarget] = useState({
@@ -346,6 +349,24 @@ export default function ComputeCalc({ th, isMobile=false }) {
           </div>
         </div>
 
+        <div style={{display:"flex",justifyContent:isMobile?"flex-start":"flex-end"}}>
+          <button onClick={()=>setShowFailureModal(true)} style={{
+            display:"inline-flex",
+            alignItems:"center",
+            gap:8,
+            padding:"12px 16px",
+            borderRadius:12,
+            border:`1px solid ${th.accent2}55`,
+            background:`linear-gradient(135deg, ${th.accent2}18, ${th.accent}10)`,
+            color:th.accent2,
+            fontWeight:950,
+            cursor:"pointer"
+          }}>
+            <Zap size={16}/>
+            Simuler une panne
+          </button>
+        </div>
+
         
       </div>
 
@@ -442,6 +463,413 @@ export default function ComputeCalc({ th, isMobile=false }) {
           </div>
         </Card>
       </div>
+
+      {showFailureModal && (
+        <FailureSimulationModal
+          th={th}
+          isMobile={isMobile}
+          existing={existing}
+          target={target}
+          existingCores={existingCores}
+          targetCores={targetCores}
+          n1Cores={n1Cores}
+          n1Servers={n1Servers}
+          n1Ram={n1Ram}
+          targetRatio={targetRatio}
+          setTargetRatio={setTargetRatio}
+          onClose={()=>setShowFailureModal(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function FailureSimulationModal({
+  th,
+  isMobile,
+  existing,
+  target,
+  existingCores,
+  targetCores,
+  n1Cores,
+  n1Servers,
+  n1Ram,
+  targetRatio,
+  setTargetRatio,
+  onClose
+}) {
+  const vcpus = existing.vcpus || 0;
+  const [failedHosts, setFailedHosts] = useState(Math.min(Math.max(target.haLoss || 1, 1), Math.max(target.servers - 1, 1)));
+
+  const scenario = useMemo(() => {
+    const activeServers = Math.max(target.servers - failedHosts, 1);
+    const ratio = target.servers ? activeServers / target.servers : 0;
+    return {
+      activeServers,
+      cores: Math.round(targetCores * ratio),
+      ram: Math.round(target.ram * ratio),
+    };
+  }, [target.servers, target.ram, targetCores, failedHosts]);
+
+  const beforeRatio = existingCores ? vcpus / existingCores : 0;
+  const afterRatio = scenario.cores ? vcpus / scenario.cores : 0;
+
+  const beforeRamPct = target.ram ? Math.round((existing.ram / target.ram) * 100) : 0;
+  const afterRamPct = scenario.ram ? Math.round((existing.ram / scenario.ram) * 100) : 0;
+
+  const beforeCpuPct = targetCores ? Math.round((existingCores / targetCores) * 100) : 0;
+  const afterCpuPct = scenario.cores ? Math.round((existingCores / scenario.cores) * 100) : 0;
+
+  const ratioRisk = afterRatio > targetRatio;
+  const ramRisk = afterRamPct >= 85;
+  const cpuRisk = afterCpuPct >= 85;
+
+  const statusColor = (risk, warn) => risk ? "#dc2626" : warn ? "#d97706" : th.accent;
+
+  const barValue = (value) => {
+    const parsed = Number(String(value).replace(",", ".").replace("%", ""));
+    return Number.isFinite(parsed) ? Math.min(parsed, 100) : 0;
+  };
+
+  const Bar = ({value, color}) => (
+    <div style={{height:9, borderRadius:999, background:th.bg2, overflow:"hidden", marginTop:8}}>
+      <div style={{
+        width:`${barValue(value)}%`,
+        height:"100%",
+        background:color,
+        borderRadius:999
+      }}/>
+    </div>
+  );
+
+  const ResultCard = ({title, before, after, beforeSub, afterSub, status, color, icon}) => (
+    <div style={{
+      background:th.cardBg,
+      border:`1px solid ${th.border}`,
+      borderRadius:16,
+      padding:16
+    }}>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+        {icon}
+        <div style={{fontSize:15,fontWeight:950,color:th.t1}}>{title}</div>
+      </div>
+
+      <div style={{
+        display:"grid",
+        gridTemplateColumns:isMobile ? "1fr" : "1fr 1fr auto",
+        gap:14,
+        alignItems:"center"
+      }}>
+        <div>
+          <div style={{fontSize:11,color:th.t3,fontWeight:800}}>Avant panne</div>
+          <div style={{fontSize:24,fontWeight:950,color:th.accent2}}>{before}</div>
+          <div style={{fontSize:11,color:th.t2}}>{beforeSub}</div>
+          <Bar value={before} color={th.accent2}/>
+        </div>
+
+        <div>
+          <div style={{fontSize:11,color:th.t3,fontWeight:800}}>Après panne N-1</div>
+          <div style={{fontSize:24,fontWeight:950,color}}>{after}</div>
+          <div style={{fontSize:11,color:th.t2}}>{afterSub}</div>
+          <Bar value={after} color={color}/>
+        </div>
+
+        <div style={{
+          padding:"8px 10px",
+          borderRadius:999,
+          background:`${color}12`,
+          border:`1px solid ${color}35`,
+          color,
+          fontSize:12,
+          fontWeight:950,
+          whiteSpace:"nowrap"
+        }}>
+          {status}
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{
+      position:"fixed",
+      inset:0,
+      background:"rgba(15,23,42,0.55)",
+      zIndex:9999,
+      display:"flex",
+      alignItems:"center",
+      justifyContent:"center",
+      padding:20
+    }}>
+      <div style={{
+        width:"min(1180px, 96vw)",
+        maxHeight:"92vh",
+        overflow:"auto",
+        background:th.bg1,
+        border:`1px solid ${th.border}`,
+        borderRadius:22,
+        boxShadow:"0 30px 80px rgba(0,0,0,0.28)"
+      }}>
+        <div style={{
+          padding:22,
+          borderBottom:`1px solid ${th.border}`,
+          display:"flex",
+          justifyContent:"space-between",
+          alignItems:"flex-start",
+          gap:18
+        }}>
+          <div style={{display:"flex",gap:14,alignItems:"center"}}>
+            <div style={{
+              width:52,
+              height:52,
+              borderRadius:16,
+              background:`${th.accent2}15`,
+              border:`1px solid ${th.accent2}30`,
+              display:"flex",
+              alignItems:"center",
+              justifyContent:"center"
+            }}>
+              <Zap size={26} color={th.accent2}/>
+            </div>
+            <div>
+              <div style={{fontSize:24,fontWeight:950,color:th.t1}}>Simulation de panne</div>
+              <div style={{fontSize:13,color:th.t2,marginTop:4}}>
+                Vérifier CPU, mémoire et ratio vCPU/pCore après perte d’un hôte
+              </div>
+            </div>
+          </div>
+
+          <button onClick={onClose} style={{
+            border:"none",
+            background:"transparent",
+            cursor:"pointer",
+            color:th.t2
+          }}>
+            <X size={24}/>
+          </button>
+        </div>
+
+        <div style={{padding:22}}>
+          <div style={{
+            display:"grid",
+            gridTemplateColumns:isMobile?"1fr":"1fr auto",
+            gap:12,
+            alignItems:"center",
+            marginBottom:18
+          }}>
+            <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+              <span style={{fontSize:13,fontWeight:900,color:th.t1}}>Scénario</span>
+              <select value={failedHosts} onChange={e=>setFailedHosts(Number(e.target.value))} style={{
+                padding:"10px 12px",
+                borderRadius:10,
+                border:`1px solid ${th.border}`,
+                background:th.cardBg,
+                color:th.t1,
+                fontWeight:800,
+                cursor:"pointer"
+              }}>
+                {Array.from({length: Math.max(target.servers - 1, 1)}, (_, i) => i + 1).map(n => (
+                  <option key={n} value={n}>
+                    Perte de {n} {n > 1 ? "hosts" : "host"}
+                  </option>
+                ))}
+              </select>
+
+              <span style={{fontSize:13,fontWeight:900,color:th.t1}}>Ratio cible</span>
+              <select value={targetRatio} onChange={e=>setTargetRatio(Number(e.target.value))} style={{
+                padding:"10px 12px",
+                borderRadius:10,
+                border:`1px solid ${th.border}`,
+                background:th.cardBg,
+                color:th.t1,
+                fontWeight:800
+              }}>
+                <option value={3}>3:1</option>
+                <option value={4}>4:1</option>
+                <option value={6}>6:1</option>
+              </select>
+            </div>
+
+            <button style={{
+              display:"inline-flex",
+              alignItems:"center",
+              gap:8,
+              padding:"10px 13px",
+              borderRadius:10,
+              border:`1px solid ${th.accent2}55`,
+              background:th.cardBg,
+              color:th.accent2,
+              fontWeight:950,
+              cursor:"pointer"
+            }}>
+              <RefreshCw size={15}/>
+              Relancer
+            </button>
+          </div>
+
+          <div style={{
+            display:"grid",
+            gridTemplateColumns:isMobile?"1fr":"1fr 70px 1fr",
+            gap:16,
+            alignItems:"center",
+            marginBottom:18
+          }}>
+            <div style={{
+              background:th.cardBg,
+              border:`1px solid ${th.border}`,
+              borderRadius:16,
+              padding:18
+            }}>
+              <div style={{fontSize:16,fontWeight:950,color:th.t1,marginBottom:14}}>Avant panne</div>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:12}}>
+                <MiniMetric th={th} label="Hosts actifs" value={target.servers} sub={`sur ${target.servers}`}/>
+                <MiniMetric th={th} label="Cœurs physiques" value={targetCores} sub="cœurs"/>
+                <MiniMetric th={th} label="RAM utile" value={`${target.ram} Go`} sub="cible"/>
+                <MiniMetric th={th} label="vCPU" value={vcpus} sub="à absorber"/>
+              </div>
+            </div>
+
+            {!isMobile && (
+              <div style={{fontSize:42,fontWeight:950,color:th.t1,textAlign:"center"}}>→</div>
+            )}
+
+            <div style={{
+              background:th.cardBg,
+              border:`1px solid ${ratioRisk || ramRisk || cpuRisk ? "#fca5a5" : th.border}`,
+              borderRadius:16,
+              padding:18
+            }}>
+              <div style={{fontSize:16,fontWeight:950,color:th.t1,marginBottom:14}}>Après panne N-1</div>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:12}}>
+                <MiniMetric th={th} label="Hosts actifs" value={scenario.activeServers} sub={`sur ${target.servers}`}/>
+                <MiniMetric th={th} label="Cœurs physiques" value={scenario.cores} sub="cœurs"/>
+                <MiniMetric th={th} label="RAM utile" value={`${scenario.ram} Go`} sub={`après perte de ${failedHosts}`}/>
+                <MiniMetric th={th} label="vCPU" value={vcpus} sub="à absorber"/>
+              </div>
+            </div>
+          </div>
+
+          <div style={{
+            display:"grid",
+            gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",
+            gap:14,
+            marginBottom:18
+          }}>
+            <ResultCard
+              title="CPU physique"
+              before={`${beforeCpuPct}%`}
+              after={`${afterCpuPct}%`}
+              beforeSub={`${existingCores} / ${targetCores} cœurs`}
+              afterSub={`${existingCores} / ${scenario.cores} cœurs`}
+              status={cpuRisk ? "Risque" : afterCpuPct >= 70 ? "Attention" : "OK"}
+              color={statusColor(cpuRisk, afterCpuPct >= 70)}
+              icon={<Cpu size={20} color={th.accent2}/>}
+            />
+
+            <ResultCard
+              title="Mémoire"
+              before={`${beforeRamPct}%`}
+              after={`${afterRamPct}%`}
+              beforeSub={`${existing.ram} / ${target.ram} Go`}
+              afterSub={`${existing.ram} / ${scenario.ram} Go`}
+              status={ramRisk ? "Risque" : afterRamPct >= 75 ? "Attention" : "OK"}
+              color={statusColor(ramRisk, afterRamPct >= 75)}
+              icon={<MemoryStick size={20} color="#7c3aed"/>}
+            />
+
+            <ResultCard
+              title="Ratio vCPU / pCore"
+              before={`${beforeRatio.toFixed(1)}:1`}
+              after={`${afterRatio.toFixed(1)}:1`}
+              beforeSub={`${vcpus} vCPU / ${existingCores} cœurs existants`}
+              afterSub={`${vcpus} vCPU / ${scenario.cores} cœurs restants`}
+              status={ratioRisk ? "Risque" : afterRatio > targetRatio * 0.85 ? "Attention" : "OK"}
+              color={statusColor(ratioRisk, afterRatio > targetRatio * 0.85)}
+              icon={<Gauge size={20} color={ratioRisk ? "#dc2626" : th.accent2}/>}
+            />
+          </div>
+
+          <div style={{
+            display:"grid",
+            gridTemplateColumns:isMobile?"1fr":"1fr 1fr",
+            gap:14
+          }}>
+            <div style={{
+              background:th.cardBg,
+              border:`1px solid ${th.border}`,
+              borderRadius:16,
+              padding:18
+            }}>
+              <div style={{fontSize:16,fontWeight:950,color:th.t1,marginBottom:12}}>Top VM impactantes</div>
+              <div style={{fontSize:13,color:th.t2,lineHeight:1.7}}>
+                À connecter ensuite avec RVTools : top VM par vCPU, RAM et criticité.
+              </div>
+            </div>
+
+            <div style={{
+              background:"#fffbeb",
+              border:"1px solid #fcd34d",
+              borderRadius:16,
+              padding:18
+            }}>
+              <div style={{fontSize:16,fontWeight:950,color:"#92400e",marginBottom:10}}>
+                Lecture avant-vente
+              </div>
+              <div style={{fontSize:13,color:"#78350f",lineHeight:1.65}}>
+                {ratioRisk || ramRisk || cpuRisk
+                  ? `Le scénario N-1 nécessite une attention particulière. Après perte de ${failedHosts} ${failedHosts > 1 ? "hôtes" : "hôte"}, le ratio vCPU/pCore passe à ${afterRatio.toFixed(1)}:1 pour une cible de ${targetRatio}:1, avec une mémoire utilisée estimée à ${afterRamPct}%.`
+                  : `Le cluster semble capable d’absorber la perte de ${failedHosts} ${failedHosts > 1 ? "hôtes" : "hôte"} sans saturation immédiate. La marge CPU, mémoire et le ratio vCPU/pCore restent cohérents avec la cible.`}
+              </div>
+            </div>
+          </div>
+
+          <div style={{
+            display:"flex",
+            justifyContent:"space-between",
+            gap:12,
+            marginTop:20,
+            borderTop:`1px solid ${th.border}`,
+            paddingTop:18
+          }}>
+            <button style={{
+              padding:"11px 14px",
+              borderRadius:10,
+              border:`1px solid ${th.border}`,
+              background:th.cardBg,
+              color:th.t1,
+              fontWeight:900,
+              cursor:"pointer"
+            }}>
+              Exporter le rapport
+            </button>
+
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={onClose} style={{
+                padding:"11px 14px",
+                borderRadius:10,
+                border:`1px solid ${th.border}`,
+                background:th.cardBg,
+                color:th.t1,
+                fontWeight:900,
+                cursor:"pointer"
+              }}>
+                Fermer
+              </button>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MiniMetric({th, label, value, sub}) {
+  return (
+    <div style={{textAlign:"center"}}>
+      <div style={{fontSize:11,color:th.t3,fontWeight:800}}>{label}</div>
+      <div style={{fontSize:22,fontWeight:950,color:th.t1,marginTop:4}}>{value}</div>
+      <div style={{fontSize:11,color:th.t2,marginTop:2}}>{sub}</div>
     </div>
   );
 }
