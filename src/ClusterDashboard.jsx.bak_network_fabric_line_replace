@@ -4,8 +4,6 @@ import {
   CheckCircle, AlertCircle, Info, TrendingDown,
   Activity, Database, Network, Settings, MemoryStick, Zap
 } from "lucide-react";
-import NetworkFabric from "./components/network/NetworkFabric.jsx";
-import NetworkHealthCard from "./components/network/NetworkHealthCard.jsx";
 
 const getUsageTone = (pct) => {
   if (pct >= 80) return { color:"text-red-500",    bg:"bg-red-500",    label:"Critique" };
@@ -2378,13 +2376,76 @@ export default function ClusterOverviewDashboard({
 
         return (
           <div className="space-y-4">
-              <NetworkHealthCard
-                score={networkScore}
-                hasManagement={hasManagement}
-                hasVmotion={hasVmotion}
-                hasStorage={hasStorage}
-                redundancyScore={redundancyScore}
-              />
+              {/* NETWORK HEALTH */}
+              <div className={"rounded-3xl border shadow-sm p-6 "+networkStatusBg}>
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+                  <div className="flex items-center gap-5">
+                    <div className="relative w-28 h-28 flex-shrink-0">
+                      <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
+                        <circle cx="60" cy="60" r="48" fill="none" stroke="#e5e7eb" strokeWidth="10"/>
+                        <circle
+                          cx="60"
+                          cy="60"
+                          r="48"
+                          fill="none"
+                          stroke={networkScore>=85 ? "#10b981" : networkScore>=70 ? "#f59e0b" : "#ef4444"}
+                          strokeWidth="10"
+                          strokeLinecap="round"
+                          strokeDasharray={301}
+                          strokeDashoffset={301 - (301 * networkScore / 100)}
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <div className={"text-3xl font-bold "+networkStatusColor}>{networkScore}</div>
+                        <div className="text-xs text-gray-400">/100</div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-xs uppercase tracking-widest text-gray-400 mb-1">Network Health</div>
+                      <div className={"text-2xl font-semibold "+networkStatusColor}>{networkStatus}</div>
+                      <div className="text-sm text-gray-500 mt-2 max-w-xl">
+                        Analyse de segmentation, résilience réseau, isolation des flux et cohérence VMware.
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div className="bg-white rounded-2xl border border-gray-100 px-4 py-3 text-center">
+                      <div className="text-2xl font-semibold text-blue-600">{segments.length}</div>
+                      <div className="text-xs text-gray-500 mt-1">Segments</div>
+                    </div>
+                    <div className="bg-white rounded-2xl border border-gray-100 px-4 py-3 text-center">
+                      <div className="text-2xl font-semibold text-indigo-600">{totalNics}</div>
+                      <div className="text-xs text-gray-500 mt-1">NICs</div>
+                    </div>
+                    <div className="bg-white rounded-2xl border border-gray-100 px-4 py-3 text-center">
+                      <div className="text-2xl font-semibold text-emerald-600">{redundancyScore}%</div>
+                      <div className="text-xs text-gray-500 mt-1">Redondance</div>
+                    </div>
+                    <div className="bg-white rounded-2xl border border-gray-100 px-4 py-3 text-center">
+                      <div className={"text-2xl font-semibold "+(hasStorage?"text-emerald-600":"text-red-600")}>{hasStorage ? "OK" : "NON"}</div>
+                      <div className="text-xs text-gray-500 mt-1">Stockage dédié</div>
+                    </div>
+                  </div>
+                </div>
+
+                {networkInsights.length>0&&(
+                  <div className="mt-5 pt-5 border-t border-white/60">
+                    <div className="text-xs uppercase tracking-widest text-gray-400 mb-3">Insights réseau détectés</div>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                      {networkInsights.map((i,idx)=>(
+                        <div key={idx} className={"rounded-2xl border px-4 py-3 flex items-start gap-3 "+(i.severity==="critical"?"bg-red-50 border-red-100":"bg-amber-50 border-amber-100")}>
+                          {i.severity==="critical"
+                            ? <AlertTriangle size={16} className="text-red-500 mt-0.5"/>
+                            : <Info size={16} className="text-amber-500 mt-0.5"/>}
+                          <div className={(i.severity==="critical"?"text-red-700":"text-amber-700")+" text-sm"}>{i.text}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
 
             {/* KPIs Réseau */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
@@ -2402,15 +2463,73 @@ export default function ClusterOverviewDashboard({
               ))}
             </div>
 
-              <NetworkFabric
-                hosts={hosts.length}
-                segments={segments.length}
-                portGroups={allPGs.length}
-                hasManagement={hasManagement}
-                hasVmotion={hasVmotion}
-                hasStorage={hasStorage}
-                redundancyScore={redundancyScore}
-              />
+            {/* Topologie simplifiée */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <h3 className="text-sm font-medium text-gray-800 mb-4">Network Overview</h3>
+              <div className="flex items-center gap-4 overflow-x-auto pb-2">
+                {/* Cluster */}
+                <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                  <div className="w-16 h-16 bg-blue-50 border-2 border-blue-200 rounded-xl flex items-center justify-center">
+                    <Server size={24} className="text-blue-500"/>
+                  </div>
+                  <span className="text-xs text-gray-500 font-medium">Cluster</span>
+                  <span className="text-xs text-gray-400">{hosts.length} hosts</span>
+                </div>
+                {/* Flèches */}
+                <div className="flex flex-col gap-1 flex-shrink-0">
+                  <div className="flex items-center gap-1">
+                    <div className="w-12 h-1.5 bg-gradient-to-r from-blue-400 to-blue-200 rounded-full"/>
+                    <div className="w-0 h-0 border-t-4 border-t-transparent border-b-4 border-b-transparent border-l-8 border-l-blue-400"/>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-12 h-1.5 bg-gradient-to-r from-orange-300 to-orange-100 rounded-full"/>
+                    <div className="w-0 h-0 border-t-4 border-t-transparent border-b-4 border-b-transparent border-l-8 border-l-orange-300"/>
+                  </div>
+                </div>
+                {/* Switches */}
+                <div className="flex flex-col gap-2 flex-shrink-0">
+                  {allVSwitches.length>0&&(
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5 text-xs">
+                      <div className="font-semibold text-blue-700">vSwitch ({allVSwitches.length})</div>
+                      <div className="text-blue-500">{[...new Set(allVSwitches.map(s=>s.name))].slice(0,2).join(", ")}</div>
+                    </div>
+                  )}
+                  {allDvSwitches.length>0&&(
+                    <div className="bg-violet-50 border border-violet-200 rounded-lg px-3 py-1.5 text-xs">
+                      <div className="font-semibold text-violet-700">dvSwitch ({allDvSwitches.length})</div>
+                      <div className="text-violet-500">{allDvSwitches[0]?.name}</div>
+                    </div>
+                  )}
+                </div>
+                {/* Flèche vers segments */}
+                <div className="flex items-center flex-shrink-0">
+                  <div className="w-8 h-px bg-gray-300"/>
+                  <div className="w-0 h-0 border-t-3 border-t-transparent border-b-3 border-b-transparent border-l-6 border-l-gray-300"/>
+                </div>
+                {/* Segments */}
+                <div className="flex flex-col gap-1.5 flex-shrink-0">
+                  {[...new Set(allVlans.map(v=>v.name))].slice(0,4).map(name=>{
+                    const style = getNetworkSegmentStyle(name);
+                    return (
+                      <div key={name} className={"flex items-center gap-2 px-3 py-1 rounded-lg border text-xs "+style.bg+" border-"+style.text.replace("text-","")}>
+                        <Network size={10} className={style.text}/>
+                        <span className={"font-medium "+style.text}>{name.length>20?name.substring(0,20)+"...":name}</span>
+                      </div>
+                    );
+                  })}
+                  {allPGs.slice(0,3).filter(pg=>!allVlans.find(v=>v.name===pg.portGroup)).map((pg,i)=>{
+                    const style = getNetworkSegmentStyle(pg.portGroup);
+                    return (
+                      <div key={i} className={"flex items-center gap-2 px-3 py-1 rounded-lg text-xs "+style.bg}>
+                        <Network size={10} className={style.text}/>
+                        <span className={"font-medium "+style.text}>{pg.portGroup.length>20?pg.portGroup.substring(0,20)+"...":pg.portGroup}</span>
+                        {pg.vlan!==null&&pg.vlan!==undefined&&<span className="text-gray-400">VLAN {pg.vlan}</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
 
             {/* Host NICs */}
             {hostsNics.length>0&&(
