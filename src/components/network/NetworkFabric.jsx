@@ -163,7 +163,15 @@ function TopologyColumn({col, hosts, onSelect}){
               +{col.vlans.length - 3}
             </span>
           )}
-          {col.vlans.length === 0 && <span className="text-xs text-gray-400">Non détecté</span>}
+          {col.vlans.length === 0 && (
+            col.fcDetected ? (
+              <span className={`text-[11px] px-2 py-1 rounded-full font-semibold ${t.chip}`}>
+                Fibre Channel
+              </span>
+            ) : (
+              <span className="text-xs text-gray-400">Non détecté</span>
+            )
+          )}
         </div>
       </button>
 
@@ -185,7 +193,15 @@ function TopologyColumn({col, hosts, onSelect}){
             <>
               {col.vmks.slice(0,3).map((v,i)=><div key={i}>{v.device || v.Device || "vmk"} · {v.ip || v.IP || "IP N/A"}</div>)}
               {col.vmks.length > 3 && <div>… {col.vmks.length - 3} autres</div>}
-              {col.vmks.length === 0 && <div>Aucun VMkernel</div>}
+              {col.vmks.length === 0 && (
+                col.fcDetected ? (
+                  <div className="text-emerald-700 font-semibold">
+                    HBA / FC détecté · voir onglet Storage
+                  </div>
+                ) : (
+                  <div>Aucun VMkernel</div>
+                )
+              )}
             </>
           )}
         </div>
@@ -227,16 +243,34 @@ export default function NetworkFabric({
   vmKernel=[],
   segmentList=[],
   portGroupList=[],
+  hbaRows=[],
 }) {
   const vmks = Array.isArray(vmKernel) ? vmKernel : [];
   const segs = Array.isArray(segmentList) ? segmentList : [];
   const pgs = Array.isArray(portGroupList) ? portGroupList : [];
+  const hbas = Array.isArray(hbaRows) ? hbaRows : [];
 
   const roles = ["management","vmotion","storage","backup","vm"];
 
   const vmksByRole = Object.fromEntries(roles.map(r => [r, vmks.filter(v => classify(v) === r)]));
   const pgsByRole = Object.fromEntries(roles.map(r => [r, pgs.filter(p => classify(p) === r)]));
   const segsByRole = Object.fromEntries(roles.map(r => [r, segs.filter(x => classify(x) === r)]));
+
+  const hbaLikeRows = hbas.filter(x => {
+    const t = Object.values(x || {}).join(" ").toLowerCase();
+    return (
+      t.includes("fibre channel") ||
+      t.includes("fiber channel") ||
+      t.includes("vmhba") ||
+      t.includes("wwn") ||
+      t.includes("wwpn") ||
+      t.includes("emulex") ||
+      t.includes("qlogic") ||
+      t.includes("brocade")
+    );
+  });
+
+  const fcDetected = hbaLikeRows.length > 0;
 
   const makeCol = (role, title) => {
     const vmkRows = vmksByRole[role] || [];
@@ -250,9 +284,18 @@ export default function NetworkFabric({
     ]);
 
     const hostNames = uniq(vmkRows.map(v => v.host || v.Host || v.hostname || v.Hostname));
+
+    const isFcStorageFallback =
+      role === "storage" &&
+      fcDetected &&
+      vmkRows.length === 0 &&
+      vlans.length === 0;
+
     const presentHosts = role === "vm"
       ? Math.min(hosts, hosts || 0)
-      : (hostNames.length || (vlans.length ? hosts : 0));
+      : isFcStorageFallback
+        ? hosts
+        : (hostNames.length || (vlans.length ? hosts : 0));
 
     const mtuIssues = vmkRows.filter(v => role === "storage" && Number(v.mtu || v.MTU || 0) > 0 && Number(v.mtu || v.MTU || 0) < 9000);
 
@@ -265,6 +308,8 @@ export default function NetworkFabric({
       vlans,
       presentHosts,
       mtuIssues,
+      fcDetected: isFcStorageFallback,
+      hbaCount: isFcStorageFallback ? hbaLikeRows.length : 0,
     };
   };
 
@@ -391,11 +436,11 @@ export default function NetworkFabric({
                   </div>
                   <div>
                     <div className="text-gray-400">Type</div>
-                    <div className="font-semibold text-gray-800">{selected.role === "vm" ? "Port Groups" : "VMkernel"}</div>
+                    <div className="font-semibold text-gray-800">{selected.fcDetected ? "HBA / Fibre Channel" : selected.role === "vm" ? "Port Groups" : "VMkernel"}</div>
                   </div>
                   <div>
                     <div className="text-gray-400">Objets</div>
-                    <div className="font-semibold text-gray-800">{selected.role === "vm" ? selected.portGroups.length : selected.vmks.length}</div>
+                    <div className="font-semibold text-gray-800">{selected.fcDetected ? selected.hbaCount : selected.role === "vm" ? selected.portGroups.length : selected.vmks.length}</div>
                   </div>
                   <div>
                     <div className="text-gray-400">Couverture</div>
@@ -403,7 +448,7 @@ export default function NetworkFabric({
                   </div>
                   <div>
                     <div className="text-gray-400">MTU</div>
-                    <div className="font-semibold text-gray-800">{selected.vmks[0]?.mtu || selected.vmks[0]?.MTU || "N/A"}</div>
+                    <div className="font-semibold text-gray-800">{selected.fcDetected ? "N/A - FC" : selected.vmks[0]?.mtu || selected.vmks[0]?.MTU || "N/A"}</div>
                   </div>
                 </div>
               ) : (

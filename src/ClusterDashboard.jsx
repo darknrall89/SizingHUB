@@ -1773,6 +1773,22 @@ export const mapRvToolsAnalysisToClusterViewModel = (rv) => {
       dvSwitches: rv.dvSwitches || [],
       uniquePortGroups: rv.uniquePortGroups || [],
       vmKernel: rv.vmKernel || [],
+      hbaRows: (() => {
+        const direct = rv.vHBA || rv.vhba || rv.VHBA || rv.hba || rv.HBA || rv.vhbaRows;
+        if (Array.isArray(direct) && direct.length) return direct;
+
+        const match = Object.entries(rv || {}).find(([key, value]) => {
+          const k = String(key || "").toLowerCase();
+          return Array.isArray(value) && (
+            k.includes("vhba") ||
+            k.includes("hba") ||
+            k.includes("wwn") ||
+            k.includes("wwpn")
+          );
+        });
+
+        return match ? match[1] : [];
+      })(),
       hostsNics: (rv.hosts||[]).map(h=>({
         name: h.shortName,
         nics: h.nics||0,
@@ -2712,7 +2728,11 @@ export default function ClusterOverviewDashboard({
 
       {activeTab==="network"&&(()=>{
         const nd = networkData||{};
+          console.log("🔎 SizingHUB networkData keys:", Object.keys(nd || {}));
+          console.log("🔎 SizingHUB hbaRows:", nd.hbaRows);
+          console.log("🔎 SizingHUB networkData full:", nd);
         const hostsNics = nd.hostsNics||[];
+          const hbaRows = nd.hbaRows || nd.vHBA || nd.vhba || nd.hba || [];
         const allVlans = nd.vlans||vlans||[];
         const allVSwitches = nd.vSwitches||vSwitches||[];
         const allDvSwitches = nd.dvSwitches||dvSwitches||[];
@@ -2921,6 +2941,7 @@ export default function ClusterOverviewDashboard({
                   segmentList={segments}
                   portGroupList={allPGs}
                   hostsNics={hostsNics}
+                  hbaRows={hbaRows}
                 />
 
             {/* Host NICs */}

@@ -59,6 +59,7 @@ export default function AuditCalc({ th, isMobile=false }) {
       {id:"vPort",      label:"vPort",      desc:"Port groups reseau",    required:false},
       {id:"dvPort",     label:"dvPort",     desc:"VLANs distribues",      required:false},
       {id:"vSwitch",    label:"vSwitch",    desc:"vSwitches",             required:false},
+      {id:"vHBA",       label:"vHBA",       desc:"HBA / FC / WWN",       required:false},
       {id:"dvSwitch",   label:"dvSwitch",   desc:"Distributed vSwitches", required:false},
     ];
     const sheetQuality = REQUIRED_SHEETS.map(s=>({
@@ -71,6 +72,7 @@ export default function AuditCalc({ th, isMobile=false }) {
     const vInfo      = getJson("vInfo");
     const vHost      = getJson("vHost");
     const vDatastore = getJson("vDatastore");
+      const vHBA = getJson("vHBA");
     const vMemoryData = getJson("vMemory");
     const vCpuData = getJson("vCPU");
     const vmCpuMap = {};
@@ -309,7 +311,9 @@ export default function AuditCalc({ th, isMobile=false }) {
       hostsCount: vHost.length,
       totalCores: vHost.reduce((s,h)=>s+(h["# Cores"]||0),0),
       totalRamPhysGo: Math.round(vHost.reduce((s,h)=>s+(h["# Memory"]||0),0)/1024),
-        vmOffList, vlans, uniquePortGroups, vmNics, vSwitches, dvSwitches,
+        vmOffList, vlans, uniquePortGroups, vmNics, vSwitches,
+      vHBA, dvSwitches,
+      vHBA,
         vmKernel: vmKernelEnriched,
       sheetQuality, qualityScore,
     };
