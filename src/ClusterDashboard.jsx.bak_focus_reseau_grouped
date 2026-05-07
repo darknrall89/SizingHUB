@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  Server, Cpu, HardDrive, AlertTriangle, Shield,
+  Server, Cpu, HardDrive, AlertTriangle,
   CheckCircle, AlertCircle, Info, TrendingDown,
   Activity, Database, Network, Settings, MemoryStick, Zap
 } from "lucide-react";
@@ -572,7 +572,6 @@ const OsIcon = ({ os }) => {
 
 // ── Focus Réseau Nœud ────────────────────────────────────────────────────────
 
-
 function FocusReseauNoeud({ vmkRows=[], hostsNics=[] }) {
   const hostsList = [...new Set([
     ...hostsNics.map(h=>h.name).filter(Boolean),
@@ -584,13 +583,22 @@ function FocusReseauNoeud({ vmkRows=[], hostsNics=[] }) {
   const hostVmks = vmkRows.filter(v => v.host === selHost);
   const hostNic  = hostsNics.find(h => h.name === selHost);
 
-  const getRole = (vmk) => {
+  const getRoleStyle = (vmk) => {
     const n = ((vmk.portGroup||"")+" "+(vmk.device||"")).toLowerCase();
 
-    if (n.includes("management") || n.includes("mgmt") || n.includes("admin") || n.includes("adm") || n.includes("vmk0")) return "Management";
-    if (n.includes("vmotion") || n.includes("v-motion") || n.includes("v motion")) return "vMotion";
-    if (n.includes("iscsi") || n.includes("san") || n.includes("nfs") || n.includes("storage")) return "Storage";
-    return "Autres";
+    if (n.includes("vmotion")||n.includes("v-motion")) {
+      return { label:"vMotion", bg:"bg-violet-50", text:"text-violet-700", border:"border-violet-200" };
+    }
+
+    if (n.includes("iscsi")||n.includes("san")||n.includes("nfs")||n.includes("storage")) {
+      return { label:"Storage", bg:"bg-orange-50", text:"text-orange-700", border:"border-orange-200" };
+    }
+
+    if (n.includes("management")||n.includes("mgmt")||n.includes("admin")||n.includes("adm")||n.includes("vmk0")) {
+      return { label:"Management", bg:"bg-emerald-50", text:"text-emerald-700", border:"border-emerald-200" };
+    }
+
+    return { label:"VM", bg:"bg-sky-50", text:"text-sky-700", border:"border-sky-200" };
   };
 
   const cidr = (mask) => {
@@ -601,146 +609,7 @@ function FocusReseauNoeud({ vmkRows=[], hostsNics=[] }) {
     return "/" + parts.reduce((a,b)=>a+b.toString(2).split("").filter(c=>c==="1").length,0);
   };
 
-  const grouped = {
-    Management: hostVmks.filter(v => getRole(v) === "Management"),
-    vMotion: hostVmks.filter(v => getRole(v) === "vMotion"),
-    Storage: hostVmks.filter(v => getRole(v) === "Storage"),
-    Autres: hostVmks.filter(v => getRole(v) === "Autres"),
-  };
-
-  const storageMtuWarn = grouped.Storage.some(v => v.mtu && Number(v.mtu) < 9000);
-
-  const groupConfig = {
-    Management: {
-      title: "VMkernel Management",
-      color: "emerald",
-      icon: Shield,
-      empty: "Aucune interface Management détectée",
-    },
-    vMotion: {
-      title: "VMkernel vMotion",
-      color: "violet",
-      icon: Activity,
-      empty: "Aucune interface vMotion détectée",
-    },
-    Storage: {
-      title: "VMkernel Stockage",
-      color: "orange",
-      icon: Database,
-      empty: "Aucune interface stockage détectée",
-    },
-    Autres: {
-      title: "Autres",
-      color: "blue",
-      icon: Network,
-      empty: "Aucune autre interface VMkernel détectée",
-    },
-  };
-
-  const colorClasses = {
-    emerald: {
-      box: "border-emerald-100",
-      header: "bg-emerald-50 border-emerald-100",
-      text: "text-emerald-700",
-      iconBox: "bg-white border-emerald-200",
-      icon: "text-emerald-600",
-    },
-    violet: {
-      box: "border-violet-100",
-      header: "bg-violet-50 border-violet-100",
-      text: "text-violet-700",
-      iconBox: "bg-white border-violet-200",
-      icon: "text-violet-600",
-    },
-    orange: {
-      box: "border-orange-100",
-      header: "bg-orange-50 border-orange-100",
-      text: "text-orange-700",
-      iconBox: "bg-white border-orange-200",
-      icon: "text-orange-600",
-    },
-    blue: {
-      box: "border-blue-100",
-      header: "bg-blue-50 border-blue-100",
-      text: "text-blue-700",
-      iconBox: "bg-white border-blue-200",
-      icon: "text-blue-600",
-    },
-  };
-
-  const VmKernelGroup = ({ type, rows }) => {
-    const cfg = groupConfig[type];
-    const cls = colorClasses[cfg.color];
-    const Icon = cfg.icon;
-
-    return (
-      <div className={`rounded-2xl border ${cls.box} overflow-hidden`}>
-        <div className={`flex items-center justify-between px-4 py-4 border-b ${cls.header}`}>
-          <div className="flex items-center gap-3">
-            <div className={`w-9 h-9 rounded-xl border flex items-center justify-center ${cls.iconBox}`}>
-              <Icon size={18} className={cls.icon}/>
-            </div>
-
-            <div className={`text-base font-semibold ${cls.text}`}>
-              {cfg.title}
-            </div>
-          </div>
-
-          <div className="text-sm text-gray-500">
-            {rows.length} interface{rows.length > 1 ? "s" : ""}
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 bg-white">
-                {["Device","Port Group","VLAN","IP","Subnet","MTU"].map(h => (
-                  <th key={h} className="text-left text-gray-400 font-semibold py-3 px-4 whitespace-nowrap">{h}</th>
-                ))}
-              </tr>
-            </thead>
-
-            <tbody>
-              {rows.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-6 text-center text-sm text-gray-400">
-                    {cfg.empty}
-                  </td>
-                </tr>
-              ) : rows.map((vmk, i) => {
-                const mtuWarn = type === "Storage" && vmk.mtu && Number(vmk.mtu) < 9000;
-
-                return (
-                  <tr key={i} className="border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors">
-                    <td className="py-3 px-4 font-mono text-blue-600 font-semibold whitespace-nowrap">{vmk.device || "—"}</td>
-                    <td className="py-3 px-4 text-gray-800 whitespace-nowrap">{vmk.portGroup || "—"}</td>
-
-                    <td className="py-3 px-4">
-                      {vmk.vlan != null
-                        ? <span className="font-mono bg-gray-100 px-2 py-1 rounded-lg text-gray-700">{vmk.vlan}</span>
-                        : <span className="text-gray-300">—</span>}
-                    </td>
-
-                    <td className="py-3 px-4 font-mono text-gray-900 whitespace-nowrap">{vmk.ip || "—"}</td>
-                    <td className="py-3 px-4 font-mono text-gray-600 whitespace-nowrap">{cidr(vmk.subnet) || "—"}</td>
-
-                    <td className="py-3 px-4">
-                      {vmk.mtu
-                        ? <span className={mtuWarn ? "text-orange-600 font-semibold" : "text-gray-700"}>
-                            {vmk.mtu}{mtuWarn ? " ⚠" : ""}
-                          </span>
-                        : <span className="text-gray-300">—</span>}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
-  };
+  const storageMtuWarn = hostVmks.some(v => getRoleStyle(v).label === "Storage" && v.mtu && Number(v.mtu) < 9000);
 
   return (
     <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
@@ -765,8 +634,8 @@ function FocusReseauNoeud({ vmkRows=[], hostsNics=[] }) {
         </select>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[300px_1fr] gap-6">
-        <div className="rounded-2xl bg-gradient-to-br from-gray-50 to-white border border-gray-100 p-6 flex flex-col justify-center">
+      <div className="grid grid-cols-1 xl:grid-cols-[280px_1fr] gap-6">
+        <div className="rounded-2xl bg-gradient-to-br from-gray-50 to-white border border-gray-100 p-5 flex flex-col justify-center">
           <div className="w-full h-24 mb-6 flex items-center justify-center">
             <ServerRackVisual health="healthy"/>
           </div>
@@ -798,11 +667,61 @@ function FocusReseauNoeud({ vmkRows=[], hostsNics=[] }) {
           </div>
         </div>
 
-        <div className="space-y-4">
-          <VmKernelGroup type="Management" rows={grouped.Management}/>
-          <VmKernelGroup type="vMotion" rows={grouped.vMotion}/>
-          <VmKernelGroup type="Storage" rows={grouped.Storage}/>
-          <VmKernelGroup type="Autres" rows={grouped.Autres}/>
+        <div className="rounded-2xl border border-gray-100 overflow-hidden">
+          {hostVmks.length === 0 ? (
+            <div className="py-14 text-center text-sm text-gray-400">
+              Aucun VMkernel détecté pour ce host.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100 bg-white">
+                    {["Device","Port Group","VLAN","IP","Subnet","MTU","Rôle"].map(h => (
+                      <th key={h} className="text-left text-gray-400 font-semibold py-4 px-4 whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {hostVmks.map((vmk, i) => {
+                    const role = getRoleStyle(vmk);
+                    const mtuWarn = role.label === "Storage" && vmk.mtu && Number(vmk.mtu) < 9000;
+
+                    return (
+                      <tr key={i} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                        <td className="py-4 px-4 font-mono text-blue-600 font-semibold whitespace-nowrap">{vmk.device || "—"}</td>
+                        <td className="py-4 px-4 text-gray-800 whitespace-nowrap">{vmk.portGroup || "—"}</td>
+
+                        <td className="py-4 px-4">
+                          {vmk.vlan != null
+                            ? <span className="font-mono bg-gray-100 px-2 py-1 rounded-lg text-gray-700">{vmk.vlan}</span>
+                            : <span className="text-gray-300">—</span>}
+                        </td>
+
+                        <td className="py-4 px-4 font-mono text-gray-900 whitespace-nowrap">{vmk.ip || "—"}</td>
+                        <td className="py-4 px-4 font-mono text-gray-600 whitespace-nowrap">{cidr(vmk.subnet) || "—"}</td>
+
+                        <td className="py-4 px-4">
+                          {vmk.mtu
+                            ? <span className={mtuWarn ? "text-orange-600 font-semibold" : "text-gray-700"}>
+                                {vmk.mtu}{mtuWarn ? " ⚠" : ""}
+                              </span>
+                            : <span className="text-gray-300">—</span>}
+                        </td>
+
+                        <td className="py-4 px-4">
+                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${role.bg} ${role.text} ${role.border}`}>
+                            {role.label}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
 

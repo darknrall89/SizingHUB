@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  Server, Cpu, HardDrive, AlertTriangle, Shield,
+  Server, Cpu, HardDrive, AlertTriangle,
   CheckCircle, AlertCircle, Info, TrendingDown,
   Activity, Database, Network, Settings, MemoryStick, Zap
 } from "lucide-react";

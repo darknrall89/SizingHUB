@@ -223,28 +223,6 @@ export default function AuditCalc({ th, isMobile=false }) {
         };
       }).filter(v=>v.name && v.name !== "N/A");
 
-      const normalizePg = (v="") => String(v).toLowerCase().trim();
-
-      const vmKernelEnriched = vmKernelData.map(vmk=>{
-        const pg = normalizePg(vmk.portGroup);
-
-        const match =
-          vPortData2.find(p =>
-            normalizePg(p["Port Group"]) === pg &&
-            ((p["Host"]||"").split(".")[0]) === vmk.host
-          ) ||
-          vPortData2.find(p =>
-            normalizePg(p["Port Group"]) === pg
-          );
-
-        return {
-          ...vmk,
-          vlan: match?.["VLAN"] ?? null,
-          switch: match?.["Switch"] || "VMkernel",
-          role: getNetworkRole(vmk.portGroup)
-        };
-      });
-
       const allVlans = [...dvVlans, ...vsVlans, ...vmkVlans];
       const vlans = [...new Map(allVlans.map(v=>[(v.name||"")+(v.vlan??"")+"-"+(v.type||"")+"-"+(v.host||""),v])).values()]
         .sort((a,b)=>(a.vlan||0)-(b.vlan||0));
@@ -310,7 +288,7 @@ export default function AuditCalc({ th, isMobile=false }) {
       totalCores: vHost.reduce((s,h)=>s+(h["# Cores"]||0),0),
       totalRamPhysGo: Math.round(vHost.reduce((s,h)=>s+(h["# Memory"]||0),0)/1024),
         vmOffList, vlans, uniquePortGroups, vmNics, vSwitches, dvSwitches,
-        vmKernel: vmKernelEnriched,
+        vmKernel: vmKernelData,
       sheetQuality, qualityScore,
     };
   };
