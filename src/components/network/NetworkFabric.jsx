@@ -177,29 +177,61 @@ function TopologyColumn({col, hosts, onSelect}){
 
       <div className="w-px h-4" style={{background:t.line}}/>
 
-      <div className={`w-full rounded-2xl border ${t.border} bg-white p-4 text-center shadow-sm`}>
+      <div className={`w-full rounded-2xl border ${t.border} bg-white px-4 py-3 text-center shadow-sm`}>
         <div className={`text-xs font-semibold ${t.text}`}>
-          {col.role === "vm" ? "Port Groups" : "VMkernel"}
+          {col.role === "vm"
+            ? `Port Groups (${col.portGroups.length})`
+            : `VMkernel (${col.vmks.length})`}
         </div>
 
-        <div className="mt-2 text-xs text-gray-500 space-y-1 min-h-[38px]">
+        <div className="mt-2 min-h-[30px] flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs text-gray-600 leading-5">
           {col.role === "vm" ? (
             <>
-              {col.portGroups.slice(0,4).map((p,i)=><div key={i} className="truncate">• {getName(p)}</div>)}
-              {col.portGroups.length > 4 && <div>… {col.portGroups.length - 4} autres</div>}
-              {col.portGroups.length === 0 && <div>Aucun port group</div>}
+              {col.portGroups.slice(0,3).map((p,i)=>(
+                <span key={i} className="inline-flex items-center whitespace-nowrap">
+                  {i > 0 && <span className="text-blue-300 mr-2">|</span>}
+                  {getName(p)}
+                </span>
+              ))}
+
+              {col.portGroups.length > 3 && (
+                <span className="inline-flex items-center font-semibold text-blue-600 whitespace-nowrap">
+                  <span className="text-blue-300 mr-2">|</span>
+                  +{col.portGroups.length - 3}
+                </span>
+              )}
+
+              {col.portGroups.length === 0 && (
+                <span className="text-gray-400">Aucun port group</span>
+              )}
             </>
           ) : (
             <>
-              {col.vmks.slice(0,3).map((v,i)=><div key={i}>{v.device || v.Device || "vmk"} · {v.ip || v.IP || "IP N/A"}</div>)}
-              {col.vmks.length > 3 && <div>… {col.vmks.length - 3} autres</div>}
+              {col.vmks.slice(0,3).map((v,i)=>(
+                <span key={i} className="inline-flex items-center whitespace-nowrap">
+                  {i > 0 && <span className="text-blue-300 mr-2">|</span>}
+                  <span className="font-medium">{v.device || v.Device || "vmk"}</span>
+                  <span className="mx-1 text-gray-300">·</span>
+                  <span>{v.ip || v.IP || "IP N/A"}</span>
+                </span>
+              ))}
+
+              {col.vmks.length > 3 && (
+                <span className={`inline-flex items-center font-semibold whitespace-nowrap ${t.text}`}>
+                  <span className="text-blue-300 mr-2">|</span>
+                  +{col.vmks.length - 3}
+                </span>
+              )}
+
               {col.vmks.length === 0 && (
                 col.fcDetected ? (
-                  <div className="text-emerald-700 font-semibold">
-                    HBA / FC détecté · voir onglet Storage
-                  </div>
+                  <span className="inline-flex items-center justify-center gap-2 text-emerald-700 font-semibold">
+                    <span>HBA / FC détecté</span>
+                    <span className="text-gray-300">|</span>
+                    <span>voir onglet Storage</span>
+                  </span>
                 ) : (
-                  <div>Aucun VMkernel</div>
+                  <span className="text-gray-400">Aucun VMkernel</span>
                 )
               )}
             </>
