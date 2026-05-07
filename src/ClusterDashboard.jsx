@@ -2534,41 +2534,104 @@ export default function ClusterOverviewDashboard({
               />
 
             {/* Host NICs */}
-            {hostsNics.length>0&&(
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                <h3 className="text-sm font-medium text-gray-800 mb-4">Host Network Usage</h3>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {hostsNics.map((h,i)=>(
-                    <div key={i} className="border border-gray-100 rounded-xl p-4 bg-gray-50">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="w-12 h-12 flex-shrink-0"><NetworkNodeVisual/></div>
-                        <div className="flex-1">
-                          <div className="text-sm font-medium text-gray-800">{h.name}</div>
-                          <div className="flex items-center gap-2 text-xs text-gray-400">
-                            <span>{h.nics||0} NICs physiques</span>
-                            {h.vSwitches&&h.vSwitches.length>0&&<span>· {h.vSwitches.join(", ")}</span>}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        {Array.from({length:Math.min(h.nics||0,4)},(_,j)=>(
-                          <div key={j} className="bg-white rounded-lg p-2 border border-gray-100">
-                            <div className="flex justify-between text-xs">
-                              <span className="font-mono text-gray-600">vmnic{j}</span>
-                              <span className="text-gray-400">10Gb</span>
-                            </div>
-                            <div className="text-xs text-gray-300 mt-1 italic">debit N/A - monitoring requis</div>
-                            <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden" style={{display:"none"}}>
-                              <div className="h-full bg-blue-200 rounded-full" style={{width:"25%"}}/>
-                            </div>
-                          </div>
-                        ))}
+            {/* Focus réseau nœud */}
+            {vmkRows.length > 0 && hostsNics.length > 0 && (() => {
+              const [selHost, setSelHost] = useState(hostsNics[0]?.name || "");
+              const hostVmks = vmkRows.filter(v => v.host === selHost);
+              const hostNic  = hostsNics.find(h => h.name === selHost);
+              const getRoleStyle = (pg) => {
+                const n = (pg||"").toLowerCase();
+                if (n.includes("vmotion")||n.includes("v-motion")) return { label:"vMotion",    bg:"bg-violet-50",  text:"text-violet-700",  border:"border-violet-200"  };
+                if (n.includes("iscsi")||n.includes("san")||n.includes("nfs")||n.includes("storage")) return { label:"Storage", bg:"bg-orange-50", text:"text-orange-700", border:"border-orange-200" };
+                if (n.includes("management")||n.includes("mgmt")) return { label:"Management", bg:"bg-emerald-50", text:"text-emerald-700", border:"border-emerald-200" };
+                return { label:"VM", bg:"bg-sky-50", text:"text-sky-700", border:"border-sky-200" };
+              };
+              const cidr = (mask) => {
+                if (!mask) return null;
+                return mask.split(".").map(Number).reduce((a,b)=>a+b.toString(2).split("").filter(c=>c==="1").length,0);
+              };
+              return (
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                  <div className="flex items-center justify-between mb-5">
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-800">Focus réseau nœud</h3>
+                      <p className="text-xs text-gray-400 mt-0.5">Interfaces VMkernel par host</p>
+                    </div>
+                    <select
+                      value={selHost}
+                      onChange={e => setSelHost(e.target.value)}
+                      className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 text-gray-700 bg-white focus:outline-none focus:border-blue-400"
+                    >
+                      {hostsNics.map((h,i) => <option key={i} value={h.name}>{h.name}</option>)}
+                    </select>
+                  </div>
+
+                  <div className="flex gap-6">
+                    {/* Logo serveur */}
+                    <div className="flex flex-col items-center gap-3 flex-shrink-0">
+                      <div className="w-24 h-24 p-2"><NetworkNodeVisual/></div>
+                      <div className="text-center">
+                        <div className="text-xs font-semibold text-gray-800">{selHost}</div>
+                        <div className="text-[10px] text-gray-400 mt-0.5">{hostNic?.nics || 0} NICs · {(hostNic?.vSwitches||[]).length} vSwitches</div>
                       </div>
                     </div>
-                  ))}
+
+                    {/* Tableau VMkernel */}
+                    <div className="flex-1 overflow-x-auto">
+                      {hostVmks.length === 0 ? (
+                        <div className="text-xs text-gray-400 italic pt-4">Aucun VMkernel détecté pour ce host</div>
+                      ) : (
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="border-b border-gray-100">
+                              {["Device","Port Group","VLAN","IP","Subnet","MTU","Rôle"].map(h => (
+                                <th key={h} className="text-left text-gray-400 font-medium pb-2 pr-4 whitespace-nowrap">{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {hostVmks.map((vmk, i) => {
+                              const role = getRoleStyle(vmk.portGroup);
+                              const mtuWarn = role.label === "Storage" && vmk.mtu && vmk.mtu < 9000;
+                              return (
+                                <tr key={i} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                                  <td className="py-2 pr-4 font-mono text-blue-600 whitespace-nowrap">{vmk.device || "—"}</td>
+                                  <td className="py-2 pr-4 text-gray-700 whitespace-nowrap">{vmk.portGroup || "—"}</td>
+                                  <td className="py-2 pr-4">
+                                    {vmk.vlan != null
+                                      ? <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded text-gray-700">{vmk.vlan}</span>
+                                      : <span className="text-gray-300">—</span>}
+                                  </td>
+                                  <td className="py-2 pr-4 font-mono text-gray-800 whitespace-nowrap">{vmk.ip || "—"}</td>
+                                  <td className="py-2 pr-4 font-mono text-gray-500">{cidr(vmk.subnet) ? `/${cidr(vmk.subnet)}` : "—"}</td>
+                                  <td className="py-2 pr-4">
+                                    {vmk.mtu
+                                      ? <span className={mtuWarn ? "text-amber-600 font-semibold" : "text-gray-600"}>{vmk.mtu}{mtuWarn ? " ⚠" : ""}</span>
+                                      : <span className="text-gray-300">—</span>}
+                                  </td>
+                                  <td className="py-2 pr-4">
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${role.bg} ${role.text} ${role.border}`}>
+                                      {role.label}
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      )}
+                      {hostVmks.some(v => getRoleStyle(v.portGroup).label === "Storage" && v.mtu && v.mtu < 9000) && (
+                        <div className="mt-3 flex items-center gap-2 text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
+                          <span>⚠</span>
+                          <span>MTU 1500 sur les interfaces iSCSI — jumbo frames (MTU 9000) recommandés</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
+
 
 
             {/* VMkernel Adapters */}
