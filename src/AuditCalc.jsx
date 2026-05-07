@@ -227,29 +227,13 @@ export default function AuditCalc({ th, isMobile=false }) {
 
       const normalizePg = (v="") => String(v).toLowerCase().trim();
 
-      const vmKernelEnriched = vmKernelData.map(vmk=>{
+      const vmKernelEnriched = vmKernelData.map(vmk => {
         const pg = normalizePg(vmk.portGroup);
-
         const match =
-          vPortData2.find(p =>
-            normalizePg(p["Port Group"]) === pg &&
-            ((p["Host"]||"").split(".")[0]) === vmk.host
-          ) ||
-          vPortData2.find(p =>
-            normalizePg(p["Port Group"]) === pg
-          ) ||
-          dvPort.find(p =>
-            normalizePg(p["Port"]||p["Port Group"]||"") === pg &&
-            ((p["Host"]||"").split(".")[0]) === vmk.host
-          ) ||
-          dvPort.find(p =>
-            normalizePg(p["Port"]||p["Port Group"]||"") === pg
-          );
-        const inferredVlan = (!match && vmk.ip) ? (() => {
-          const parts = vmk.ip.split(".");
-          if (parts.length === 4) { const oct3 = parseInt(parts[2]); if (oct3 > 0 && oct3 < 4096) return oct3; }
-          return null;
-        })() : null;
+          vPortData2.find(p => normalizePg(p["Port Group"]) === pg && ((p["Host"]||"").split(".")[0]) === vmk.host) ||
+          vPortData2.find(p => normalizePg(p["Port Group"]) === pg) ||
+          dvPort.find(p => normalizePg(p["Port"]||p["Port Group"]||"") === pg && ((p["Host"]||"").split(".")[0]) === vmk.host) ||
+          dvPort.find(p => normalizePg(p["Port"]||p["Port Group"]||"") === pg);
         let inferredVlan = null;
         if (!match && vmk.ip) {
           const parts = vmk.ip.split(".");
@@ -265,9 +249,7 @@ export default function AuditCalc({ th, isMobile=false }) {
           switch: match?.["Switch"] || "VMkernel",
           role: getNetworkRole(vmk.portGroup)
         };
-        };
       });
-
       const allVlans = [...dvVlans, ...vsVlans, ...vmkVlans];
       const vlans = [...new Map(allVlans.map(v=>[(v.name||"")+(v.vlan??"")+"-"+(v.type||"")+"-"+(v.host||""),v])).values()]
         .sort((a,b)=>(a.vlan||0)-(b.vlan||0));
