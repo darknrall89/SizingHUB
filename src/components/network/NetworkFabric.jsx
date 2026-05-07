@@ -272,16 +272,50 @@ export default function NetworkFabric({
 
   const fcDetected = hbaLikeRows.length > 0;
 
-  const makeCol = (role, title) => {
-    const vmkRows = vmksByRole[role] || [];
-    const pgRows = pgsByRole[role] || [];
-    const segRows = segsByRole[role] || [];
+  const cleanVlans = (values) => {
+    const out = uniq(values)
+      .filter(v => v !== null && v !== undefined && v !== "");
 
-    const vlans = uniq([
-      ...vmkRows.map(getVlan),
-      ...pgRows.map(getVlan),
-      ...segRows.map(getVlan),
-    ]);
+    const tagged = out.filter(v => Number(v) !== 0);
+
+    // VLAN 0 / UNTAGGED est affiché uniquement s'il n'y a aucun VLAN taggé.
+    return tagged.length ? tagged : out;
+  };
+
+  const infraPortGroupNames = new Set(
+    vmks
+      .map(v => getName(v))
+      .filter(Boolean)
+  );
+
+  const makeCol = (role, title) => {
+    const isInfraRole = ["management", "vmotion", "storage", "backup"].includes(role);
+
+    // Règle importante :
+    // - Management / vMotion / Storage / Backup = uniquement VMkernel
+    // - Réseaux VM = Port Groups / VLANs applicatifs
+    const vmkRows = isInfraRole ? (vmksByRole[role] || []) : [];
+
+    const pgRows = role === "vm"
+      ? pgs.filter(p => !infraPortGroupNames.has(getName(p)))
+      : [];
+
+    const segRows = role === "vm"
+      ? segs.filter(s => {
+          const vlan = getVlan(s);
+          const usedByInfraVmk = vmks.some(v => getVlan(v) === vlan && vlan !== null);
+          return !usedByInfraVmk;
+        })
+      : [];
+
+    const vlans = role === "vm"
+      ? cleanVlans([
+          ...pgRows.map(getVlan),
+          ...segRows.map(getVlan),
+        ])
+      : cleanVlans([
+          ...vmkRows.map(getVlan),
+        ]);
 
     const hostNames = uniq(vmkRows.map(v => v.host || v.Host || v.hostname || v.Hostname));
 
@@ -291,13 +325,18 @@ export default function NetworkFabric({
       vmkRows.length === 0 &&
       vlans.length === 0;
 
-    const presentHosts = role === "vm"
-      ? Math.min(hosts, hosts || 0)
-      : isFcStorageFallback
+    const presentHosts =
+      role === "vm"
         ? hosts
-        : (hostNames.length || (vlans.length ? hosts : 0));
+        : isFcStorageFallback
+          ? hosts
+          : hostNames.length;
 
-    const mtuIssues = vmkRows.filter(v => role === "storage" && Number(v.mtu || v.MTU || 0) > 0 && Number(v.mtu || v.MTU || 0) < 9000);
+    const mtuIssues = vmkRows.filter(v =>
+      role === "storage" &&
+      Number(v.mtu || v.MTU || 0) > 0 &&
+      Number(v.mtu || v.MTU || 0) < 9000
+    );
 
     return {
       role,
@@ -321,7 +360,7 @@ export default function NetworkFabric({
     makeCol("vm", "Réseaux VM"),
   ].filter(c => {
     if (c.role === "backup") {
-      return c.vmks.length > 0 || c.portGroups.length > 0 || c.segments.length > 0 || c.vlans.length > 0;
+      return c.vmks.length > 0;
     }
     return true;
   });
@@ -369,10 +408,10 @@ export default function NetworkFabric({
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-5">
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-lg font-semibold text-gray-900">Topologie logique des réseaux</h3>
+                <h3 className="text-lg font-semibold text-gray-900">Topologie logique des réseaux <span className="ml-2 text-[11px] px-2 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100">Infra VMkernel + Port Groups VM</span></h3>
                 <Info size={15} className="text-blue-400"/>
               </div>
-              <p className="text-sm text-gray-400 mt-1">Vue d'ensemble des relations entre réseaux, VLANs, VMkernel et hôtes</p>
+              <p className="text-sm text-gray-400 mt-1">Vue d'ensemble séparant les réseaux d'infrastructure VMkernel et les réseaux VM</p>
             </div>
 
             <button className="inline-flex items-center justify-center gap-2 text-xs font-semibold text-slate-700 bg-white border border-gray-200 rounded-xl px-3 py-2 shadow-sm">
@@ -470,7 +509,7 @@ export default function NetworkFabric({
           </div>
 
           <div className="mt-4 rounded-2xl bg-blue-50 border border-blue-100 px-4 py-3 text-xs text-blue-700">
-            La topologie est basée sur les données détectées dans RVTools et l'inventaire vCenter. Cliquez sur un segment pour voir les détails techniques et les relations.
+            La topologie infrastructure Management / vMotion / Storage / Backup est basée uniquement sur les interfaces VMkernel. Les réseaux VM sont basés sur les Port Groups / VLANs.
           </div>
         </div>
 
