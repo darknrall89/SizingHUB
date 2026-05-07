@@ -1385,6 +1385,7 @@ export const mapRvToolsAnalysisToClusterViewModel = (rv) => {
       vSwitches: rv.vSwitches || [],
       dvSwitches: rv.dvSwitches || [],
       uniquePortGroups: rv.uniquePortGroups || [],
+      vmKernel: rv.vmKernel || [],
       hostsNics: (rv.hosts||[]).map(h=>({
         name: h.shortName,
         nics: h.nics||0,
@@ -2529,6 +2530,7 @@ export default function ClusterOverviewDashboard({
                 hasVmotion={hasVmotion}
                 hasStorage={hasStorage}
                 redundancyScore={redundancyScore}
+                vmKernel={vmkRows}
               />
 
             {/* Host NICs */}
