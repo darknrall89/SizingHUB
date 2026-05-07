@@ -880,10 +880,10 @@ const TYPE_STYLES = {
   vm:         {bg:"bg-blue-50",    border:"border-blue-200",   title:"text-blue-700",    badge:"bg-blue-100 text-blue-700",      icon:"text-blue-500"},
 };
 
-
 const NetworkSegmentsView = ({segments=[], totalHosts=0}) => {
   const [showAll, setShowAll] = useState({});
 
+  // Grouper par type
   const grouped = {};
   SEGMENT_TYPES.forEach(t=>{ grouped[t.id]=[]; });
   segments.forEach(seg=>{
@@ -893,187 +893,162 @@ const NetworkSegmentsView = ({segments=[], totalHosts=0}) => {
 
   const totalSegs = segments.length;
   const inconsistencies = segments.filter(s=>s.vlan===null||s.vlan===undefined).length;
-
-  const criticalTypes = SEGMENT_TYPES.filter(t=>["management","vmotion","storage"].includes(t.id));
-  const optionalTypes = SEGMENT_TYPES.filter(t=>!["management","vmotion","storage","vm"].includes(t.id));
-  const vmType = SEGMENT_TYPES.find(t=>t.id==="vm");
-
-  const visibleOptionalTypes = optionalTypes.filter(t => (grouped[t.id]||[]).length > 0);
-
-  const StatCard = ({label, value, sub, iconColor="text-blue-500"}) => (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center gap-3">
-      <Network size={18} className={iconColor+" flex-shrink-0"}/>
-      <div>
-        <div className="text-xl font-semibold text-gray-900">{value}</div>
-        <div className="text-xs font-semibold text-gray-600">{label}</div>
-        {sub && <div className="text-xs text-gray-400 mt-0.5">{sub}</div>}
-      </div>
-    </div>
-  );
-
-  const SegmentCard = ({t, compact=false}) => {
-    const segs = grouped[t.id] || [];
-    const style = TYPE_STYLES[t.id];
-    const isExpanded = showAll[t.id];
-    const displayed = isExpanded ? segs : segs.slice(0, compact ? 4 : 2);
-
-    return (
-      <div className={"rounded-2xl border "+style.bg+" "+style.border+" "+(compact?"p-4":"p-4")}>
-        <div className="flex items-center justify-between mb-1">
-          <div className={"text-sm font-semibold "+style.title}>{t.label}</div>
-          <span className={"text-xs px-2 py-0.5 rounded-full font-semibold "+style.badge}>
-            {segs.length} segment{segs.length>1?"s":""}
-          </span>
-        </div>
-
-        <div className="text-xs text-gray-400 mb-3">{t.desc}</div>
-
-        {segs.length===0 ? (
-          <div className="rounded-xl bg-white/60 border border-white px-3 py-4 text-center">
-            <Network size={22} className={style.icon+" opacity-30 mx-auto mb-2"}/>
-            <div className="text-xs font-semibold text-gray-500">Non détecté</div>
-            <div className="text-xs text-gray-400 mt-0.5">{t.desc.split("(")[0]}</div>
-          </div>
-        ) : (
-          <div className={compact ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3" : "space-y-2"}>
-            {displayed.map((seg,i)=>(
-              <div key={i} className="bg-white rounded-xl p-3 border border-white/80 shadow-sm">
-                <div className="flex items-start justify-between mb-1 gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className={"w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 "+style.badge.split(" ")[0]}>
-                      <Network size={12} className={style.icon}/>
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-xs font-semibold text-gray-800 truncate">{seg.name}</div>
-                      <div className="text-xs text-gray-400 truncate">{seg.switch||seg.vSwitchName||"N/A"}</div>
-                    </div>
-                  </div>
-
-                  {seg.vlan!==null&&seg.vlan!==undefined&&(
-                    <span className={"text-xs px-2 py-0.5 rounded-full font-mono font-semibold flex-shrink-0 "+style.badge}>
-                      VLAN {seg.vlan===0?"0":seg.vlan}
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
-                  <span className="flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"/>
-                    {totalHosts}/{totalHosts} hosts
-                  </span>
-                  {seg.mtu&&<span>MTU {seg.mtu}</span>}
-                  {seg.ports&&<span>{seg.ports} ports</span>}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {segs.length>(compact ? 4 : 2)&&(
-          <button
-            onClick={()=>setShowAll(s=>({...s,[t.id]:!s[t.id]}))}
-            className={"text-xs font-semibold w-full text-center py-2 mt-2 "+style.title}
-          >
-            {isExpanded ? "Masquer ▲" : "Voir "+segs.length+" segments ▼"}
-          </button>
-        )}
-      </div>
-    );
-  };
+  const typeStats = SEGMENT_TYPES.map(t=>({...t, count:grouped[t.id].length, pct:totalSegs>0?Math.round(grouped[t.id].length/totalSegs*100):0})).filter(t=>t.count>0||["vmotion","storage","mirror"].includes(t.id));
 
   return (
     <div className="space-y-4">
+      {/* Header */}
       <div>
-        <h3 className="text-sm font-semibold text-gray-900">Network Segments ({totalSegs})</h3>
-        <p className="text-xs text-gray-400">Vue logique des réseaux détectés</p>
+        <h3 className="text-sm font-medium text-gray-800">Network Segments ({totalSegs})</h3>
+        <p className="text-xs text-gray-400">Vue logique des reseaux detectes</p>
       </div>
 
+      {/* Summary KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        <StatCard label="Segments réseau" value={totalSegs} sub="détectés" iconColor="text-blue-500"/>
-        <StatCard label="Management" value={(grouped.management||[]).length} sub="réseaux critiques" iconColor="text-slate-500"/>
-        <StatCard label="vMotion" value={(grouped.vmotion||[]).length} sub="mobilité VMware" iconColor="text-violet-500"/>
-        <StatCard label="Storage" value={(grouped.storage||[]).length} sub="iSCSI / NFS / SAN" iconColor="text-emerald-500"/>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center gap-3">
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 flex items-center gap-3">
+          <Network size={18} className="text-blue-500 flex-shrink-0"/>
+          <div>
+            <div className="text-lg font-medium text-gray-800">{totalSegs}</div>
+            <div className="text-xs font-semibold text-gray-600">Segments reseau</div>
+            <div className="text-xs text-gray-400">detectes</div>
+          </div>
+        </div>
+        {typeStats.slice(0,3).map(t=>(
+          <div key={t.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 flex items-center gap-3">
+            <Network size={18} className={TYPE_STYLES[t.id].icon+" flex-shrink-0"}/>
+            <div>
+              <div className="text-lg font-medium text-gray-800">{t.count}</div>
+              <div className="text-xs font-semibold text-gray-600">{t.label}</div>
+              <div className="text-xs text-gray-400">({t.pct}%)</div>
+            </div>
+          </div>
+        ))}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 flex items-center gap-3">
           {inconsistencies===0
-            ? <CheckCircle size={18} className="text-emerald-500 flex-shrink-0"/>
-            : <AlertTriangle size={18} className="text-amber-500 flex-shrink-0"/>}
+            ?<CheckCircle size={18} className="text-emerald-500 flex-shrink-0"/>
+            :<AlertTriangle size={18} className="text-amber-500 flex-shrink-0"/>}
           <div>
             <div className={"text-xs font-semibold "+(inconsistencies===0?"text-emerald-600":"text-amber-600")}>Segmentation</div>
-            <div className={"text-xl font-semibold "+(inconsistencies===0?"text-emerald-600":"text-amber-600")}>
-              {inconsistencies===0?"OK":"⚠"}
-            </div>
-            <div className="text-xs text-gray-400">{inconsistencies===0?"Aucune incohérence":inconsistencies+" à vérifier"}</div>
+            <div className={"text-lg font-medium "+(inconsistencies===0?"text-emerald-600":"text-amber-600")}>{inconsistencies===0?"OK":"⚠"}</div>
+            <div className="text-xs text-gray-400">{inconsistencies===0?"Aucune incoherence":inconsistencies+" a verifier"}</div>
           </div>
         </div>
       </div>
 
-      <div className={"flex items-center justify-between p-3 rounded-2xl border "+(inconsistencies===0?"bg-blue-50 border-blue-100":"bg-amber-50 border-amber-100")}>
+      {/* Status bar */}
+      <div className={"flex items-center justify-between p-3 rounded-xl border "+(inconsistencies===0?"bg-blue-50 border-blue-100":"bg-amber-50 border-amber-100")}>
         <div className="flex items-center gap-2">
           <Info size={14} className={inconsistencies===0?"text-blue-500":"text-amber-500"}/>
           <div>
             <div className={"text-xs font-semibold "+(inconsistencies===0?"text-blue-700":"text-amber-700")}>
-              {inconsistencies===0 ? "Tous les segments sont présents sur "+totalHosts+"/"+totalHosts+" hosts." : "Des incohérences ont été détectées."}
+              {inconsistencies===0?"Tous les segments sont presents sur "+totalHosts+"/"+totalHosts+" hosts.":"Des incoherences ont ete detectees."}
             </div>
-            <div className="text-xs text-gray-500">
-              {inconsistencies===0 ? "Bonne couverture réseau sur l’ensemble du cluster." : inconsistencies+" segment(s) présentent des problèmes."}
-            </div>
+            <div className="text-xs text-gray-500">{inconsistencies===0?"Bonne couverture reseau sur l ensemble du cluster.":inconsistencies+" segment(s) presentent des problemes."}</div>
           </div>
         </div>
       </div>
 
-      <div>
-        <div className="text-xs uppercase tracking-widest text-gray-400 font-semibold mb-3">
-          Réseaux infrastructure critiques
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {criticalTypes.map(t=><SegmentCard key={t.id} t={t}/>)}
-        </div>
+      {/* Grille par type */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {SEGMENT_TYPES.map(t=>{
+          const segs = grouped[t.id]||[];
+          const style = TYPE_STYLES[t.id];
+          const isExpanded = showAll[t.id];
+          const displayed = isExpanded?segs:segs.slice(0,2);
+          return (
+            <div key={t.id} className={"rounded-2xl border p-4 "+style.bg+" "+style.border}>
+              <div className="flex items-center justify-between mb-1">
+                <div className={"text-sm font-medium "+style.title}>{t.label}</div>
+                <span className={"text-xs px-2 py-0.5 rounded-full font-semibold "+style.badge}>{segs.length} segment{segs.length>1?"s":""}</span>
+              </div>
+              <div className={"text-xs text-gray-400 mb-3"}>{t.desc}</div>
+
+              {segs.length===0?(
+                <div className="flex flex-col items-center py-4 text-center">
+                  <Network size={24} className={style.icon+" opacity-30 mb-2"}/>
+                  <div className="text-xs font-semibold text-gray-500">Aucun segment detecte</div>
+                  <div className="text-xs text-gray-400">{t.desc.split("(")[0]}</div>
+                </div>
+              ):(
+                <div className="space-y-2">
+                  {displayed.map((seg,i)=>{
+                    const mtus = [seg.mtu].filter(Boolean);
+                    const hasMtuWarning = mtus.length>1;
+                    return (
+                      <div key={i} className="bg-white rounded-xl p-3 border border-white/80 shadow-sm">
+                        <div className="flex items-start justify-between mb-1">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className={"w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 "+style.badge.split(" ")[0]}>
+                              <Network size={12} className={style.icon}/>
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-xs font-medium text-gray-800 truncate">{seg.name}</div>
+                              <div className="text-xs text-gray-400">{seg.switch||seg.vSwitchName||"N/A"}</div>
+                            </div>
+                          </div>
+                          {seg.vlan!==null&&seg.vlan!==undefined&&(
+                            <span className={"text-xs px-2 py-0.5 rounded-full font-mono font-semibold flex-shrink-0 ml-2 "+style.badge}>
+                              VLAN {seg.vlan===0?"0 (Access)":seg.vlan}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
+                          <span className="flex items-center gap-1">
+                            <span className={"w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"}/>
+                            {totalHosts}/{totalHosts} hosts
+                          </span>
+                          {seg.mtu&&<span>MTU {seg.mtu}</span>}
+                          {seg.ports&&<span>{seg.ports} ports</span>}
+                        </div>
+                        {hasMtuWarning&&(
+                          <div className="mt-2 flex items-center gap-1 text-xs text-amber-600 font-medium">
+                            <AlertTriangle size={10}/>MTU different detecte
+                          </div>
+                        )}
+                        {t.id==="vmotion"&&segs.length===1&&(
+                          <div className="mt-2 flex items-center gap-1 text-xs text-emerald-600 font-medium">
+                            <CheckCircle size={10}/>Le reseau vMotion est isole et dedie.
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {segs.length>2&&(
+                    <button onClick={()=>setShowAll(s=>({...s,[t.id]:!s[t.id]}))}
+                      className={"text-xs font-semibold w-full text-center py-1 "+style.title}>
+                      {isExpanded?"Masquer ▲":"Voir "+segs.length+" segments ▼"}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
-      {visibleOptionalTypes.length>0 && (
-        <div>
-          <div className="text-xs uppercase tracking-widest text-gray-400 font-semibold mb-3">
-            Réseaux optionnels détectés
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {visibleOptionalTypes.map(t=><SegmentCard key={t.id} t={t}/>)}
-          </div>
-        </div>
-      )}
-
-      {vmType && (
-        <div>
-          <div className="text-xs uppercase tracking-widest text-gray-400 font-semibold mb-3">
-            Réseaux applicatifs
-          </div>
-          <SegmentCard t={vmType} compact/>
-        </div>
-      )}
-
-      <div className={"flex items-center justify-between p-4 rounded-2xl border "+(inconsistencies===0?"bg-emerald-50 border-emerald-100":"bg-amber-50 border-amber-100")}>
+      {/* Footer global */}
+      <div className={"flex items-center justify-between p-4 rounded-xl border "+(inconsistencies===0?"bg-emerald-50 border-emerald-100":"bg-amber-50 border-amber-100")}>
         <div className="flex items-center gap-3">
           {inconsistencies===0
-            ? <CheckCircle size={18} className="text-emerald-500"/>
-            : <AlertTriangle size={18} className="text-amber-500"/>}
+            ?<CheckCircle size={18} className="text-emerald-500"/>
+            :<AlertTriangle size={18} className="text-amber-500"/>}
           <div>
-            <div className={"text-sm font-semibold "+(inconsistencies===0?"text-emerald-700":"text-amber-700")}>
-              {inconsistencies===0 ? "Réseau bien segmenté" : "Problèmes de segmentation détectés"}
+            <div className={"text-sm font-medium "+(inconsistencies===0?"text-emerald-700":"text-amber-700")}>
+              {inconsistencies===0?"Reseau bien segmente":"Problemes de segmentation detectes"}
             </div>
             <div className="text-xs text-gray-500">
-              {inconsistencies===0 ? "Aucune incohérence critique détectée sur les segments réseau." : inconsistencies+" segment(s) présentent des problèmes."}
+              {inconsistencies===0?"Aucune incoherence critique detectee sur les segments reseau.":inconsistencies+" segment(s) presentent des problemes."}
             </div>
           </div>
         </div>
-
-        <div className="hidden lg:flex items-center gap-6 text-xs text-gray-500">
+        <div className="flex items-center gap-6 text-xs text-gray-500">
           <div className="flex items-center gap-1"><CheckCircle size={12} className="text-emerald-500"/>Couverture <strong>{totalHosts}/{totalHosts} hosts</strong></div>
-          <div className="flex items-center gap-1"><Network size={12}/>Isolation <strong>{(grouped.vmotion||[]).length>0?"Bonne":"À vérifier"}</strong></div>
+          <div className="flex items-center gap-1"><Network size={12}/>Isolation <strong>{grouped["vmotion"]?.length>0?"Bonne":"A verifier"}</strong></div>
         </div>
       </div>
     </div>
   );
 };
-
 
 // ── vSwitch View ─────────────────────────────────────────────────────────────
 const getPortGroupStyle = (name) => {
