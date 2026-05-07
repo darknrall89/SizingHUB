@@ -2570,6 +2570,73 @@ export default function ClusterOverviewDashboard({
               </div>
             )}
 
+
+            {/* VMkernel Adapters */}
+            {vmkRows.length > 0 && (
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-medium text-gray-800">VMkernel Adapters</h3>
+                  <span className="text-xs text-gray-400">{vmkRows.length} adaptateur{vmkRows.length > 1 ? "s" : ""} détecté{vmkRows.length > 1 ? "s" : ""}</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-gray-100">
+                        {["Host","Device","Port Group","VLAN","IP","Subnet","MTU","Rôle"].map(h => (
+                          <th key={h} className="text-left text-gray-400 font-medium pb-2 pr-4 whitespace-nowrap">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {vmkRows.map((vmk, i) => {
+                        const pg = (vmk.portGroup || "").toLowerCase();
+                        const role =
+                          pg.includes("vmotion") || pg.includes("v-motion") ? "vMotion" :
+                          pg.includes("iscsi") || pg.includes("san") || pg.includes("nfs") || pg.includes("storage") ? "Storage" :
+                          pg.includes("management") || pg.includes("mgmt") ? "Management" : "VM";
+                        const roleStyle =
+                          role === "vMotion"    ? "bg-violet-50 text-violet-700 border-violet-200" :
+                          role === "Storage"    ? "bg-orange-50 text-orange-700 border-orange-200" :
+                          role === "Management" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                          "bg-sky-50 text-sky-700 border-sky-200";
+                        const mtuWarn = role === "Storage" && vmk.mtu && vmk.mtu < 9000;
+                        const cidr = vmk.subnet ? vmk.subnet.split(".").map(Number).reduce((a,b) => a + b.toString(2).split("").filter(c=>c==="1").length, 0) : null;
+                        return (
+                          <tr key={i} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                            <td className="py-2 pr-4 font-mono text-gray-700 whitespace-nowrap">{vmk.host || "—"}</td>
+                            <td className="py-2 pr-4 font-mono text-blue-600 whitespace-nowrap">{vmk.device || "—"}</td>
+                            <td className="py-2 pr-4 text-gray-600 whitespace-nowrap">{vmk.portGroup || "—"}</td>
+                            <td className="py-2 pr-4">
+                              {vmk.vlan != null
+                                ? <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded text-gray-700">{vmk.vlan}</span>
+                                : <span className="text-gray-300">—</span>}
+                            </td>
+                            <td className="py-2 pr-4 font-mono text-gray-800 whitespace-nowrap">{vmk.ip || "—"}</td>
+                            <td className="py-2 pr-4 font-mono text-gray-500">{cidr ? `/${cidr}` : "—"}</td>
+                            <td className="py-2 pr-4">
+                              {vmk.mtu
+                                ? <span className={mtuWarn ? "text-amber-600 font-semibold" : "text-gray-600"}>{vmk.mtu}{mtuWarn ? " ⚠" : ""}</span>
+                                : <span className="text-gray-300">—</span>}
+                            </td>
+                            <td className="py-2 pr-4">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${roleStyle}`}>
+                                {role}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                {vmkRows.some(v => (v.portGroup||"").toLowerCase().includes("iscsi") && v.mtu && v.mtu < 9000) && (
+                  <div className="mt-3 flex items-center gap-2 text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
+                    <span>⚠</span>
+                    <span>MTU 1500 détecté sur les interfaces iSCSI — jumbo frames (MTU 9000) recommandés pour optimiser les performances stockage</span>
+                  </div>
+                )}
+              </div>
+            )}
             {/* Network Segments - vue logique par type */}
             {(allVlans.length>0||allPGs.length>0)&&(
               <NetworkSegmentsView

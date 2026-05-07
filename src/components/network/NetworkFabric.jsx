@@ -11,24 +11,31 @@ const tone = {
   vm:         { bg:"bg-sky-50",     border:"border-sky-200",     text:"text-sky-700",     icon:"text-sky-500",     line:"#2563eb" },
 };
 
-function NetTag({ ip, subnet, device, mtu }) {
+function subnetToCidr(mask) {
+  if (!mask) return "24";
+  return mask.split(".").map(Number).reduce((acc,b) => acc + b.toString(2).split("").filter(c=>c==="1").length, 0);
+}
+
+function ipToSubnet(ip, mask) {
+  if (!ip) return null;
+  const parts = ip.split(".");
+  if (parts.length !== 4) return null;
+  const cidr = subnetToCidr(mask);
+  return `${parts[0]}.${parts[1]}.${parts[2]}.0/${cidr}`;
+}
+
+function SummaryTag({ subnet, vlan, device, mtu, warn }) {
   return (
-    <div className="flex items-center gap-1.5 text-[10px] font-mono bg-white/80 border border-white rounded-lg px-2 py-1 text-gray-600 leading-tight">
-      <span className="font-semibold text-gray-800">{ip}</span>
-      {subnet && <span className="text-gray-400">/{subnetToCidr(subnet)}</span>}
-      {device && <span className="text-gray-400 ml-1">· {device}</span>}
-      {mtu && mtu !== 1500 && <span className="text-amber-600 ml-1">MTU {mtu}</span>}
+    <div className="flex items-center gap-2 text-[11px] font-mono bg-white/80 border border-white rounded-lg px-2.5 py-1.5 text-gray-700">
+      <span className="font-semibold">{subnet}</span>
+      {vlan != null && <span className="text-gray-400">· VLAN {vlan}</span>}
+      {device && <span className="text-gray-400">· {device}</span>}
+      {warn && <span className="text-amber-500 font-sans font-medium">⚠ MTU {mtu}</span>}
     </div>
   );
 }
 
-function subnetToCidr(mask) {
-  if (!mask) return "";
-  const parts = mask.split(".").map(Number);
-  return parts.reduce((acc, b) => acc + b.toString(2).split("").filter(c=>c==="1").length, 0);
-}
-
-function FabricBox({ role, title, subtitle, detail, healthy=true, vmkEntries=[] }) {
+function FabricBox({ role, title, subtitle, detail, healthy=true, summaries=[] }) {
   const s = tone[role] || tone.cluster;
   const Icon =
     role === "management" ? Shield :
@@ -36,10 +43,6 @@ function FabricBox({ role, title, subtitle, detail, healthy=true, vmkEntries=[] 
     role === "cluster"    ? Server :
     role === "vmotion"    ? Activity :
     Network;
-
-  // Dédupliquer par IP
-  const uniqueEntries = [...new Map((vmkEntries||[]).map(e => [e.ip, e])).values()]
-    .filter(e => e.ip);
 
   return (
     <div className={`relative rounded-2xl border ${s.border} ${s.bg} p-4 min-h-[112px] shadow-sm`}>
@@ -53,25 +56,19 @@ function FabricBox({ role, title, subtitle, detail, healthy=true, vmkEntries=[] 
             <div className="text-xs text-gray-500 mt-1">{subtitle}</div>
           </div>
         </div>
-        {healthy ? (
-          <CheckCircle size={16} className="text-emerald-500 flex-shrink-0"/>
-        ) : (
-          <AlertTriangle size={16} className="text-red-500 flex-shrink-0"/>
-        )}
+        {healthy
+          ? <CheckCircle size={16} className="text-emerald-500 flex-shrink-0"/>
+          : <AlertTriangle size={16} className="text-red-500 flex-shrink-0"/>
+        }
       </div>
 
       <div className="mt-3 rounded-xl bg-white/70 border border-white px-3 py-2 text-xs text-gray-500">
         {detail}
       </div>
 
-      {uniqueEntries.length > 0 && (
+      {summaries.length > 0 && (
         <div className="mt-2 flex flex-col gap-1">
-          {uniqueEntries.slice(0, 4).map((e, i) => (
-            <NetTag key={i} ip={e.ip} subnet={e.subnet} device={e.device} mtu={e.mtu} />
-          ))}
-          {uniqueEntries.length > 4 && (
-            <div className="text-[10px] text-gray-400 pl-1">+{uniqueEntries.length - 4} autres</div>
-          )}
+          {summaries.map((s, i) => <SummaryTag key={i} {...s} />)}
         </div>
       )}
     </div>
@@ -92,22 +89,40 @@ export default function NetworkFabric({
   hasManagement=false, hasVmotion=false, hasStorage=false,
   redundancyScore=0, vmKernel=[]
 }) {
-  // Grouper les VMkernel par rôle
-  const byRole = (role) => vmKernel.filter(e => {
-    const pg = (e.portGroup || "").toLowerCase();
-    if (role === "management") return pg.includes("management") || pg.includes("mgmt") || pg.includes("admin");
-    if (role === "vmotion")    return pg.includes("vmotion") || pg.includes("v-motion");
-    if (role === "storage")    return pg.includes("iscsi") || pg.includes("san") || pg.includes("nfs") || pg.includes("storage") || pg.includes("vmfs");
-    return false;
-  });
+  // Grouper par rôle et dédupliquer par subnet
+  const byRole = (role) => {
+    const entries = vmKernel.filter(e => {
+      const pg = (e.portGroup || "").toLowerCase();
+      if (role === "management") return pg.includes("management") || pg.includes("mgmt");
+      if (role === "vmotion")    return pg.includes("vmotion") || pg.includes("v-motion");
+      if (role === "storage")    return pg.includes("iscsi") || pg.includes("san") || pg.includes("nfs") || pg.includes("storage");
+      return false;
+    });
 
-  const mgmtVmk    = byRole("management");
-  const vmotionVmk = byRole("vmotion");
-  const storageVmk = byRole("storage");
+    // Dédupliquer par subnet
+    const subnets = new Map();
+    entries.forEach(e => {
+      const subnet = ipToSubnet(e.ip, e.subnet);
+      if (!subnet) return;
+      if (!subnets.has(subnet)) {
+        subnets.set(subnet, {
+          subnet,
+          vlan: e.vlan ?? null,
+          device: e.device,
+          mtu: e.mtu,
+          warn: e.mtu && e.mtu < 9000 && (role === "storage"),
+        });
+      }
+    });
+    return [...subnets.values()];
+  };
 
-  // MTU warning pour iSCSI
-  const hasJumbo   = storageVmk.some(e => e.mtu && e.mtu >= 9000);
-  const storageMtu = storageVmk.length > 0 && !hasJumbo ? " · ⚠ MTU 1500 (jumbo frames recommandés)" : "";
+  const mgmtSummaries    = byRole("management");
+  const vmotionSummaries = byRole("vmotion");
+  const storageSummaries = byRole("storage");
+
+  const hasJumbo    = vmKernel.filter(e => (e.portGroup||"").toLowerCase().includes("iscsi")).some(e => e.mtu >= 9000);
+  const storagePaths = vmKernel.filter(e => (e.portGroup||"").toLowerCase().includes("iscsi") || (e.portGroup||"").toLowerCase().includes("san")).length;
 
   return (
     <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
@@ -122,8 +137,7 @@ export default function NetworkFabric({
           </div>
         </div>
         <button className="inline-flex items-center gap-2 text-xs font-semibold text-blue-600 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2">
-          Exporter le schéma
-          <Download size={14}/>
+          Exporter le schéma <Download size={14}/>
         </button>
       </div>
 
@@ -144,15 +158,17 @@ export default function NetworkFabric({
               subtitle={hasManagement ? "Réseau identifié" : "Non clairement identifié"}
               healthy={hasManagement}
               detail={hasManagement ? "Flux d'administration détectés" : "À qualifier : iDRAC/iLO, ESXi mgmt, bastion"}
-              vmkEntries={mgmtVmk}
+              summaries={mgmtSummaries}
             />
             <FabricBox
               role="storage"
               title="Storage"
-              subtitle={hasStorage ? `Réseau dédié détecté${storageVmk.length > 1 ? ` · ${storageVmk.length} chemins` : ""}` : "Non détecté"}
+              subtitle={hasStorage ? `Réseau dédié · ${storagePaths} chemin${storagePaths>1?"s":""}` : "Non détecté"}
               healthy={hasStorage}
-              detail={hasStorage ? `Flux iSCSI/NFS/SAN identifiés${storageMtu}` : "Risque : stockage potentiellement mutualisé"}
-              vmkEntries={storageVmk}
+              detail={hasStorage
+                ? `Flux iSCSI/NFS/SAN identifiés${!hasJumbo && storagePaths > 0 ? " · ⚠ MTU 1500" : ""}`
+                : "Risque : stockage potentiellement mutualisé"}
+              summaries={storageSummaries}
             />
           </div>
 
@@ -178,7 +194,7 @@ export default function NetworkFabric({
               subtitle={hasVmotion ? "Réseau dédié détecté" : "Non détecté"}
               healthy={hasVmotion}
               detail={hasVmotion ? "Isolation vMotion présente" : "Risque : migration à chaud non qualifiée"}
-              vmkEntries={vmotionVmk}
+              summaries={vmotionSummaries}
             />
             <FabricBox
               role="vm"
@@ -186,7 +202,7 @@ export default function NetworkFabric({
               subtitle={`${segments} segments applicatifs`}
               healthy={segments > 0}
               detail="Trafic applicatif / production"
-              vmkEntries={[]}
+              summaries={[]}
             />
           </div>
         </div>
@@ -194,9 +210,9 @@ export default function NetworkFabric({
         <div className="relative mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-gray-100 pt-4">
           <div className="flex flex-wrap gap-5">
             <Legend color={tone.management.line} label="Management"/>
-            <Legend color={tone.vmotion.line}    label={hasVmotion ? "vMotion" : "vMotion absent"} dashed={!hasVmotion}/>
-            <Legend color={tone.storage.line}    label={hasStorage ? "Storage" : "Storage absent"} dashed={!hasStorage}/>
-            <Legend color={tone.vm.line}         label="VM Traffic"/>
+            <Legend color={tone.vmotion.line} label={hasVmotion?"vMotion":"vMotion absent"} dashed={!hasVmotion}/>
+            <Legend color={tone.storage.line} label={hasStorage?"Storage":"Storage absent"} dashed={!hasStorage}/>
+            <Legend color={tone.vm.line} label="VM Traffic"/>
           </div>
           <div className="text-xs text-gray-500">
             Redondance réseau : <span className="font-semibold text-emerald-600">{redundancyScore}%</span>
