@@ -245,12 +245,26 @@ export default function AuditCalc({ th, isMobile=false }) {
           dvPort.find(p =>
             normalizePg(p["Port"]||p["Port Group"]||"") === pg
           );
-
+        const inferredVlan = (!match && vmk.ip) ? (() => {
+          const parts = vmk.ip.split(".");
+          if (parts.length === 4) { const oct3 = parseInt(parts[2]); if (oct3 > 0 && oct3 < 4096) return oct3; }
+          return null;
+        })() : null;
+        let inferredVlan = null;
+        if (!match && vmk.ip) {
+          const parts = vmk.ip.split(".");
+          if (parts.length === 4) {
+            const oct3 = parseInt(parts[2]);
+            if (oct3 > 0 && oct3 < 4096) inferredVlan = oct3;
+          }
+        }
         return {
           ...vmk,
-          vlan: match?.["VLAN"] ?? null,
+          vlan: match?.["VLAN"] !== undefined ? match["VLAN"] : inferredVlan,
+          vlanInferred: !match && inferredVlan !== null,
           switch: match?.["Switch"] || "VMkernel",
           role: getNetworkRole(vmk.portGroup)
+        };
         };
       });
 
@@ -322,6 +336,8 @@ export default function AuditCalc({ th, isMobile=false }) {
       vHBA, dvSwitches,
       vHBA,
         vmKernel: vmKernelEnriched,
+        // DEBUG
+        _debug_vmk: (() => { console.log("vmKernelEnriched sample:", JSON.stringify(vmKernelEnriched.slice(0,3))); return null; })(),
       sheetQuality, qualityScore,
     };
   };
