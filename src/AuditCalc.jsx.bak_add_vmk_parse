@@ -162,88 +162,18 @@ export default function AuditCalc({ th, isMobile=false }) {
       os: v["OS according to the VMware Tools"]||"N/A",
       host: (v["Host"]||"").split(".")[0],
     })).sort((a,b)=>(b.daysSince||999)-(a.daysSince||999));
-      const dvPort = getJson("dvPort");
-      const vPortData2 = getJson("vPort");
-      const vmKernelData = getJson("vSC_VMK").map(r=>({
-        host: (r["Host"]||"").split(".")[0],
-        device: r["Device"] || r["VMkernel"] || r["Name"] || "",
-        portGroup: r["Port Group"] || r["Network"] || r["Portgroup"] || "",
-        ip: r["IP Address"] || r["IPv4 Address"] || "",
-        subnet: r["Subnet mask"] || r["Subnet Mask"] || r["Netmask"] || "",
-        mtu: r["MTU"] || null,
-        mac: r["Mac Address"] || r["MAC Address"] || "",
-      }));
-
-      const getNetworkRole = (name="") => {
-        const n = String(name).toLowerCase();
-        if (n.includes("vmotion") || n.includes("v-motion") || n.includes("v motion")) return "vmotion";
-        if (n.includes("iscsi") || n.includes("san") || n.includes("storage") || n.includes("nfs") || n.includes("vmfs")) return "storage";
-        if (n.includes("management") || n.includes("mgmt") || n.includes("admin") || n.includes("adm")) return "management";
-        return "vm";
-      };
-
-      const dvVlans = dvPort.filter(d=>d["VLAN"]!==null&&d["VLAN"]!==undefined).map(d=>({
-        name: d["Port"]||"N/A",
-        vlan:d["VLAN"],
-        switch:d["Switch"]||"N/A",
-        ports:d["# Ports"]||0,
-        speed:d["Speed"]||0,
-        type:"dvSwitch",
-        role:getNetworkRole(d["Port"]||"")
-      }));
-
-      const vsVlans = vPortData2.filter(d=>d["VLAN"]!==null&&d["VLAN"]!==undefined).map(d=>({
-        name: d["Port Group"]||"N/A",
-        vlan:d["VLAN"],
-        switch:d["Switch"]||"N/A",
-        ports:0,
-        speed:0,
-        type:"vSwitch",
-        role:getNetworkRole(d["Port Group"]||"")
-      }));
-
-      const vmkVlans = vmKernelData.map(vmk=>{
-        const pg = vmk.portGroup || "N/A";
-        const match = vPortData2.find(p =>
-          (p["Port Group"]||"").toLowerCase() === pg.toLowerCase() &&
-          ((p["Host"]||"").split(".")[0]) === vmk.host
-        );
-        return {
-          name: pg,
-          vlan: match?.["VLAN"] ?? null,
-          switch: match?.["Switch"] || "VMkernel",
-          ports:1,
-          speed:0,
-          type:"VMkernel",
-          role:getNetworkRole(pg),
-          host: vmk.host,
-          device: vmk.device,
-          ip: vmk.ip,
-          mtu: vmk.mtu
-        };
-      }).filter(v=>v.name && v.name !== "N/A");
-
-      const allVlans = [...dvVlans, ...vsVlans, ...vmkVlans];
-      const vlans = [...new Map(allVlans.map(v=>[(v.name||"")+(v.vlan??"")+"-"+(v.type||"")+"-"+(v.host||""),v])).values()]
-        .sort((a,b)=>(a.vlan||0)-(b.vlan||0));
-
-      const vPortData = getJson("vPort");
-      const uniquePortGroups = [...new Map([...vPortData.map(p=>({
-        host:(p["Host"]||"").split(".")[0],
-        portGroup:p["Port Group"]||"N/A",
-        switch:p["Switch"]||"N/A",
-        vlan:p["VLAN"],
-        role:getNetworkRole(p["Port Group"]||"")
-      })), ...vmkVlans.map(v=>({
-        host:v.host,
-        portGroup:v.name,
-        switch:v.switch,
-        vlan:v.vlan,
-        role:v.role,
-        device:v.device,
-        ip:v.ip,
-        mtu:v.mtu
-      }))].map(p=>[p.portGroup+p.vlan+p.host,p])).values()];
+    const dvPort = getJson("dvPort");
+    const dvVlans = dvPort.filter(d=>d["VLAN"]!==null&&d["VLAN"]!==undefined).map(d=>({
+      name: d["Port"]||"N/A", vlan:d["VLAN"], switch:d["Switch"]||"N/A", ports:d["# Ports"]||0, speed:d["Speed"]||0, type:"dvSwitch"
+    }));
+    const vPortData2 = getJson("vPort");
+    const vsVlans = vPortData2.filter(d=>d["VLAN"]!==null&&d["VLAN"]!==undefined).map(d=>({
+      name: d["Port Group"]||"N/A", vlan:d["VLAN"], switch:d["Switch"]||"N/A", ports:0, speed:0, type:"vSwitch"
+    }));
+    const allVlans = dvVlans.length>0 ? dvVlans : vsVlans;
+    const vlans = [...new Map(allVlans.map(v=>[v.name+v.vlan,v])).values()].sort((a,b)=>(a.vlan||0)-(b.vlan||0));
+    const vPortData = getJson("vPort");
+    const uniquePortGroups = [...new Map(vPortData.map(p=>[p["Port Group"]+p["VLAN"],{host:(p["Host"]||"").split(".")[0],portGroup:p["Port Group"]||"N/A",switch:p["Switch"]||"N/A",vlan:p["VLAN"]}])).values()];
     // vSwitch avec port groups
     const vPortAll = getJson("vPort");
     const vSwitches = vSwitchData.map(sw=>({
@@ -287,8 +217,7 @@ export default function AuditCalc({ th, isMobile=false }) {
       hostsCount: vHost.length,
       totalCores: vHost.reduce((s,h)=>s+(h["# Cores"]||0),0),
       totalRamPhysGo: Math.round(vHost.reduce((s,h)=>s+(h["# Memory"]||0),0)/1024),
-        vmOffList, vlans, uniquePortGroups, vmNics, vSwitches, dvSwitches,
-        vmKernel: vmKernelData,
+      vmOffList, vlans, uniquePortGroups, vmNics, vSwitches, dvSwitches,
       sheetQuality, qualityScore,
     };
   };

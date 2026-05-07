@@ -2332,57 +2332,31 @@ export default function ClusterOverviewDashboard({
         const totalNics = hostsNics.reduce((s,h)=>s+(h.nics||0),0);
         const segments = [...new Map(allVlans.map(v=>[v.name,v])).values()];
 
-          const vmkRows = nd.vmKernel || nd.vmk || nd.vmkernels || nd.vmkernel || nd.vSC_VMK || [];
-          const datastoreRows = nd.datastores || datastores || [];
-
           const networkText = [
             ...segments.map(s=>s.name||""),
-            ...allPGs.map(p=>p.portGroup||p.name||p.network||""),
-            ...allVSwitches.map(sw=>sw.name||""),
-            ...allDvSwitches.map(sw=>sw.name||""),
-            ...vmkRows.map(v=>Object.values(v||{}).join(" "))
+            ...allPGs.map(p=>p.portGroup||p.name||""),
+            ...allVSwitches.map(s=>s.name||""),
+            ...allDvSwitches.map(s=>s.name||"")
           ].join(" ").toLowerCase();
 
-          const datastoreText = datastoreRows
+          const datastoreText = (datastores||[])
             .map(d=>Object.values(d||{}).join(" "))
             .join(" ")
             .toLowerCase();
 
-          const vmotionNetworks = [...new Set(vmkRows
-            .filter(v=>{
-              const t = Object.values(v||{}).join(" ").toLowerCase();
-              return t.includes("vmotion") || t.includes("v-motion") || t.includes("v motion") || t.includes("migration");
-            })
-            .map(v=>v.portGroup || v["Port Group"] || v.network || v["Network"] || v.name || v["Name"])
-            .filter(Boolean)
-          )];
-
-          const storageNetworks = [...new Set(vmkRows
-            .filter(v=>{
-              const t = Object.values(v||{}).join(" ").toLowerCase();
-              return t.includes("iscsi") || t.includes("nfs") || t.includes("storage") || t.includes("san") || t.includes("vmfs");
-            })
-            .map(v=>v.portGroup || v["Port Group"] || v.network || v["Network"] || v.name || v["Name"])
-            .filter(Boolean)
-          )];
-
           const hasVmotion =
-            vmotionNetworks.length > 0 ||
             networkText.includes("vmotion") ||
-            networkText.includes("v-motion") ||
-            networkText.includes("v motion") ||
+            networkText.includes("motion") ||
             networkText.includes("migration");
 
           const hasStorage =
-            storageNetworks.length > 0 ||
+            networkText.includes("storage") ||
             networkText.includes("iscsi") ||
             networkText.includes("nfs") ||
-            networkText.includes("storage") ||
             networkText.includes("san") ||
-            networkText.includes("vmfs") ||
-            datastoreText.includes("iscsi") ||
+            networkText.includes("vsan") ||
             datastoreText.includes("nfs") ||
-            datastoreText.includes("vmfs") ||
+            datastoreText.includes("iscsi") ||
             datastoreText.includes("vsan");
 
           const hasManagement = segments.some(seg=>{
