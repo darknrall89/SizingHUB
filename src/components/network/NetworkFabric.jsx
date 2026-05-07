@@ -314,6 +314,69 @@ export default function NetworkFabric({
     return tagged.length ? tagged : out;
   };
 
+  const pgKey = (v) => String(v || "").trim().toLowerCase();
+
+  console.log("🔎 NetworkFabric vMotion VMKs", vmks.filter(v => Object.values(v || {}).join(" ").toLowerCase().includes("vmotion")));
+  console.log("🔎 NetworkFabric PGs sample", pgs.slice(0,20));
+  console.log("🔎 NetworkFabric Segments sample", segs.slice(0,20));
+  const portGroupVlanMap = new Map();
+  [...pgs, ...segs].forEach(x => {
+    const name = getName(x);
+    const vlan = getVlan(x);
+    if (!name || name === "N/A" || vlan === null || vlan === undefined) return;
+    portGroupVlanMap.set(pgKey(name), vlan);
+  });
+
+  const subnetOfIp = (ip) => {
+    if (!ip || typeof ip !== "string") return null;
+    const p = ip.split(".");
+    if (p.length !== 4) return null;
+    return `${p[0]}.${p[1]}.${p[2]}`;
+  };
+
+  const getVmkVlan = (v) => {
+    const direct = getVlan(v);
+    if (direct !== null && direct !== undefined) return direct;
+
+    const candidates = [
+      v?.portGroup,
+      v?.["Port Group"],
+      v?.network,
+      v?.Network,
+      v?.name,
+      v?.Name,
+    ].filter(Boolean);
+
+    for (const c of candidates) {
+      const mapped = portGroupVlanMap.get(pgKey(c));
+      if (mapped !== undefined && mapped !== null) return mapped;
+    }
+
+    // fallback intelligent via subnet
+    const vmkSubnet = subnetOfIp(v?.ip);
+
+    if (vmkSubnet) {
+      for (const s of segs) {
+        const name = String(getName(s) || "").toLowerCase();
+
+        const vlan = getVlan(s);
+
+        if (
+          vlan !== null &&
+          (
+            name.includes("vmotion") ||
+            name.includes("migration") ||
+            name.includes("v-motion")
+          )
+        ) {
+          return vlan;
+        }
+      }
+    }
+
+    return null;
+  };
+
   const infraPortGroupNames = new Set(
     vmks
       .map(v => getName(v))
@@ -335,7 +398,7 @@ export default function NetworkFabric({
     const segRows = role === "vm"
       ? segs.filter(s => {
           const vlan = getVlan(s);
-          const usedByInfraVmk = vmks.some(v => getVlan(v) === vlan && vlan !== null);
+          const usedByInfraVmk = vmks.some(v => getVmkVlan(v) === vlan && vlan !== null);
           return !usedByInfraVmk;
         })
       : [];
@@ -346,7 +409,7 @@ export default function NetworkFabric({
           ...segRows.map(getVlan),
         ])
       : cleanVlans([
-          ...vmkRows.map(getVlan),
+          ...vmkRows.map(getVmkVlan),
         ]);
 
     const hostNames = uniq(vmkRows.map(v => v.host || v.Host || v.hostname || v.Hostname));
@@ -405,7 +468,7 @@ export default function NetworkFabric({
     ...pgs.map(x => ({...x, source:"pg"})),
   ];
 
-  const seenVmkVlans = new Set(vmks.map(getVlan).filter(v => v !== null));
+  const seenVmkVlans = new Set(vmks.map(getVmkVlan).filter(v => v !== null));
   const seenPgVlans = new Set(pgs.map(getVlan).filter(v => v !== null));
 
   const orphanByVlan = new Map();

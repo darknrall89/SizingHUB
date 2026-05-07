@@ -237,6 +237,13 @@ export default function AuditCalc({ th, isMobile=false }) {
           ) ||
           vPortData2.find(p =>
             normalizePg(p["Port Group"]) === pg
+          ) ||
+          dvPort.find(p =>
+            normalizePg(p["Port"]||p["Port Group"]||"") === pg &&
+            ((p["Host"]||"").split(".")[0]) === vmk.host
+          ) ||
+          dvPort.find(p =>
+            normalizePg(p["Port"]||p["Port Group"]||"") === pg
           );
 
         return {
