@@ -2630,72 +2630,222 @@ export default function ClusterOverviewDashboard({
               </div>
             );
           })()}
+            {/* STORAGE_PREMIUM_SUMMARY */}
+            {datastores.length>0&&(()=>{
+              const fmtGo = (mib=0) => Math.round((mib||0)/1024);
+              const fmtTo = (mib=0) => ((mib||0)/1024/1024).toFixed(1);
 
+              const estimateDailyGrowthGo = (d, usedPct, vmCount) => {
+                const capGo = fmtGo(d.capMib||0);
+                const base = Math.max(2, Math.round(capGo * 0.0015));
+                const pressure = usedPct >= 85 ? 2.2 : usedPct >= 75 ? 1.6 : usedPct >= 60 ? 1.2 : 0.8;
+                const vmFactor = vmCount >= 50 ? 1.5 : vmCount >= 20 ? 1.25 : vmCount >= 10 ? 1.1 : 1;
+                return Math.max(1, Math.round(base * pressure * vmFactor));
+              };
 
-          {/* STORAGE_PREMIUM_SUMMARY */}
-          {datastores.length>0&&(()=>{
-            const enriched = datastores.map(d=>{
-              const usedPct = d.capMib>0 ? Math.round((d.inUseMib/d.capMib)*100) : 0;
-              return {...d, usedPct};
-            }).sort((a,b)=>b.usedPct-a.usedPct);
+              const enriched = datastores.map(d=>{
+                const usedPct = d.capMib>0 ? Math.round((d.inUseMib/d.capMib)*100) : 0;
+                const freeMib = Math.max((d.capMib||0)-(d.inUseMib||0),0);
+                const vmCount = Number(d.vmCount || d.vms || d.vm || d.nbVm || 0);
+                const dailyGrowthGo = estimateDailyGrowthGo(d, usedPct, vmCount);
+                const daysToFull = dailyGrowthGo > 0 ? Math.round(fmtGo(freeMib)/dailyGrowthGo) : null;
 
-            const maxDs = enriched[0];
-            const emptyCount = enriched.filter(d=>d.usedPct===0).length;
-            const warningCount = enriched.filter(d=>d.usedPct>=60&&d.usedPct<80).length;
-            const criticalCount = enriched.filter(d=>d.usedPct>=80).length;
+                const risk =
+                  usedPct >= 85 || (daysToFull !== null && daysToFull <= 30) ? "critical" :
+                  usedPct >= 75 || (daysToFull !== null && daysToFull <= 60) ? "warning" :
+                  "healthy";
 
-            const status =
-              criticalCount>0 ? "Stockage sous tension" :
-              warningCount>0 ? "Stockage à surveiller" :
-              "Stockage globalement sain";
+                return {...d, usedPct, freeMib, vmCount, dailyGrowthGo, daysToFull, risk};
+              }).sort((a,b)=>b.usedPct-a.usedPct);
 
-            const statusColor =
-              criticalCount>0 ? "text-red-600" :
-              warningCount>0 ? "text-amber-600" :
-              "text-emerald-600";
+              const maxDs = enriched[0];
+              const healthyCount = enriched.filter(d=>d.risk==="healthy").length;
+              const warningCount = enriched.filter(d=>d.risk==="warning").length;
+              const criticalCount = enriched.filter(d=>d.risk==="critical").length;
+              const totalMib = enriched.reduce((s,d)=>s+(d.capMib||0),0);
+              const usedMib = enriched.reduce((s,d)=>s+(d.inUseMib||0),0);
+              const freeMib = Math.max(totalMib-usedMib,0);
+              const globalPct = totalMib>0 ? Math.round(usedMib/totalMib*100) : 0;
 
-            const statusBg =
-              criticalCount>0 ? "bg-red-50 border-red-100" :
-              warningCount>0 ? "bg-amber-50 border-amber-100" :
-              "bg-emerald-50 border-emerald-100";
+              const nearestSaturation = enriched
+                .filter(d=>d.daysToFull !== null && d.daysToFull > 0)
+                .sort((a,b)=>a.daysToFull-b.daysToFull)[0];
 
-            return (
-              <div className={"rounded-2xl border shadow-sm p-5 mb-4 "+statusBg}>
-                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              const impactedVms = enriched
+                .filter(d=>d.risk==="critical")
+                .reduce((s,d)=>s+(Number(d.vmCount)||0),0);
 
-                  <div>
-                    <div className="text-xs text-gray-400 uppercase">
-                      Synthèse — Storage
-                    </div>
-                    <div className={"text-xl font-semibold mt-1 "+statusColor}>
-                      {status}
-                    </div>
-                    <div className="text-sm text-gray-600 mt-2">
-                      Max utilisation : <strong>{maxDs?.name}</strong> ({maxDs?.usedPct}%)
+              const status =
+                criticalCount>0 ? "Stockage sous tension" :
+                warningCount>0 ? "Stockage à surveiller" :
+                "Stockage globalement sain";
+
+              const statusColor =
+                criticalCount>0 ? "text-red-600" :
+                warningCount>0 ? "text-amber-600" :
+                "text-emerald-600";
+
+              const statusBg =
+                criticalCount>0 ? "bg-red-50 border-red-100" :
+                warningCount>0 ? "bg-amber-50 border-amber-100" :
+                "bg-emerald-50 border-emerald-100";
+
+              const topRisks = enriched.filter(d=>d.risk!=="healthy").slice(0,4);
+
+              return (
+                <div className="space-y-4 mb-4">
+                  <div className={"rounded-2xl border shadow-sm p-5 "+statusBg}>
+                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                      <div>
+                        <div className="text-xs text-gray-400 uppercase">Synthèse — Storage</div>
+                        <div className={"text-xl font-semibold mt-1 "+statusColor}>{status}</div>
+                        <div className="text-sm text-gray-600 mt-2">
+                          Max utilisation : <strong>{maxDs?.name}</strong> ({maxDs?.usedPct}%)
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="text-center">
+                          <div className="text-lg font-semibold text-amber-600">{warningCount}</div>
+                          <div className="text-xs text-gray-500">Warning</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-lg font-semibold text-red-600">{criticalCount}</div>
+                          <div className="text-xs text-gray-500">Critique</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-lg font-semibold text-emerald-600">{healthyCount}</div>
+                          <div className="text-xs text-gray-500">Sains</div>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="flex gap-3">
-                    <div className="text-center">
-                      <div className="text-lg font-semibold text-amber-600">{warningCount}</div>
-                      <div className="text-xs text-gray-500">Warning</div>
+                  <div className="grid grid-cols-2 xl:grid-cols-5 gap-3">
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+                      <div className="text-xs uppercase tracking-widest text-gray-400">Capacité totale</div>
+                      <div className="text-2xl font-semibold text-gray-900 mt-2">{fmtTo(totalMib)} To</div>
+                      <div className="text-xs text-gray-500 mt-1">{fmtTo(usedMib)} To utilisés ({globalPct}%)</div>
                     </div>
-                    <div className="text-center">
-                      <div className="text-lg font-semibold text-red-600">{criticalCount}</div>
-                      <div className="text-xs text-gray-500">Critique</div>
+
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+                      <div className="text-xs uppercase tracking-widest text-gray-400">Capacité libre</div>
+                      <div className="text-2xl font-semibold text-emerald-600 mt-2">{fmtTo(freeMib)} To</div>
+                      <div className="text-xs text-gray-500 mt-1">{100-globalPct}% disponible</div>
                     </div>
-                    <div className="text-center">
-                      <div className="text-lg font-semibold text-blue-600">{emptyCount}</div>
-                      <div className="text-xs text-gray-500">Inactif</div>
+
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+                      <div className="text-xs uppercase tracking-widest text-gray-400">Saturation estimée</div>
+                      <div className={"text-2xl font-semibold mt-2 "+(nearestSaturation?.daysToFull<=30?"text-red-600":nearestSaturation?.daysToFull<=60?"text-amber-600":"text-emerald-600")}>
+                        {nearestSaturation ? `${nearestSaturation.daysToFull} j` : "N/A"}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">{nearestSaturation?.name || "projection non disponible"}</div>
+                    </div>
+
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+                      <div className="text-xs uppercase tracking-widest text-gray-400">VMs impactées</div>
+                      <div className="text-2xl font-semibold text-blue-600 mt-2">{impactedVms || "N/A"}</div>
+                      <div className="text-xs text-gray-500 mt-1">sur datastores critiques</div>
+                    </div>
+
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+                      <div className="text-xs uppercase tracking-widest text-gray-400">Méthode</div>
+                      <div className="text-sm font-semibold text-gray-800 mt-2">Heuristique RVTools</div>
+                      <div className="text-xs text-gray-500 mt-1">sans historique réel</div>
                     </div>
                   </div>
 
+                  {topRisks.length>0&&(
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                      <div className="mb-4">
+                        <h3 className="text-sm font-semibold text-gray-800">Datastores prioritaires</h3>
+                        <p className="text-xs text-gray-400 mt-1">Projection prudente basée sur capacité libre, taux d’usage et densité VM</p>
+                      </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                          {topRisks.map(d=>{
+                            const critical = d.risk==="critical";
+                            const urgent = d.daysToFull !== null && d.daysToFull <= 30;
+                            const riskLabel = critical ? "Risque critique" : "Risque élevé";
+                            const recommendation =
+                              urgent
+                                ? "Étendre le datastore ou déplacer des VMs prioritaires."
+                                : d.usedPct >= 80
+                                ? "Prévoir une extension de capacité à court terme."
+                                : "Surveiller la tendance et valider la croissance réelle.";
+
+                            return (
+                              <div key={d.name} className={"rounded-xl border p-4 "+(critical?"border-red-200 bg-red-50/40":"border-amber-200 bg-amber-50/40")}>
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <div className="text-sm font-semibold text-gray-800 truncate">{d.name}</div>
+                                      <span className={"text-[10px] px-2 py-0.5 rounded-full font-semibold "+(critical?"bg-red-100 text-red-700":"bg-amber-100 text-amber-700")}>
+                                        {riskLabel}
+                                      </span>
+                                    </div>
+                                    <div className="text-xs text-gray-500 mt-1">
+                                      {fmtGo(d.inUseMib)} Go utilisés / {fmtGo(d.capMib)} Go · {d.vmCount || "N/A"} VMs
+                                    </div>
+                                  </div>
+
+                                  <div className={"text-lg font-semibold "+(critical?"text-red-600":"text-amber-600")}>
+                                    {d.usedPct}%
+                                  </div>
+                                </div>
+
+                                <div className="mt-3 h-2 bg-white rounded-full overflow-hidden">
+                                  <div className={(critical?"bg-red-500":"bg-amber-400")+" h-full rounded-full"} style={{width:Math.min(100,d.usedPct)+"%"}}/>
+                                </div>
+
+                                <div className="mt-4 rounded-lg bg-white/70 border border-white px-3 py-2">
+                                  <div className="flex items-center justify-between text-[11px] text-gray-500 mb-1">
+                                    <span>Aujourd’hui</span>
+                                    <span>{d.daysToFull ? `Saturation estimée : ${d.daysToFull} j` : "Projection N/A"}</span>
+                                  </div>
+
+                                  <div className="relative h-2 bg-gray-100 rounded-full overflow-hidden">
+                                    <div
+                                      className={(critical?"bg-red-400":"bg-amber-400")+" h-full rounded-full"}
+                                      style={{width: d.daysToFull ? Math.max(12, Math.min(100, 100 - d.daysToFull))+"%" : "35%"}}
+                                    />
+                                    <div className="absolute top-0 bottom-0 w-px bg-red-400 opacity-70" style={{left:"85%"}}/>
+                                  </div>
+                                </div>
+
+                                <div className="mt-3 grid grid-cols-3 gap-3 text-xs">
+                                  <div>
+                                    <div className="text-gray-400">Libre</div>
+                                    <div className="font-semibold text-gray-800">{fmtGo(d.freeMib)} Go</div>
+                                  </div>
+                                  <div>
+                                    <div className="text-gray-400">Croissance estimée</div>
+                                    <div className="font-semibold text-gray-800">~{d.dailyGrowthGo} Go/j</div>
+                                  </div>
+                                  <div>
+                                    <div className="text-gray-400">Impact</div>
+                                    <div className="font-semibold text-gray-800">{d.vmCount || "N/A"} VMs</div>
+                                  </div>
+                                </div>
+
+                                <div className="mt-3 text-xs font-medium text-gray-700">
+                                  💡 {recommendation}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                      <div className="mt-4 rounded-xl bg-blue-50 border border-blue-100 px-4 py-3 text-xs text-blue-700">
+                        Estimation indicative : pour une projection fiable, conserver plusieurs imports RVTools dans le temps afin de calculer une vraie tendance.
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            );
-          })()}
+              );
+            })()}
 
-          {/* Liste datastores triée par criticité */}
+            {/* Liste datastores triée par criticité */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-medium text-gray-800">Datastores ({datastores.length})</h3>
