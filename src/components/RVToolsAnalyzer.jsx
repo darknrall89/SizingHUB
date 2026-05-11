@@ -178,7 +178,7 @@ ${JSON.stringify(truncated, null, 2)}
 
 Génère l'objet JSON d'analyse selon le schéma fourni.`;
 
-  const response = await fetch("/api/anthropic/v1/messages", {
+  const response = await fetch("/api/anthropic", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

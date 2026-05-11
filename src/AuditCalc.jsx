@@ -428,7 +428,7 @@ Genere exactement 3 scenarios d architecture pour migrer cette infrastructure, a
 Reponds UNIQUEMENT avec le JSON, sans markdown ni explication.`;
 
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      const res = await fetch("/api/anthropic", {
         method: "POST",
         headers: {"Content-Type":"application/json","x-api-key":import.meta.env.VITE_ANTHROPIC_API_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
         body: JSON.stringify({
@@ -474,7 +474,7 @@ Retourne exactement ce JSON:
   "insights": [{ "type": "warning"|"info"|"error", "message": string }]
 }
 Si aucun VMkernel vMotion dédié, detected=false et explique dans note.`;
-            const enrichRes = await fetch("/api/anthropic/v1/messages", {
+            const enrichRes = await fetch("/api/anthropic", {
               method: "POST",
               headers: {"Content-Type":"application/json","x-api-key":import.meta.env.VITE_ANTHROPIC_API_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
               body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:1000, messages:[{role:"user",content:enrichPrompt}] })
