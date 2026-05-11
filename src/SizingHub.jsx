@@ -1,7 +1,8 @@
 import { useState, useMemo, useRef, useEffect } from "react";
-import AuditCalc from "./AuditCalc.jsx";
+import AuditCalc from "./RVToolsAnalyzer.jsx";
 import SwitchFabric from "./SwitchFabric.jsx";
 import ComputeCalc from "./ComputeCalc.jsx";
+import RVToolsAnalyzer from "./components/RVToolsAnalyzer";
 import PreSalesAssistant from "./PreSalesAssistant.jsx";
 import {
   Server, HardDrive, Cloud, Cpu, Database, Network, FileSearch,
