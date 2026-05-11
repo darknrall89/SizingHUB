@@ -573,7 +573,7 @@ const OsIcon = ({ os }) => {
 // ── Focus Réseau Nœud ────────────────────────────────────────────────────────
 
 
-function FocusReseauNoeud({ vmkRows=[], hostsNics=[] }) {
+function FocusReseauNoeud({ vmkRows=[], hostsNics=[], claudeInsights=null }) {
   const hostsList = [...new Set([
     ...hostsNics.map(h=>h.name).filter(Boolean),
     ...vmkRows.map(v=>v.host).filter(Boolean)
@@ -713,7 +713,24 @@ function FocusReseauNoeud({ vmkRows=[], hostsNics=[] }) {
               {rows.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-6 text-center text-sm text-gray-400">
-                    {cfg.empty}
+                    {type === "vMotion" && claudeInsights?.vmotion ? (
+                      <div className="text-center py-2">
+                        <div className="text-sm text-gray-400 mb-1">{cfg.empty}</div>
+                        {claudeInsights.vmotion.note && (
+                          <div className="inline-flex items-center gap-2 text-xs bg-violet-50 border border-violet-200 text-violet-700 rounded-lg px-3 py-1.5 mt-1">
+                            <span>⚠️</span>
+                            <span>{claudeInsights.vmotion.note}</span>
+                          </div>
+                        )}
+                        {claudeInsights.vmotion.vlan !== null && claudeInsights.vmotion.vlan !== undefined && (
+                          <div className="text-xs text-gray-400 mt-1">
+                            VLAN inféré : <span className="font-mono bg-gray-100 px-2 py-0.5 rounded">{claudeInsights.vmotion.vlan}</span>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <span>{cfg.empty}</span>
+                    )}
                   </td>
                 </tr>
               ) : rows.map((vmk, i) => {
@@ -1773,6 +1790,7 @@ export const mapRvToolsAnalysisToClusterViewModel = (rv) => {
       dvSwitches: rv.dvSwitches || [],
       uniquePortGroups: rv.uniquePortGroups || [],
       vmKernel: rv.vmKernel || [],
+      claudeInsights: rv.networkInsights || null,
       hbaRows: (() => {
         const direct = rv.vHBA || rv.vhba || rv.VHBA || rv.hba || rv.HBA || rv.vhbaRows;
         if (Array.isArray(direct) && direct.length) return direct;
@@ -2878,6 +2896,7 @@ export default function ClusterOverviewDashboard({
 
       {activeTab==="network"&&(()=>{
         const nd = networkData||{};
+          const claudeInsights = nd.claudeInsights || null;
           console.log("🔎 SizingHUB networkData keys:", Object.keys(nd || {}));
           console.log("🔎 SizingHUB hbaRows:", nd.hbaRows);
           console.log("🔎 SizingHUB networkData full:", nd);
@@ -3097,7 +3116,7 @@ export default function ClusterOverviewDashboard({
             {/* Host NICs */}
             {/* Focus réseau nœud */}
             {hostsNics.length > 0 && (
-              <FocusReseauNoeud vmkRows={vmkRows} hostsNics={hostsNics} />
+              <FocusReseauNoeud vmkRows={vmkRows} hostsNics={hostsNics} claudeInsights={claudeInsights} />
             )}
 
 

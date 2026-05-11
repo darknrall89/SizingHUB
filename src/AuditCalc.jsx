@@ -458,7 +458,35 @@ Reponds UNIQUEMENT avec le JSON, sans markdown ni explication.`;
         const buf = await file.arrayBuffer();
         const wb  = XLSX.read(buf,{type:"array",cellDates:true});
         if (wb.SheetNames.includes("vInfo")&&wb.SheetNames.includes("vHost")) {
-          results.push(parseRVTools(wb, file.name));
+          const parsed = parseRVTools(wb, file.name);
+          // Enrichissement réseau via Claude — inférence vMotion et rôles VMkernel
+          try {
+            const vmkSample = parsed.vmKernel?.slice(0,30) || [];
+            const vportSample = (XLSX.utils.sheet_to_json(wb.Sheets["vPort"]||{})||[]).slice(0,50);
+            const enrichPrompt = `Tu es un expert VMware. Analyse ces interfaces VMkernel et port groups et retourne UNIQUEMENT un JSON sans markdown.
+VMkernel interfaces: ${JSON.stringify(vmkSample)}
+Port groups (vPort): ${JSON.stringify(vportSample)}
+Retourne exactement ce JSON:
+{
+  "vmotion": { "detected": boolean, "vlan": number|null, "device": string|null, "portGroup": string|null, "note": string },
+  "management": { "vlan": number|null },
+  "storage": { "vlan": number|null, "mtu": number|null },
+  "insights": [{ "type": "warning"|"info"|"error", "message": string }]
+}
+Si aucun VMkernel vMotion dédié, detected=false et explique dans note.`;
+            const enrichRes = await fetch("/api/anthropic/v1/messages", {
+              method: "POST",
+              headers: {"Content-Type":"application/json","x-api-key":import.meta.env.VITE_ANTHROPIC_API_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+              body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:1000, messages:[{role:"user",content:enrichPrompt}] })
+            });
+            const enrichData = await enrichRes.json();
+            const enrichText = enrichData.content?.[0]?.text||"{}";
+            const enrichJson = JSON.parse(enrichText.replace(/```json|```/g,"").trim());
+            parsed.networkInsights = enrichJson;
+          } catch(e) {
+            parsed.networkInsights = { vmotion:{detected:false,vlan:null,note:"Analyse indisponible"}, insights:[] };
+          }
+          results.push(parsed);
         } else {
           results.push({fileName:file.name, error:"Format non reconnu"});
         }
