@@ -116,7 +116,7 @@ export default function AuditCalc({ th, isMobile=false }) {
       const hostVms = vmOn.filter(v=>v["Host"]===h["Host"]);
       return {
         name: h["Host"],
-        shortName: (h["Host"]||"").split(".")[0],
+        shortName: (() => { const h2 = h["Host"]||""; const first = h2.split(".")[0]; return /^\d+$/.test(first) ? h2 : first; })(),
         cpuModel: (h["CPU Model"]||"").replace(/\(R\)/g,"").replace(/\(TM\)/g,""),
         cores: h["# Cores"]||0,
         cpuUsagePct: h["CPU usage %"]||0,
@@ -162,12 +162,12 @@ export default function AuditCalc({ th, isMobile=false }) {
       ramGo: Math.round((v["Memory"]||0)/1024),
       diskGo: Math.round((v["Total disk capacity MiB"]||0)/1024),
       os: v["OS according to the VMware Tools"]||"N/A",
-      host: (v["Host"]||"").split(".")[0],
+      host: (()=>{const _h=v["Host"]||"";const _f=_h.split(".")[0];return /^\d+$/.test(_f)?_h:_f;})(),
     })).sort((a,b)=>(b.daysSince||999)-(a.daysSince||999));
       const dvPort = getJson("dvPort");
       const vPortData2 = getJson("vPort");
       const vmKernelData = getJson("vSC_VMK").map(r=>({
-        host: (r["Host"]||"").split(".")[0],
+        host: (()=>{const _h=r["Host"]||"";const _f=_h.split(".")[0];return /^\d+$/.test(_f)?_h:_f;})(),
         device: r["Device"] || r["VMkernel"] || r["Name"] || "",
         portGroup: r["Port Group"] || r["Network"] || r["Portgroup"] || "",
         ip: r["IP Address"] || r["IPv4 Address"] || "",
@@ -208,7 +208,7 @@ export default function AuditCalc({ th, isMobile=false }) {
         const pg = vmk.portGroup || "N/A";
         const match = vPortData2.find(p =>
           (p["Port Group"]||"").toLowerCase() === pg.toLowerCase() &&
-          ((p["Host"]||"").split(".")[0]) === vmk.host
+          ((()=>{const _h=p["Host"]||"";const _f=_h.split(".")[0];return /^\d+$/.test(_f)?_h:_f;})()) === vmk.host
         );
         return {
           name: pg,
@@ -230,9 +230,9 @@ export default function AuditCalc({ th, isMobile=false }) {
       const vmKernelEnriched = vmKernelData.map(vmk => {
         const pg = normalizePg(vmk.portGroup);
         const match =
-          vPortData2.find(p => normalizePg(p["Port Group"]) === pg && ((p["Host"]||"").split(".")[0]) === vmk.host) ||
+          vPortData2.find(p => normalizePg(p["Port Group"]) === pg && ((()=>{const _h=p["Host"]||"";const _f=_h.split(".")[0];return /^\d+$/.test(_f)?_h:_f;})()) === vmk.host) ||
           vPortData2.find(p => normalizePg(p["Port Group"]) === pg) ||
-          dvPort.find(p => normalizePg(p["Port"]||p["Port Group"]||"") === pg && ((p["Host"]||"").split(".")[0]) === vmk.host) ||
+          dvPort.find(p => normalizePg(p["Port"]||p["Port Group"]||"") === pg && ((()=>{const _h=p["Host"]||"";const _f=_h.split(".")[0];return /^\d+$/.test(_f)?_h:_f;})()) === vmk.host) ||
           dvPort.find(p => normalizePg(p["Port"]||p["Port Group"]||"") === pg);
         let inferredVlan = null;
         if (!match && vmk.ip) {
@@ -256,7 +256,7 @@ export default function AuditCalc({ th, isMobile=false }) {
 
       const vPortData = getJson("vPort");
       const uniquePortGroups = [...new Map([...vPortData.map(p=>({
-        host:(p["Host"]||"").split(".")[0],
+        host:(()=>{const _h=p["Host"]||"";const _f=_h.split(".")[0];return /^\d+$/.test(_f)?_h:_f;})(),
         portGroup:p["Port Group"]||"N/A",
         switch:p["Switch"]||"N/A",
         vlan:p["VLAN"],
@@ -274,12 +274,12 @@ export default function AuditCalc({ th, isMobile=false }) {
     // vSwitch avec port groups
     const vPortAll = getJson("vPort");
     const vSwitches = vSwitchData.map(sw=>({
-      host: (sw["Host"]||"").split(".")[0],
+      host: (()=>{const _h=sw["Host"]||"";const _f=_h.split(".")[0];return /^\d+$/.test(_f)?_h:_f;})(),
       name: sw["Switch"]||"N/A",
       ports: sw["# Ports"]||0,
       freePorts: sw["Free Ports"]||0,
       mtu: sw["MTU"]||0,
-      portGroups: vPortAll.filter(p=>p["Switch"]===sw["Switch"]&&(p["Host"]||"").split(".")[0]===(sw["Host"]||"").split(".")[0]).map(p=>({
+      portGroups: vPortAll.filter(p=>p["Switch"]===sw["Switch"]&&(()=>{const _h=p["Host"]||"";const _f=_h.split(".")[0];return /^\d+$/.test(_f)?_h:_f;})()===(()=>{const _h=sw["Host"]||"";const _f=_h.split(".")[0];return /^\d+$/.test(_f)?_h:_f;})()).map(p=>({
         name: p["Port Group"]||"N/A",
         vlan: p["VLAN"],
       })),
