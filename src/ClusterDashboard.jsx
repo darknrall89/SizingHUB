@@ -1975,385 +1975,466 @@ export default function ClusterOverviewDashboard({
       {activeTab==="overview"&&(
         <div className="space-y-4">
 
-          {/* SCORE_GLOBAL_OVERVIEW */}
           {(()=>{
-            const avgCpu = hosts.length > 0
-              ? Math.round(hosts.reduce((s,h)=>s+(Number(h.cpuUsagePercent)||0),0)/hosts.length)
+            const hostList = hosts || [];
+            const nd = networkData || {};
+            const vmkRows = nd.vmKernel || nd.vmk || nd.vmkernels || nd.vmkernel || nd.vSC_VMK || [];
+            const hbaRows = nd.hbaRows || nd.vHBA || nd.vhba || nd.hba || [];
+            const hostsNics = nd.hostsNics || [];
+
+            const selectedId = selectedOverviewHostId || hostList[0]?.id || hostList[0]?.name;
+            const selectedHost =
+              hostList.find(h => h.id === selectedId || h.name === selectedId) ||
+              hostList[0] ||
+              {};
+
+            const selectedName = selectedHost.name || selectedHost.id || "N/A";
+
+            const sameHost = (row) => {
+              const h = row?.host || row?.Host || row?.hostname || row?.Hostname || row?.["Host Name"];
+              return String(h || "").toLowerCase() === String(selectedName || "").toLowerCase();
+            };
+
+            const nodeVmks = vmkRows.filter(sameHost);
+            const nodeHbas = hbaRows.filter(sameHost);
+
+            const nodeNic = hostsNics.find(h =>
+              String(h.name || h.host || h.Host || "").toLowerCase() === String(selectedName || "").toLowerCase()
+            ) || {};
+
+            const mgmtVmk = nodeVmks.find(v => {
+              const t = Object.values(v || {}).join(" ").toLowerCase();
+              return t.includes("management") || t.includes("mgmt") || t.includes("vmk0");
+            }) || nodeVmks[0];
+
+            const totalCpu = clusterSummary.totalCpuCores || 0;
+            const allocatedVcpu = clusterSummary.allocatedVcpu || 0;
+            const totalRam = clusterSummary.totalRamGb || 0;
+            const allocatedRam = clusterSummary.allocatedRamGb || 0;
+            const activeVms = clusterSummary.activeVms || clusterSummary.vms || 0;
+
+            const avgCpuPct = hostList.length
+              ? Math.round(hostList.reduce((s,h)=>s+(Number(h.cpuUsagePercent)||0),0)/hostList.length)
               : 0;
 
-            const avgRam = hosts.length > 0
-              ? Math.round(hosts.reduce((s,h)=>s+(Number(h.ramUsagePercent)||0),0)/hosts.length)
+            const avgRamPct = hostList.length
+              ? Math.round(hostList.reduce((s,h)=>s+(Number(h.ramUsagePercent)||0),0)/hostList.length)
               : 0;
 
-            const storageRisk = (datastores||[]).some(d=>{
-              const usedPct = d.capMib > 0 ? Math.round((d.inUseMib/d.capMib)*100) : 0;
-              return usedPct >= 80;
+            const totalStorageMib = datastores.reduce((s,d)=>s+(d.capMib||0),0);
+            const usedStorageMib = datastores.reduce((s,d)=>s+(d.inUseMib||0),0);
+            const storagePct = totalStorageMib ? Math.round(usedStorageMib/totalStorageMib*100) : 0;
+            const storageTotalTb = (totalStorageMib/1024/1024).toFixed(1);
+            const storageUsedTb = (usedStorageMib/1024/1024).toFixed(1);
+
+            const cpuOversub = clusterSummary.cpuOversubscription || (totalCpu ? (allocatedVcpu/totalCpu).toFixed(1)+":1" : "N/A");
+            const ramOversub = clusterSummary.ramOversubscription || (totalRam ? (allocatedRam/totalRam).toFixed(1)+":1" : "N/A");
+            const avgVcpuPerVm = clusterSummary.avgVcpuPerVm || (activeVms ? (allocatedVcpu/activeVms).toFixed(1) : "N/A");
+            const avgRamPerVm = clusterSummary.avgRamPerVmGb || (activeVms ? Math.round(allocatedRam/activeVms) : "N/A");
+
+            const hostVmCount =
+              selectedHost.vmCount ||
+              selectedHost.vms ||
+              selectedHost.poweredOnVms ||
+              selectedHost.hostedVms ||
+              0;
+
+            const hostCpuPct = selectedHost.cpuUsagePercent || 0;
+            const hostRamPct = selectedHost.ramUsagePercent || 0;
+
+            const fcHbas = nodeHbas.filter(h => {
+              const t = Object.values(h || {}).join(" ").toLowerCase();
+              return t.includes("fibre channel") || t.includes("fiber channel") || t.includes("wwn") || t.includes("wwpn");
             });
 
-            let score = 100;
-            if (avgCpu >= 80) score -= 25;
-            else if (avgCpu >= 60) score -= 12;
+            const iscsiHbas = nodeHbas.filter(h => {
+              const t = Object.values(h || {}).join(" ").toLowerCase();
+              return t.includes("iscsi") || t.includes("iqn");
+            });
 
-            if (avgRam >= 80) score -= 25;
-            else if (avgRam >= 60) score -= 12;
+            const getHbaId = h => h.Device || h.device || h.HBA || h.hba || h.Name || h.name || "HBA";
+            const getHbaType = h => h.Type || h.type || h.Model || h.model || "N/A";
+            const getHbaAddress = h => h.WWN || h.wwn || h.WWPN || h.wwpn || h.IQN || h.iqn || h["iSCSI Name"] || "N/A";
+            const getHbaState = h => h.Status || h.status || h.State || h.state || "Actif";
 
-            if (storageRisk) score -= 15;
-            if ((clusterSummary.poweredOffVms||0) > 0) score -= 5;
-            if ((clusterSummary.warningsCount||0) > 0) score -= 5;
+            const physicalNics = Number(nodeNic.nics || nodeNic.nicCount || selectedHost.nics || selectedHost.nicCount || 0);
+            const nicRows = Array.isArray(nodeNic.adapters) ? nodeNic.adapters :
+                            Array.isArray(nodeNic.vmnic) ? nodeNic.vmnic :
+                            Array.isArray(nodeNic.nicsList) ? nodeNic.nicsList : [];
 
-            score = Math.max(0, Math.min(100, score));
+            const nics10g = nicRows.filter(n => Object.values(n||{}).join(" ").toLowerCase().includes("10")).length;
+            const nics1g = nicRows.filter(n => Object.values(n||{}).join(" ").toLowerCase().includes("1")).length;
 
-            const status =
-              score >= 85 ? "Infrastructure saine" :
-              score >= 70 ? "Infrastructure à surveiller" :
-              "Infrastructure sous tension";
+            const nodeDatastores = datastores.slice(0,3);
 
-            const color =
-              score >= 85 ? "text-emerald-600" :
-              score >= 70 ? "text-amber-600" :
-              "text-red-600";
+            const globalHealth =
+              avgCpuPct >= 80 || avgRamPct >= 80 || storagePct >= 80 ? "Infrastructure sous tension" :
+              avgCpuPct >= 60 || avgRamPct >= 60 || storagePct >= 60 ? "Infrastructure à surveiller" :
+              "Infrastructure saine";
 
-            const bg =
-              score >= 85 ? "bg-emerald-50 border-emerald-100" :
-              score >= 70 ? "bg-amber-50 border-amber-100" :
-              "bg-red-50 border-red-100";
+            const globalTone =
+              globalHealth.includes("tension") ? "red" :
+              globalHealth.includes("surveiller") ? "amber" :
+              "emerald";
 
-            return (
-              <div className={"rounded-2xl border shadow-sm p-5 mb-4 "+bg}>
-                <div className="flex items-center justify-between gap-6">
-                  <div className="flex items-center gap-5">
-                    <div className="w-24 h-24 rounded-full bg-white border border-gray-100 flex flex-col items-center justify-center shadow-sm">
-                      <div className={"text-3xl font-semibold "+color}>{score}</div>
-                      <div className="text-xs text-gray-400 font-medium">/100</div>
-                    </div>
+            const toneClasses = {
+              emerald: {
+                bg:"bg-emerald-50 border-emerald-100",
+                text:"text-emerald-700",
+                bar:"bg-emerald-500",
+              },
+              amber: {
+                bg:"bg-amber-50 border-amber-100",
+                text:"text-amber-700",
+                bar:"bg-amber-500",
+              },
+              red: {
+                bg:"bg-red-50 border-red-100",
+                text:"text-red-700",
+                bar:"bg-red-500",
+              },
+            };
 
-                    <div>
-                      <div className="text-xs font-medium text-gray-400 uppercase tracking-wider">
-                        Score global d’audit
-                      </div>
-                      <div className={"text-2xl font-semibold mt-1 "+color}>
-                        {status}
-                      </div>
-                      <div className="text-sm text-gray-600 mt-2">
-                        CPU moyen {avgCpu}% · RAM moyenne {avgRam}% · Stockage {storageRisk ? "à surveiller" : "OK"}
-                      </div>
-                    </div>
+            const t = toneClasses[globalTone];
+
+            const MiniBar = ({label,value,total,pct,color="bg-blue-500",sub}) => (
+              <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold text-gray-800">{label}</div>
+                    <div className="text-xs text-gray-400 mt-1">{value} / {total}</div>
                   </div>
-
-                  <div className="grid grid-cols-3 gap-3 w-full lg:min-w-[330px]">
-                    <div className="bg-white/80 rounded-xl border border-white p-3 text-center">
-                      <div className="text-xl font-semibold text-blue-600">{avgCpu}%</div>
-                      <div className="text-xs text-gray-500 font-semibold">CPU moyen</div>
-                    </div>
-                    <div className="bg-white/80 rounded-xl border border-white p-3 text-center">
-                      <div className="text-xl font-semibold text-purple-600">{avgRam}%</div>
-                      <div className="text-xs text-gray-500 font-semibold">RAM moyenne</div>
-                    </div>
-                    <div className="bg-white/80 rounded-xl border border-white p-3 text-center">
-                      <div className={"text-xl font-semibold "+(storageRisk?"text-amber-600":"text-emerald-600")}>
-                        {storageRisk ? "Warn" : "OK"}
-                      </div>
-                      <div className="text-xs text-gray-500 font-semibold">Stockage</div>
-                    </div>
-                  </div>
+                  <div className="text-2xl font-semibold text-gray-900">{pct}%</div>
                 </div>
+                <div className="mt-4 h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div className={color+" h-full rounded-full"} style={{width:Math.min(100,pct)+"%"}}/>
+                </div>
+                <div className="mt-2 flex justify-between text-[10px] text-gray-400">
+                  <span>0%</span><span>50%</span><span>100%</span>
+                </div>
+                {sub && <div className="text-xs text-gray-500 mt-2">{sub}</div>}
               </div>
             );
-          })()}
-          {/* KPIs globaux — Overview uniquement */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
-            <KpiCard label="VMs actives"  value={clusterSummary.activeVms}           sub={(clusterSummary.poweredOffVms||0)+" eteintes"}  icon={Server}      gradient="bg-gradient-to-br from-blue-500 to-blue-700"/>
-            <KpiCard label="vCPU alloues" value={clusterSummary.allocatedVcpu}       sub="VMs poweredOn"                                   icon={Cpu}         gradient="bg-gradient-to-br from-orange-400 to-orange-600"/>
-            <KpiCard label="RAM allouee"  value={clusterSummary.allocatedRamDisplay}  sub="VMs poweredOn"                                  icon={MemoryStick} gradient="bg-gradient-to-br from-violet-500 to-violet-700"/>
-            <KpiCard label="Stockage"     value={clusterSummary.usedStorageDisplay}   sub="VMs poweredOn"                                  icon={HardDrive}   gradient="bg-gradient-to-br from-emerald-500 to-emerald-700"/>
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-          <div className="lg:col-span-2 space-y-4">
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-              <h3 className="text-sm font-medium text-gray-800 mb-3">Cluster Overview</h3>
-              <OverviewStatRow label="Hosts"     value={(hosts.length||0)+" hosts"}/>
-              <OverviewStatRow label="Total CPU" value={(clusterSummary.totalCpuCores||0)+" cores"}/>
-              <OverviewStatRow label="Total RAM" value={clusterSummary.totalRamDisplay}/>
-              <OverviewStatRow label="VMs"       value={clusterSummary.totalVms} sub={(clusterSummary.activeVms||0)+" actives / "+(clusterSummary.poweredOffVms||0)+" off"}/>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <RatioCard label="CPU oversubscription" value={clusterSummary.cpuOversubscription} icon={Cpu}         color="blue"/>
-                <RatioCard label="RAM oversubscription" value={clusterSummary.ramOversubscription} icon={MemoryStick} color="orange"/>
+
+            const InfoRow = ({label,value}) => (
+              <div className="flex items-center justify-between gap-3 py-2 border-b border-gray-100 last:border-b-0">
+                <span className="text-xs text-gray-500">{label}</span>
+                <strong className="text-xs text-gray-800 text-right">{value || "N/A"}</strong>
               </div>
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                <RatioCard label="vCPU moy./VM" value={clusterSummary.avgVcpuPerVm}               icon={Cpu}         color="blue"/>
-                <RatioCard label="RAM moy./VM"  value={formatRam(clusterSummary.avgRamPerVmGb)}   icon={MemoryStick} color="orange"/>
-              </div>
-            </div>
-            {insights.length>0&&(
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                <h3 className="text-sm font-medium text-gray-800 mb-3">Optimization Insights</h3>
-                <div className="space-y-2">
-                  {[...criticals,...warnings,...infos].map(i=><OptimizationItem key={i.id} insight={i}/>)}
+            );
+
+            const SoftMetric = ({label,value,sub,tone="blue"}) => {
+              const styles = {
+                blue:"bg-blue-50 text-blue-700 border-blue-100",
+                orange:"bg-orange-50 text-orange-700 border-orange-100",
+                violet:"bg-violet-50 text-violet-700 border-violet-100",
+                emerald:"bg-emerald-50 text-emerald-700 border-emerald-100",
+                slate:"bg-slate-50 text-slate-700 border-slate-100",
+              };
+
+              return (
+                <div className={"rounded-2xl border p-4 "+(styles[tone]||styles.blue)}>
+                  <div className="text-2xl font-semibold">{value}</div>
+                  <div className="text-xs font-semibold mt-1">{label}</div>
+                  {sub && <div className="text-xs opacity-70 mt-1">{sub}</div>}
                 </div>
-              </div>
-            )}
-          </div>
-            <div className="lg:col-span-3">
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-800">Cluster Utilization</h3>
-                    <p className="text-xs text-gray-400 mt-1">Consommation globale CPU / RAM au niveau cluster</p>
-                  </div>
-                  <div className="flex items-center gap-3 text-xs text-gray-400">
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-400 inline-block"/>&lt;60%</span>
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block"/>60-80%</span>
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400 inline-block"/>&gt;80%</span>
+              );
+            };
+
+            return (
+              <>
+                <div className={"rounded-3xl border shadow-sm p-6 "+t.bg}>
+                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+                    <div className="flex items-center gap-5">
+                      <div className="w-20 h-20 rounded-full bg-white border border-white shadow-sm flex flex-col items-center justify-center">
+                        <div className={"text-3xl font-bold "+t.text}>{clusterSummary.auditScore || 100}</div>
+                        <div className="text-[10px] text-gray-400">/100</div>
+                      </div>
+
+                      <div>
+                        <div className="text-xs uppercase tracking-widest text-gray-400">Score global d'audit</div>
+                        <div className={"text-2xl font-semibold "+t.text}>{globalHealth}</div>
+                        <div className="text-sm text-gray-600 mt-1">
+                          CPU moyen {avgCpuPct}% · RAM moyenne {avgRamPct}% · Stockage {storagePct}%
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-3 w-full lg:w-[560px]">
+                      <div className="bg-white/80 rounded-2xl px-6 py-4 text-center">
+                        <div className="text-xl font-semibold text-blue-600">{avgCpuPct}%</div>
+                        <div className="text-xs text-gray-500">CPU moyen</div>
+                      </div>
+                      <div className="bg-white/80 rounded-2xl px-6 py-4 text-center">
+                        <div className="text-xl font-semibold text-violet-600">{avgRamPct}%</div>
+                        <div className="text-xs text-gray-500">RAM moyenne</div>
+                      </div>
+                      <div className="bg-white/80 rounded-2xl px-6 py-4 text-center">
+                        <div className={(storagePct>=80?"text-red-600":storagePct>=60?"text-amber-600":"text-emerald-600")+" text-xl font-semibold"}>
+                          {storagePct>=80?"À risque":storagePct>=60?"À surveiller":"OK"}
+                        </div>
+                        <div className="text-xs text-gray-500">Stockage</div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                {(()=>{
-                  const totalCpu = sortedHosts.reduce((sum,h)=>sum+(Number(h.totalCpuCores)||0),0);
-                  const totalRam = sortedHosts.reduce((sum,h)=>sum+(Number(h.totalRamGb)||0),0);
+                <div className="grid grid-cols-1 xl:grid-cols-[1.05fr_0.95fr] gap-4">
+                  <div className="space-y-4">
+                    <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
+                      <h3 className="text-lg font-semibold text-gray-900">Cluster Overview</h3>
 
-                  const usedCpu = sortedHosts.reduce((sum,h)=>{
-                    const cores = Number(h.totalCpuCores)||0;
-                    const pct = Number(h.cpuUsagePercent)||0;
-                    return sum + (cores * pct / 100);
-                  },0);
-
-                  const usedRam = sortedHosts.reduce((sum,h)=>{
-                    const ram = Number(h.totalRamGb)||0;
-                    const pct = Number(h.ramUsagePercent)||0;
-                    return sum + (ram * pct / 100);
-                  },0);
-
-                  const cpuPct = totalCpu>0 ? Math.round((usedCpu/totalCpu)*100) : 0;
-                  const ramPct = totalRam>0 ? Math.round((usedRam/totalRam)*100) : 0;
-
-                  const statusColor = p => p>80 ? "bg-red-500" : p>60 ? "bg-amber-400" : "bg-emerald-500";
-                  const textColor = p => p>80 ? "text-red-600" : p>60 ? "text-amber-600" : "text-emerald-600";
-                  const bgColor = p => p>80 ? "bg-red-50 border-red-100" : p>60 ? "bg-amber-50 border-amber-100" : "bg-emerald-50 border-emerald-100";
-
-                  const UtilCard = ({label,pct,used,total,unit,icon:Icon,color}) => (
-                    <div className={"rounded-2xl border p-5 "+bgColor(pct)}>
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                          <div className={"w-11 h-11 rounded-xl flex items-center justify-center "+color}>
-                            <Icon size={20} className="text-white"/>
-                          </div>
-                          <div>
-                            <div className="text-sm font-medium text-gray-800">{label}</div>
-                            <div className="text-xs text-gray-500">{used} / {total} {unit}</div>
+                      <div className="mt-5 grid grid-cols-1 lg:grid-cols-[170px_1fr] gap-6 items-center">
+                        <div className="flex justify-center">
+                          <div className="relative w-36 h-32 rounded-3xl bg-gradient-to-br from-blue-50 to-slate-100 border border-blue-100 flex items-center justify-center shadow-sm overflow-hidden">
+                            <div className="absolute w-20 h-14 bg-blue-200 rounded-xl -translate-y-5 rotate-[-8deg]"/>
+                            <div className="absolute w-24 h-16 bg-blue-300 rounded-xl translate-y-1 rotate-[5deg]"/>
+                            <div className="absolute w-20 h-14 bg-blue-500 rounded-xl translate-y-6 rotate-[-4deg]"/>
+                            <div className="relative z-10 w-12 h-12 rounded-xl bg-white/90 border border-white shadow flex items-center justify-center text-blue-600 font-bold text-[10px]">
+                              CLU
+                            </div>
                           </div>
                         </div>
-                        <div className={"text-3xl font-semibold "+textColor(pct)}>{pct}%</div>
-                      </div>
 
-                      <div className="h-3 bg-white/70 rounded-full overflow-hidden border border-white">
-                        <div className={"h-full rounded-full "+statusColor(pct)} style={{width:Math.min(100,pct)+"%"}}/>
-                      </div>
-
-                      <div className="mt-3 text-xs text-gray-500">
-                        {pct>80
-                          ? "Seuil élevé : prévoir une marge additionnelle ou un hôte supplémentaire."
-                          : pct>60
-                          ? "Utilisation modérée : surveiller la croissance à court terme."
-                          : "Utilisation confortable au niveau cluster."}
-                      </div>
-                    </div>
-                  );
-
-                  return (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                      <UtilCard
-                        label="CPU cluster"
-                        pct={cpuPct}
-                        used={Math.round(usedCpu)}
-                        total={totalCpu}
-                        unit="cores"
-                        icon={Cpu}
-                        color="bg-blue-500"
-                      />
-                      <UtilCard
-                        label="RAM cluster"
-                        pct={ramPct}
-                        used={formatRam(Math.round(usedRam))}
-                        total={formatRam(totalRam)}
-                        unit=""
-                        icon={MemoryStick}
-                        color="bg-purple-500"
-                      />
-                    </div>
-                  );
-                })()}
-
-
-
-
-                {/* Host Focus Overview */}
-                {(()=>{
-                  const list = hosts || [];
-                  const selectedHost = list.find(h=>h.id===selectedOverviewHostId) || list[0];
-                  if (!selectedHost) return null;
-
-                  const cpu = Number(selectedHost.cpuUsagePercent) || 0;
-                  const ram = Number(selectedHost.ramUsagePercent) || 0;
-
-                  const avgCpu = list.length > 0
-                    ? Math.round(list.reduce((sum,h)=>sum+(Number(h.cpuUsagePercent)||0),0)/list.length)
-                    : 0;
-
-                  const avgRam = list.length > 0
-                    ? Math.round(list.reduce((sum,h)=>sum+(Number(h.ramUsagePercent)||0),0)/list.length)
-                    : 0;
-
-                  const hostedVms = selectedHost.vmCount || selectedHost.vmsCount || 0;
-
-                  const status =
-                    cpu >= 80 || ram >= 80 ? "Sous tension" :
-                    cpu >= 60 || ram >= 60 ? "À surveiller" :
-                    "Confortable";
-
-                  const statusClass =
-                    cpu >= 80 || ram >= 80 ? "text-red-700 bg-red-50 border-red-100" :
-                    cpu >= 60 || ram >= 60 ? "text-amber-700 bg-amber-50 border-amber-100" :
-                    "text-emerald-700 bg-emerald-50 border-emerald-100";
-
-                  const Line = ({label,value,avg,color,textColor}) => (
-                    <div className="py-3 border-b border-gray-100 last:border-b-0">
-                      <div className="flex items-start justify-between mb-2">
                         <div>
-                          <div className="text-xs font-medium text-gray-700">{label}</div>
-                          <div className={"text-2xl font-semibold "+textColor}>{value}%</div>
+                          <div className="flex items-center gap-3 flex-wrap">
+                            <div className="text-2xl font-semibold text-gray-900">
+                              {clusterSummary.name || clusterSummary.clusterName || platformContext?.clusterName || "Cluster VMware"}
+                            </div>
+                            <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 font-semibold">Sain</span>
+                          </div>
+
+                          <div className="text-sm text-gray-500 mt-1">VMware vSphere Cluster</div>
+
+                          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mt-5">
+                            <SoftMetric label="Hosts" value={hostList.length} tone="slate"/>
+                            <SoftMetric label="VMs actives" value={activeVms} tone="blue"/>
+                            <SoftMetric label="Cores" value={totalCpu} tone="blue"/>
+                            <SoftMetric label="RAM totale" value={formatRam(totalRam)} tone="violet"/>
+                            <SoftMetric label="Stockage total" value={`${storageTotalTb} To`} tone="emerald"/>
+                          </div>
                         </div>
-                        <div className="text-xs text-gray-400 mt-1">Moy. cluster {avg}%</div>
                       </div>
 
-                      <div className="relative h-3 bg-gray-100 rounded-full overflow-hidden">
-                        <div className={color+" h-full rounded-full"} style={{width:Math.min(100,value)+"%"}}/>
-                      </div>
-
-                      <div className="flex justify-between text-[10px] text-gray-400 mt-1">
-                        <span>0%</span>
-                        <span>50%</span>
-                        <span>100%</span>
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-5">
+                        <SoftMetric label="CPU oversubscription" value={cpuOversub} tone="blue"/>
+                        <SoftMetric label="RAM oversubscription" value={ramOversub} tone="orange"/>
+                        <SoftMetric label="vCPU moyen / VM" value={avgVcpuPerVm} tone="blue"/>
+                        <SoftMetric label="RAM moyenne / VM" value={`${avgRamPerVm} GB`} tone="orange"/>
                       </div>
                     </div>
-                  );
 
-                  return (
-                    <div className="mt-4 rounded-2xl border border-indigo-100 bg-white shadow-sm p-5">
-                      <div className="flex items-center justify-between gap-4 mb-4">
+                    <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
+                      <div className="flex items-center justify-between gap-4 mb-5">
                         <div>
-                          <h3 className="text-sm font-semibold text-gray-800">Focus nœud</h3>
-                          <p className="text-xs text-gray-400 mt-1">
-                            Analyse détaillée d’un host par rapport à la moyenne du cluster
-                          </p>
+                          <h3 className="text-lg font-semibold text-gray-900">Cluster Utilization</h3>
+                          <p className="text-sm text-gray-400 mt-1">Consommation globale au niveau du cluster</p>
                         </div>
-
-                        <select
-                          value={selectedOverviewHostId || selectedHost.id}
-                          onChange={e=>setSelectedOverviewHostId(e.target.value)}
-                          className="text-xs border border-gray-200 rounded-lg px-3 py-2 bg-white text-gray-700 outline-none"
-                        >
-                          {list.map(h=>(
-                            <option key={h.id} value={h.id}>{h.name}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                        <div className="lg:col-span-4 rounded-xl border border-gray-100 bg-gray-50 p-4">
-                          <div className="flex justify-center mb-3">
-                            <ServerRackVisual health={cpu>=80||ram>=80?"critical":cpu>=60||ram>=60?"warning":"healthy"}/>
-                          </div>
-
-                          <div className="text-lg font-semibold text-gray-800">{selectedHost.name}</div>
-                          <div className="text-xs text-gray-500 mt-1">
-                            {selectedHost.totalCpuCores || 0} cores · {formatRam(selectedHost.totalRamGb || 0)} RAM
-                          </div>
-
-                          <div className={"inline-flex mt-3 px-2.5 py-1 rounded-full border text-xs font-semibold "+statusClass}>
-                            {status}
-                          </div>
-
-                          <div className="mt-4 space-y-1 text-xs text-gray-500">
-                            <div className="flex justify-between">
-                              <span>CPU utilisé</span>
-                              <strong className="text-gray-700">{cpu}%</strong>
-                            </div>
-                            <div className="flex justify-between">
-                              <span>RAM utilisée</span>
-                              <strong className="text-gray-700">{ram}%</strong>
-                            </div>
-                            <div className="flex justify-between">
-                              <span>VMs hébergées</span>
-                              <strong className="text-gray-700">{hostedVms || "—"}</strong>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="lg:col-span-8 rounded-xl border border-gray-100 bg-white p-4">
-                          <Line label="CPU utilisé" value={cpu} avg={avgCpu} color="bg-blue-500" textColor="text-blue-600"/>
-                          <Line label="RAM utilisée" value={ram} avg={avgRam} color="bg-purple-500" textColor="text-purple-600"/>
+                        <div className="hidden lg:flex items-center gap-4 text-xs text-gray-400">
+                          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500"/> &lt;60%</span>
+                          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400"/> 60-80%</span>
+                          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"/> &gt;80%</span>
                         </div>
                       </div>
 
-                      <div className="mt-4 rounded-xl bg-blue-50 border border-blue-100 px-4 py-3 flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-white border border-blue-100 flex items-center justify-center text-blue-600">
-                            ⓘ
-                          </div>
-                          <div>
-                            <div className="text-xs font-medium text-gray-700">
-                              {cpu >= 80 || ram >= 80
-                                ? "Ce host présente une charge élevée."
-                                : cpu < 40 && ram < 50
-                                ? "Ce host présente une charge équilibrée."
-                                : "Ce host présente une charge à surveiller."}
-                            </div>
-                            <div className="text-xs text-gray-500 mt-0.5">
-                              {cpu >= 80 || ram >= 80
-                                ? "Rééquilibrage ou analyse des VMs recommandé."
-                                : cpu < 40 && ram < 50
-                                ? "Aucune action requise pour le moment."
-                                : "Surveiller l’évolution de la charge dans le temps."}
-                            </div>
-                          </div>
-                        </div>
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                        <MiniBar
+                          label="CPU Cluster"
+                          value={`${Math.round(totalCpu*avgCpuPct/100)} cores`}
+                          total={`${totalCpu} cores`}
+                          pct={avgCpuPct}
+                          color="bg-blue-500"
+                          sub="Utilisation confortable au niveau cluster."
+                        />
 
-                        <div className="hidden lg:block w-36 h-10 opacity-60">
-                          <svg viewBox="0 0 160 44" className="w-full h-full">
-                            <path d="M2 34 C20 28, 24 12, 42 24 S70 40, 88 18 S112 8, 126 22 S146 38, 158 20"
-                              fill="none" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round"/>
-                          </svg>
-                        </div>
+                        <MiniBar
+                          label="RAM Cluster"
+                          value={formatRam(Math.round(totalRam*avgRamPct/100))}
+                          total={formatRam(totalRam)}
+                          pct={avgRamPct}
+                          color="bg-violet-500"
+                          sub="Utilisation confortable au niveau cluster."
+                        />
+
+                        <MiniBar
+                          label="Storage Cluster"
+                          value={`${storageUsedTb} To`}
+                          total={`${storageTotalTb} To`}
+                          pct={storagePct}
+                          color={storagePct>=80?"bg-red-500":storagePct>=60?"bg-amber-400":"bg-emerald-500"}
+                          sub={storagePct>=80?"Capacité à risque.":storagePct>=60?"Surveillance recommandée.":"Capacité confortable."}
+                        />
                       </div>
                     </div>
-                  );
-                })()}
 
-                {((clusterSummary.poweredOffVms||0)>0||(clusterSummary.cpuOversubscription))&&(
-                  <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
-                    {(clusterSummary.poweredOffVms||0)>0&&(
-                      <div className="flex items-center gap-2 text-xs text-gray-600">
-                        <div className="w-5 h-5 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
-                          <Database size={10} className="text-amber-600"/>
+                    {insights.length>0&&(
+                      <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Optimization Insights</h3>
+                        <div className="space-y-2">
+                          {insights.slice(0,3).map(i=><OptimizationItem key={i.id} insight={i}/>)}
                         </div>
-                        <span><strong>{clusterSummary.poweredOffVms} VMs inutilisees</strong> — gain potentiel : {formatRam((clusterSummary.avgRamPerVmGb||0)*clusterSummary.poweredOffVms)} RAM / {Math.round((parseFloat(clusterSummary.avgVcpuPerVm)||0)*clusterSummary.poweredOffVms)} vCPU</span>
                       </div>
                     )}
-                    <div className="flex items-center gap-2 text-xs text-gray-600">
-                      <div className="w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                        <TrendingDown size={10} className="text-blue-600"/>
+                  </div>
+
+                  <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
+                    <div className="flex items-start justify-between gap-4 mb-5">
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">Focus nœud Hardware</h3>
+                        <p className="text-sm text-gray-400 mt-1">Analyse détaillée d'un hôte depuis RVTools</p>
                       </div>
-                      <span>CPU oversubscription <strong>{clusterSummary.cpuOversubscription}</strong> — consolidation analysee</span>
+
+                      <select
+                        value={selectedId || ""}
+                        onChange={e=>setSelectedOverviewHostId(e.target.value)}
+                        className="text-xs border border-gray-200 rounded-xl px-3 py-2 bg-white text-gray-700 outline-none"
+                      >
+                        {hostList.map(h=>(
+                          <option key={h.id || h.name} value={h.id || h.name}>{h.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-[250px_1fr] gap-5 items-center mb-5">
+                      <div className="flex justify-center">
+                        <ServerRackVisual health={hostCpuPct>=80||hostRamPct>=80?"critical":hostCpuPct>=60||hostRamPct>=60?"warning":"healthy"}/>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <div className="text-xl font-semibold text-gray-900">{selectedName}</div>
+                          <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 font-semibold">Confortable</span>
+                        </div>
+                        <div className="text-sm text-gray-600 mt-1">
+                          {mgmtVmk?.ip || mgmtVmk?.IP || selectedHost.ip || "IP N/A"} · {selectedHost.model || selectedHost.serverModel || selectedHost.hardwareModel || selectedHost.cpuModel || "Modèle N/A"}
+                        </div>
+                        <div className="text-sm text-gray-500 mt-1">
+                          {hostVmCount || 0} VMs · {selectedHost.esxiVersion || selectedHost.version || selectedHost.esxVersion || "ESXi N/A"}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                      <div className="rounded-2xl border border-gray-100 p-4">
+                        <div className="text-sm font-semibold text-gray-800 mb-3">Informations générales</div>
+                        <InfoRow label="Nom d'hôte" value={selectedName}/>
+                        <InfoRow label="Adresse IP" value={mgmtVmk?.ip || mgmtVmk?.IP || selectedHost.ip}/>
+                        <InfoRow label="Modèle" value={selectedHost.model || selectedHost.serverModel || selectedHost.hardwareModel || selectedHost.cpuModel}/>
+                        <InfoRow label="Version ESXi" value={selectedHost.esxiVersion || selectedHost.version || selectedHost.esxVersion}/>
+                        <InfoRow label="Nombre de VMs" value={hostVmCount}/>
+                      </div>
+
+                      <div className="rounded-2xl border border-gray-100 p-4">
+                        <div className="text-sm font-semibold text-gray-800 mb-3">Ressources</div>
+
+                        <div className="mb-4">
+                          <div className="flex items-center justify-between text-xs mb-1">
+                            <span className="text-gray-500">CPU utilisé</span>
+                            <strong className="text-gray-800">{hostCpuPct}%</strong>
+                          </div>
+                          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-blue-500 rounded-full" style={{width:Math.min(100,hostCpuPct)+"%"}}/>
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="flex items-center justify-between text-xs mb-1">
+                            <span className="text-gray-500">RAM utilisée</span>
+                            <strong className="text-gray-800">{hostRamPct}%</strong>
+                          </div>
+                          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-violet-500 rounded-full" style={{width:Math.min(100,hostRamPct)+"%"}}/>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-gray-100 p-4">
+                        <div className="text-sm font-semibold text-gray-800 mb-3">Stockage sur ce nœud</div>
+                        <div className="space-y-2">
+                          {nodeDatastores.map(ds=>{
+                            const pct = ds.capMib>0 ? Math.round(ds.inUseMib/ds.capMib*100) : 0;
+                            return (
+                              <div key={ds.name} className="grid grid-cols-[1fr_50px] gap-3 items-center text-xs">
+                                <div className="min-w-0">
+                                  <div className="font-semibold text-gray-700 truncate">{ds.name}</div>
+                                  <div className="text-gray-400">{ds.type || ds.dsType || "Datastore"} · {pct}%</div>
+                                </div>
+                                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                                  <div className={(pct>=80?"bg-red-500":pct>=60?"bg-amber-400":"bg-emerald-500")+" h-full rounded-full"} style={{width:Math.min(100,pct)+"%"}}/>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-gray-100 p-4">
+                        <div className="text-sm font-semibold text-gray-800 mb-3">Réseau physique</div>
+                        <InfoRow label="Interfaces physiques" value={physicalNics || "N/A"}/>
+                        <InfoRow label="Interfaces 10 Gbps" value={nics10g || "N/A"}/>
+                        <InfoRow label="Interfaces 1 Gbps" value={nics1g || "N/A"}/>
+                        <InfoRow label="VMkernel" value={nodeVmks.length}/>
+                      </div>
+
+                      <div className="rounded-2xl border border-gray-100 p-4 lg:col-span-2">
+                        <div className="text-sm font-semibold text-gray-800 mb-3">Stockage — HBA / IQN</div>
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                          <InfoRow label="HBA Fibre Channel" value={fcHbas.length}/>
+                          <InfoRow label="HBA iSCSI / IQN" value={iscsiHbas.length}/>
+                          <InfoRow label="WWN / WWPN" value={fcHbas[0] ? getHbaAddress(fcHbas[0]) : "N/A"}/>
+                          <InfoRow label="IQN déclaré" value={iscsiHbas[0] ? getHbaAddress(iscsiHbas[0]) : "N/A"}/>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 rounded-2xl border border-gray-100 overflow-hidden">
+                      <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 text-sm font-semibold text-gray-800">
+                        HBA associés
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="border-b border-gray-100">
+                              {["HBA","Type","WWN / IQN","État"].map(h=>(
+                                <th key={h} className="text-left text-gray-400 font-medium px-4 py-2 whitespace-nowrap">{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {nodeHbas.slice(0,6).map((h,i)=>(
+                              <tr key={i} className="border-b border-gray-50 last:border-0">
+                                <td className="px-4 py-2 font-semibold text-gray-700">{getHbaId(h)}</td>
+                                <td className="px-4 py-2 text-gray-600">{getHbaType(h)}</td>
+                                <td className="px-4 py-2 text-gray-600 font-mono">{getHbaAddress(h)}</td>
+                                <td className="px-4 py-2">
+                                  <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 font-semibold">
+                                    {getHbaState(h)}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+
+                            {nodeHbas.length===0&&(
+                              <tr>
+                                <td colSpan="4" className="px-4 py-6 text-center text-gray-400">
+                                  Aucun HBA / IQN détecté pour ce nœud dans l'export RVTools.
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   </div>
-                )}
-              </div>
-            </div>
-          </div>
+                </div>
+              </>
+            );
+          })()}
+
         </div>
       )}
 
-      {activeTab==="compute"&&(
+{activeTab==="compute"&&(
         <div className="space-y-4">
 
             {/* === SLIDE CLIENT COMPUTE === */}
