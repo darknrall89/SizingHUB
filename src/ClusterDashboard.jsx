@@ -2014,11 +2014,11 @@ export default function ClusterOverviewDashboard({
             const activeVms = clusterSummary.activeVms || clusterSummary.vms || 0;
 
             const avgCpuPct = hostList.length
-              ? Math.round(hostList.reduce((s,h)=>s+(Number(h.cpuUsagePercent)||0),0)/hostList.length)
+              ? Math.round(hostList.reduce((s,h)=>s+(Number(h.cpuUsagePct)||Number(h.cpuUsagePercent)||0),0)/hostList.length)
               : 0;
 
             const avgRamPct = hostList.length
-              ? Math.round(hostList.reduce((s,h)=>s+(Number(h.ramUsagePercent)||0),0)/hostList.length)
+              ? Math.round(hostList.reduce((s,h)=>s+(Number(h.ramUsagePct)||Number(h.ramUsagePercent)||0),0)/hostList.length)
               : 0;
 
             const totalStorageMib = datastores.reduce((s,d)=>s+(d.capMib||0),0);
@@ -2033,14 +2033,14 @@ export default function ClusterOverviewDashboard({
             const avgRamPerVm = clusterSummary.avgRamPerVmGb || (activeVms ? Math.round(allocatedRam/activeVms) : "N/A");
 
             const hostVmCount =
+              selectedHost.vmsCount ||
               selectedHost.vmCount ||
               selectedHost.vms ||
               selectedHost.poweredOnVms ||
-              selectedHost.hostedVms ||
               0;
 
-            const hostCpuPct = selectedHost.cpuUsagePercent || 0;
-            const hostRamPct = selectedHost.ramUsagePercent || 0;
+            const hostCpuPct = selectedHost.cpuUsagePct || selectedHost.cpuUsagePercent || 0;
+            const hostRamPct = selectedHost.ramUsagePct || selectedHost.ramUsagePercent || 0;
 
             const fcHbas = nodeHbas.filter(h => {
               const t = Object.values(h || {}).join(" ").toLowerCase();
@@ -2306,10 +2306,10 @@ export default function ClusterOverviewDashboard({
                           <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 font-semibold">Confortable</span>
                         </div>
                         <div className="text-sm text-gray-600 mt-1">
-                          {mgmtVmk?.ip || mgmtVmk?.IP || selectedHost.ip || "IP N/A"} · {selectedHost.model || selectedHost.serverModel || selectedHost.hardwareModel || selectedHost.cpuModel || "Modèle N/A"}
+                          {mgmtVmk?.ip || mgmtVmk?.IP || selectedHost.ip || "IP N/A"} · {selectedHost.model || selectedHost.cpuModel || selectedHost.serverModel || selectedHost.hardwareModel || "Modèle N/A"}
                         </div>
                         <div className="text-sm text-gray-500 mt-1">
-                          {hostVmCount || 0} VMs · {selectedHost.esxiVersion || selectedHost.version || selectedHost.esxVersion || "ESXi N/A"}
+                          {hostVmCount || 0} VMs · {selectedHost.esxVersion || selectedHost.version || selectedHost.esxiVersion || "ESXi N/A"}
                         </div>
                       </div>
                     </div>
@@ -2319,8 +2319,8 @@ export default function ClusterOverviewDashboard({
                         <div className="text-sm font-semibold text-gray-800 mb-3">Informations générales</div>
                         <InfoRow label="Nom d'hôte" value={selectedName}/>
                         <InfoRow label="Adresse IP" value={mgmtVmk?.ip || mgmtVmk?.IP || selectedHost.ip}/>
-                        <InfoRow label="Modèle" value={selectedHost.model || selectedHost.serverModel || selectedHost.hardwareModel || selectedHost.cpuModel}/>
-                        <InfoRow label="Version ESXi" value={selectedHost.esxiVersion || selectedHost.version || selectedHost.esxVersion}/>
+                        <InfoRow label="Modèle" value={selectedHost.model || selectedHost.cpuModel || selectedHost.serverModel || selectedHost.hardwareModel}/>
+                        <InfoRow label="Version ESXi" value={selectedHost.esxVersion || selectedHost.version || selectedHost.esxiVersion}/>
                         <InfoRow label="Nombre de VMs" value={hostVmCount}/>
                       </div>
 
@@ -2445,7 +2445,7 @@ export default function ClusterOverviewDashboard({
               const hostsCount = (hosts || []).length;
 
               const avgCpuPct = hostsCount > 0
-                ? Math.round((hosts || []).reduce((s,h)=>s+(Number(h.cpuUsagePercent)||0),0)/hostsCount)
+                ? Math.round((hosts || []).reduce((s,h)=>s+(Number(h.cpuUsagePct)||Number(h.cpuUsagePercent)||0),0)/hostsCount)
                 : 0;
 
               const projectedCpuPct = Math.min(100, Math.round(avgCpuPct * 1.2));
