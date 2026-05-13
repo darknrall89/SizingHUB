@@ -2130,7 +2130,7 @@ export default function ClusterOverviewDashboard({
               </div>
             );
 
-            const SoftMetric = ({label,value,sub,tone="blue"}) => {
+            const SoftMetric = ({label,value,sub,tone="blue",icon=null}) => {
               const styles = {
                 blue:"bg-blue-50 text-blue-700 border-blue-100",
                 orange:"bg-orange-50 text-orange-700 border-orange-100",
@@ -2141,8 +2141,11 @@ export default function ClusterOverviewDashboard({
 
               return (
                 <div className={"rounded-2xl border p-4 "+(styles[tone]||styles.blue)}>
+                  <div className="flex items-center gap-2 mb-2">
+                    {icon && <i className={"ti "+icon+" text-base opacity-70"}/>}
+                    <div className="text-xs font-semibold opacity-80">{label}</div>
+                  </div>
                   <div className="text-2xl font-semibold">{value}</div>
-                  <div className="text-xs font-semibold mt-1">{label}</div>
                   {sub && <div className="text-xs opacity-70 mt-1">{sub}</div>}
                 </div>
               );
@@ -2214,11 +2217,11 @@ export default function ClusterOverviewDashboard({
                           <div className="text-sm text-gray-500 mt-1">VMware vSphere Cluster</div>
 
                           <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mt-5">
-                            <SoftMetric label="Hosts" value={hostList.length} tone="slate"/>
-                            <SoftMetric label="VMs actives" value={activeVms} tone="blue"/>
-                            <SoftMetric label="Cores" value={totalCpu} tone="blue"/>
-                            <SoftMetric label="RAM totale" value={formatRam(totalRam)} tone="violet"/>
-                            <SoftMetric label="Stockage total" value={`${storageTotalTb} To`} tone="emerald"/>
+                            <SoftMetric label="Hosts" value={hostList.length} tone="slate" icon="ti-server"/>
+                            <SoftMetric label="VMs actives" value={activeVms} tone="blue" icon="ti-device-desktop"/>
+                            <SoftMetric label="Cores" value={totalCpu} tone="blue" icon="ti-cpu"/>
+                            <SoftMetric label="RAM totale" value={formatRam(totalRam)} tone="violet" icon="ti-circuit-board"/>
+                            <SoftMetric label="Stockage total" value={`${storageTotalTb} To`} tone="emerald" icon="ti-database"/>
                           </div>
                         </div>
                       </div>
