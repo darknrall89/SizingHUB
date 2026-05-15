@@ -1931,7 +1931,7 @@ const TABS = [
 
 
 
-const ServerRackVisual = ({ health="healthy" }) => {
+const ServerRackVisual = ({ health="healthy", compact=false }) => {
   const led =
     health === "critical" ? "bg-red-400" :
     health === "warning" ? "bg-amber-400" :
@@ -2711,19 +2711,31 @@ return (
                     </div>
                     {hostWithN1.map((h,i)=>(
                       <div key={i} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                        <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr_160px] gap-5 items-center">
-                          {/* Left: identity */}
-                          <div className="flex items-center gap-3">
-                            <ServerRackVisual health={h.status==="critical"?"critical":h.status==="warning"?"warning":"healthy"}/>
-                            <div>
-                              <div className="font-semibold text-gray-900">{h.name}</div>
-                              <div className="flex items-center gap-1 text-xs text-emerald-600 mt-0.5">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"/>En ligne
+                          <div className="grid grid-cols-1 lg:grid-cols-[270px_1fr_160px] gap-4 items-center">
+                            {/* Left: identity */}
+                            <div className="flex items-center gap-4 min-w-0">
+                              <div className="flex-shrink-0">
+                                <ServerRackVisual
+                                  compact
+                                  health={
+                                    h.status==="critical"
+                                      ? "critical"
+                                      : h.status==="warning"
+                                      ? "warning"
+                                      : "healthy"
+                                  }
+                                />
                               </div>
-                              <div className="text-xs text-gray-500 mt-1">{h.totalCpuCores||0} cores physiques</div>
-                              <div className="text-xs font-semibold text-gray-700">{h.vmsCount||0} VMs</div>
+
+                              <div className="min-w-0">
+                                <div className="font-semibold text-gray-900 truncate">{h.name}</div>
+                                <div className="flex items-center gap-1 text-xs text-emerald-600 mt-0.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"/>En ligne
+                                </div>
+                                <div className="text-xs text-gray-500 mt-1">{h.totalCpuCores||0} cores physiques</div>
+                                <div className="text-xs font-semibold text-gray-700">{h.vmsCount||0} VMs</div>
+                              </div>
                             </div>
-                          </div>
                           {/* Middle: bars */}
                           <div className="space-y-3">
                             <div>
