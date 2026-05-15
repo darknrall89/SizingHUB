@@ -60,6 +60,7 @@ export default function AuditCalc({ th, isMobile=false }) {
       {id:"dvPort",     label:"dvPort",     desc:"VLANs distribues",      required:false},
       {id:"vSwitch",    label:"vSwitch",    desc:"vSwitches",             required:false},
       {id:"vHBA",       label:"vHBA",       desc:"HBA / FC / WWN",       required:false},
+      {id:"vNIC",       label:"vNIC",       desc:"NIC physiques / vitesse", required:false},
       {id:"dvSwitch",   label:"dvSwitch",   desc:"Distributed vSwitches", required:false},
     ];
     const sheetQuality = REQUIRED_SHEETS.map(s=>({
@@ -73,6 +74,7 @@ export default function AuditCalc({ th, isMobile=false }) {
     const vHost      = getJson("vHost");
     const vDatastore = getJson("vDatastore");
       const vHBA = getJson("vHBA");
+    const vNIC = getJson("vNIC");
     const vMemoryData = getJson("vMemory");
     const vCpuData = getJson("vCPU");
     const vmCpuMap = {};
@@ -174,6 +176,7 @@ export default function AuditCalc({ th, isMobile=false }) {
         subnet: r["Subnet mask"] || r["Subnet Mask"] || r["Netmask"] || "",
         mtu: r["MTU"] || null,
         mac: r["Mac Address"] || r["MAC Address"] || "",
+        iqn: r["iSCSI Name"] || r["IQN"] || r["iqn"] || null,
       }));
 
       const getNetworkRole = (name="") => {
@@ -315,8 +318,47 @@ export default function AuditCalc({ th, isMobile=false }) {
       totalCores: vHost.reduce((s,h)=>s+(h["# Cores"]||0),0),
       totalRamPhysGo: Math.round(vHost.reduce((s,h)=>s+(h["# Memory"]||0),0)/1024),
         vmOffList, vlans, uniquePortGroups, vmNics, vSwitches,
-      vHBA, dvSwitches,
       vHBA,
+      hostsNics: (() => {
+        const byHost = {};
+        (vNIC||[]).forEach(n => {
+          const host = (n["Host"]||n["host"]||"").split(".")[0];
+          if (!host) return;
+          if (!byHost[host]) byHost[host] = {name:host, adapters:[]};
+          byHost[host].adapters.push({
+            device: n["Device"]||n["device"]||"",
+            speed: Number(n["Speed"]||n["Link Speed"]||n["LinkSpeed"]||0),
+            mac: n["MAC"]||n["mac"]||"",
+            driver: n["Driver"]||n["driver"]||"",
+          });
+        });
+        return Object.values(byHost).map(h => ({
+          ...h,
+          nicCount: h.adapters.length,
+          nics10g: h.adapters.filter(a => a.speed >= 10000).length,
+          nics1g: h.adapters.filter(a => a.speed >= 1000 && a.speed < 10000).length,
+        }));
+      })(), dvSwitches,
+      hostsNics: (() => {
+        const byHost = {};
+        (vNIC||[]).forEach(n => {
+          const host = (n["Host"]||n["host"]||"").split(".")[0];
+          if (!host) return;
+          if (!byHost[host]) byHost[host] = {name:host, adapters:[]};
+          byHost[host].adapters.push({
+            device: n["Device"]||n["device"]||"",
+            speed: Number(n["Speed"]||n["Link Speed"]||n["LinkSpeed"]||0),
+            mac: n["MAC"]||n["mac"]||"",
+            driver: n["Driver"]||n["driver"]||"",
+          });
+        });
+        return Object.values(byHost).map(h => ({
+          ...h,
+          nicCount: h.adapters.length,
+          nics10g: h.adapters.filter(a => a.speed >= 10000).length,
+          nics1g: h.adapters.filter(a => a.speed >= 1000 && a.speed < 10000).length,
+        }));
+      })(),
         vmKernel: vmKernelEnriched,
         // DEBUG
         _debug_vmk: (() => { console.log("vmKernelEnriched sample:", JSON.stringify(vmKernelEnriched.slice(0,3))); return null; })(),

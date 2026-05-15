@@ -1859,13 +1859,24 @@ export const mapRvToolsAnalysisToClusterViewModel = (rv) => {
 
         return match ? match[1] : [];
       })(),
-      hostsNics: (rv.hosts||[]).map(h=>({
-        name: h.shortName,
-        nics: h.nics||0,
-        vSwitches: h.vSwitches||[],
-        cpuUsagePct: h.cpuUsagePct||0,
-        ramUsagePct: h.ramUsagePct||0,
-      })),
+      hostsNics: (() => {
+        const fromVnic = rv.hostsNics || [];
+        return (rv.hosts||[]).map(h => {
+          const vnicEntry = fromVnic.find(n =>
+            String(n.name||"").toLowerCase() === String(h.shortName||"").toLowerCase()
+          ) || {};
+          return {
+            name: h.shortName,
+            nics: vnicEntry.nicCount || h.nics || 0,
+            nics10g: vnicEntry.nics10g ?? 0,
+            nics1g: vnicEntry.nics1g ?? 0,
+            adapters: vnicEntry.adapters || [],
+            vSwitches: h.vSwitches||[],
+            cpuUsagePct: h.cpuUsagePct||0,
+            ramUsagePct: h.ramUsagePct||0,
+          };
+        });
+      })(),
     },
     datastores: rv.datastores || [],
     topMemoryConsumers: (rv.hosts||[]).flatMap(h=>(h.vms||[]).map(v=>({
@@ -2051,7 +2062,7 @@ export default function ClusterOverviewDashboard({
 
             const nodeVmks = vmkRows.filter(sameHost);
             const nodeHbas = hbaRows.filter(sameHost);
-
+            
             const nodeNic = hostsNics.find(h =>
               String(h.name || h.host || h.Host || "").toLowerCase() === String(selectedName || "").toLowerCase()
             ) || {};
@@ -2108,16 +2119,22 @@ export default function ClusterOverviewDashboard({
 
             const getHbaId = h => h.Device || h.device || h.HBA || h.hba || h.Name || h.name || "HBA";
             const getHbaType = h => h.Type || h.type || h.Model || h.model || "N/A";
-            const getHbaAddress = h => h.WWN || h.wwn || h.WWPN || h.wwpn || h.IQN || h.iqn || h["iSCSI Name"] || "N/A";
+            const getHbaAddress = h => {
+              const type = (h.Type||h.type||'').toLowerCase();
+              if (type.includes('iscsi')) {
+                const iqnFromHba = h.IQN || h.iqn || h["iSCSI Name"] || h["iSCSIName"];
+                if (iqnFromHba) return iqnFromHba;
+                const iqnFromVmk = nodeVmks.find(v => v.iqn)?.iqn;
+                return iqnFromVmk || "N/A";
+              }
+              return h.WWN || h.wwn || h.WWPN || h.wwpn || "N/A";
+            };
             const getHbaState = h => h.Status || h.status || h.State || h.state || "Actif";
 
-            const physicalNics = Number(nodeNic.nics || nodeNic.nicCount || selectedHost.nics || selectedHost.nicCount || 0);
-            const nicRows = Array.isArray(nodeNic.adapters) ? nodeNic.adapters :
-                            Array.isArray(nodeNic.vmnic) ? nodeNic.vmnic :
-                            Array.isArray(nodeNic.nicsList) ? nodeNic.nicsList : [];
-
-            const nics10g = nicRows.filter(n => Object.values(n||{}).join(" ").toLowerCase().includes("10")).length;
-            const nics1g = nicRows.filter(n => Object.values(n||{}).join(" ").toLowerCase().includes("1")).length;
+            const physicalNics = Number(nodeNic.nicCount || nodeNic.nics || selectedHost.nics || selectedHost.nicCount || 0);
+            const nicRows = Array.isArray(nodeNic.adapters) ? nodeNic.adapters : [];
+            const nics10g = nodeNic.nics10g ?? nicRows.filter(n => Number(n.speed||0) >= 10000).length;
+            const nics1g  = nodeNic.nics1g  ?? nicRows.filter(n => Number(n.speed||0) >= 1000 && Number(n.speed||0) < 10000).length;
 
             const nodeDatastores = datastores.slice(0,3);
 
