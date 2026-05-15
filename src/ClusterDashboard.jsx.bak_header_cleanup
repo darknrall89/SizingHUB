@@ -2405,6 +2405,12 @@ return (
                           <div className="text-xl font-semibold text-gray-900">{selectedName}</div>
                           <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 font-semibold">Confortable</span>
                         </div>
+                        <div className="text-sm text-gray-600 mt-1">
+                          {mgmtVmk?.ip || mgmtVmk?.IP || selectedHost.ip || "IP N/A"} · {selectedHost.model || selectedHost.cpuModel || selectedHost.serverModel || selectedHost.hardwareModel || "Modèle N/A"}
+                        </div>
+                        <div className="text-sm text-gray-500 mt-1">
+                          {hostVmCount || 0} VMs · {selectedHost.esxVersion || selectedHost.version || selectedHost.esxiVersion || "ESXi N/A"}
+                        </div>
                       </div>
                     </div>
 
