@@ -2712,32 +2712,22 @@ return (
                     {hostWithN1.map((h,i)=>(
                       <div key={i} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
                           <div className="grid grid-cols-1 lg:grid-cols-[270px_1fr_160px] gap-4 items-center">
-                            {/* Left: identity */}
-                            <div className="flex items-center gap-4 min-w-0">
-                              <div className="flex-shrink-0">
-                                <ServerRackVisual
-                                  compact
-                                  health={
-                                    h.status==="critical"
-                                      ? "critical"
-                                      : h.status==="warning"
-                                      ? "warning"
-                                      : "healthy"
-                                  }
-                                />
-                              </div>
-
-                              <div className="min-w-0">
-                                <div className="font-semibold text-gray-900 truncate">{h.name}</div>
-                                <div className="flex items-center gap-1 text-xs text-emerald-600 mt-0.5">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"/>En ligne
-                                </div>
-                                <div className="text-xs text-gray-500 mt-1">{h.totalCpuCores||0} cores physiques</div>
-                                <div className="text-xs font-semibold text-gray-700">{h.vmsCount||0} VMs</div>
-                              </div>
-                            </div>
-                          {/* Middle: bars */}
-                          <div className="space-y-3">
+                             {/* Left: identity */}
+                             <div className="flex flex-col items-center gap-2">
+                               <ServerRackVisual
+                                 compact
+                                 health={h.status==="critical"?"critical":h.status==="warning"?"warning":"healthy"}
+                               />
+                               <div className="text-center">
+                                 <div className="font-semibold text-gray-900 text-sm truncate max-w-[240px]">{h.name}</div>
+                                 <div className="flex items-center justify-center gap-1 text-xs text-emerald-600 mt-0.5">
+                                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"/>En ligne
+                                 </div>
+                                 <div className="text-xs text-gray-500 mt-1">{h.totalCpuCores||0} cores · {h.vmsCount||0} VMs</div>
+                               </div>
+                             </div>
+                           {/* Middle: bars */}
+                           <div className="space-y-3">
                             <div>
                               <div className="flex justify-between text-xs mb-1">
                                 <span className="text-gray-500">CPU utilisé</span>
