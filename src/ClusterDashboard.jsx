@@ -2490,21 +2490,6 @@ return (
                               </div>
                             </div>
 
-                            <div className="rounded-xl border border-gray-100 overflow-hidden">
-                              <div className="grid grid-cols-[120px_1fr] text-xs border-b border-gray-100">
-                                <div className="bg-gray-50 px-3 py-2 text-gray-500 font-medium">WWPN</div>
-                                <div className="px-3 py-2 font-mono text-[11px] text-gray-700 break-all">
-                                  {fcHbas.length > 0 ? fcHbas.map(h => getHbaAddress(h)).join(" · ") : "N/A"}
-                                </div>
-                              </div>
-
-                              <div className="grid grid-cols-[120px_1fr] text-xs">
-                                <div className="bg-gray-50 px-3 py-2 text-gray-500 font-medium">IQN</div>
-                                <div className="px-3 py-2 font-mono text-[11px] text-gray-700 break-all">
-                                  {iscsiHbas.length > 0 ? iscsiHbas.map(h => getHbaAddress(h)).join(" · ") : "N/A"}
-                                </div>
-                              </div>
-                            </div>
                         </div>
                       </div>
 
