@@ -2703,7 +2703,7 @@ return (
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 xl:grid-cols-[1.45fr_0.55fr] gap-5 items-start">
+                <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-4">
                   {/* Host cards */}
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
@@ -2806,20 +2806,12 @@ return (
                           <i className="ti ti-info-circle text-gray-300 text-base"/>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3 mb-3">
+                        <div className="grid grid-cols-1 gap-3 mb-3">
                           <div className="rounded-xl bg-gray-50 p-3 text-center">
                             <div className="text-xs text-gray-500 mb-1">CPU projeté</div>
                             <div className={`text-2xl font-semibold ${pctColor(n1CpuPct)}`}>{n1CpuPct}%</div>
                             <div className={`text-xs font-semibold mt-1 ${pctColor(n1CpuPct)}`}>
                               {n1CpuPct>=85?"● Critique":n1CpuPct>=70?"● Tension":n1CpuPct>=50?"● Surveillance":"● Confortable"}
-                            </div>
-                          </div>
-
-                          <div className="rounded-xl bg-gray-50 p-3 text-center">
-                            <div className="text-xs text-gray-500 mb-1">RAM projetée</div>
-                            <div className={`text-2xl font-semibold ${pctColor(n1RamPct)}`}>{n1RamPct}%</div>
-                            <div className={`text-xs font-semibold mt-1 ${pctColor(n1RamPct)}`}>
-                              {n1RamPct>=85?"● Critique":n1RamPct>=70?"● Tension":n1RamPct>=50?"● Surveillance":"● Confortable"}
                             </div>
                           </div>
                         </div>
