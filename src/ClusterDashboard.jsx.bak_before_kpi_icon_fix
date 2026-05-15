@@ -6,51 +6,6 @@ import {
 } from "lucide-react";
 import NetworkFabric from "./components/network/NetworkFabric.jsx";
 
-
-
-const GlobalClusterMiniMetric = ({icon, value, label}) => {
-  const icons = {
-    hosts: "▦",
-    vm: "▣",
-    cpu: "⚙",
-    ram: "▤",
-    storage: "◉",
-  };
-
-  return (
-    <div className="flex items-center gap-3 min-w-[120px]">
-      <div className="w-9 h-9 rounded-xl border border-slate-200 bg-white flex items-center justify-center text-slate-600 text-sm shadow-sm">
-        {icons[icon] || "▦"}
-      </div>
-      <div>
-        <div className="text-lg font-semibold text-slate-900 leading-tight">{value}</div>
-        <div className="text-xs text-slate-500 leading-tight">{label}</div>
-      </div>
-    </div>
-  );
-};
-
-
-const GlobalClusterStackIcon = () => (
-  <div className="w-36 h-36 rounded-[28px] border border-slate-100 bg-white flex items-center justify-center shadow-sm shrink-0">
-    <svg viewBox="0 0 120 120" className="w-24 h-24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="23" y="22" width="74" height="20" rx="6" fill="#1E293B"/>
-      <rect x="23" y="50" width="74" height="20" rx="6" fill="#334155"/>
-      <rect x="23" y="78" width="74" height="20" rx="6" fill="#475569"/>
-      <circle cx="35" cy="32" r="3" fill="#34D399"/>
-      <circle cx="46" cy="32" r="3" fill="#60A5FA"/>
-      <rect x="60" y="29" width="24" height="5" rx="2.5" fill="#CBD5E1"/>
-      <circle cx="35" cy="60" r="3" fill="#34D399"/>
-      <circle cx="46" cy="60" r="3" fill="#60A5FA"/>
-      <rect x="60" y="57" width="24" height="5" rx="2.5" fill="#CBD5E1"/>
-      <circle cx="35" cy="88" r="3" fill="#34D399"/>
-      <circle cx="46" cy="88" r="3" fill="#60A5FA"/>
-      <rect x="60" y="85" width="24" height="5" rx="2.5" fill="#CBD5E1"/>
-    </svg>
-  </div>
-);
-
-
 const getUsageTone = (pct) => {
   if (pct >= 80) return { color:"text-red-500",    bg:"bg-red-500",    label:"Critique" };
   if (pct >= 60) return { color:"text-amber-500",  bg:"bg-amber-500",  label:"Attention" };
@@ -2184,59 +2139,7 @@ export default function ClusterOverviewDashboard({
                 slate:"bg-slate-50 text-slate-700 border-slate-100",
               };
 
-              
-const ClusterStackIcon = () => (
-  <div className="w-36 h-36 rounded-[28px] border border-slate-100 bg-white flex items-center justify-center shadow-sm shrink-0">
-    <svg viewBox="0 0 120 120" className="w-24 h-24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="23" y="22" width="74" height="20" rx="6" fill="#1E293B"/>
-      <rect x="23" y="50" width="74" height="20" rx="6" fill="#334155"/>
-      <rect x="23" y="78" width="74" height="20" rx="6" fill="#475569"/>
-
-      <circle cx="35" cy="32" r="3" fill="#34D399"/>
-      <circle cx="46" cy="32" r="3" fill="#60A5FA"/>
-      <rect x="60" y="29" width="24" height="5" rx="2.5" fill="#CBD5E1"/>
-
-      <circle cx="35" cy="60" r="3" fill="#34D399"/>
-      <circle cx="46" cy="60" r="3" fill="#60A5FA"/>
-      <rect x="60" y="57" width="24" height="5" rx="2.5" fill="#CBD5E1"/>
-
-      <circle cx="35" cy="88" r="3" fill="#34D399"/>
-      <circle cx="46" cy="88" r="3" fill="#60A5FA"/>
-      <rect x="60" y="85" width="24" height="5" rx="2.5" fill="#CBD5E1"/>
-    </svg>
-  </div>
-);
-
-const ClusterMiniMetric = ({icon, value, label}) => {
-  const icons = {
-    hosts: "🖥️",
-    vm: "🧩",
-    cpu: "⚙️",
-    ram: "💾",
-    storage: "🗄️",
-  };
-
-  return (
-    <div className="flex items-center gap-3 min-w-[130px]">
-      <div className="w-10 h-10 rounded-xl border border-slate-200 bg-white flex items-center justify-center text-base shadow-sm">
-        {icons[icon]}
-      </div>
-
-      <div>
-        <div className="text-xl font-semibold text-slate-900 leading-none">
-          {value}
-        </div>
-
-        <div className="text-xs text-slate-500 mt-1">
-          {label}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-
-return (
+              return (
                 <div className={"rounded-2xl border p-4 "+(styles[tone]||styles.blue)}>
                   <div className="flex items-center gap-2 mb-2">
                     {icon && <i className={"ti "+icon+" text-base opacity-70"}/>}
@@ -2293,7 +2196,14 @@ return (
 
                       <div className="mt-5 grid grid-cols-1 lg:grid-cols-[170px_1fr] gap-6 items-center">
                         <div className="flex justify-center">
-                          <GlobalClusterStackIcon />
+                          <div className="relative w-36 h-32 rounded-3xl bg-gradient-to-br from-blue-50 to-slate-100 border border-blue-100 flex items-center justify-center shadow-sm overflow-hidden">
+                            <div className="absolute w-20 h-14 bg-blue-200 rounded-xl -translate-y-5 rotate-[-8deg]"/>
+                            <div className="absolute w-24 h-16 bg-blue-300 rounded-xl translate-y-1 rotate-[5deg]"/>
+                            <div className="absolute w-20 h-14 bg-blue-500 rounded-xl translate-y-6 rotate-[-4deg]"/>
+                            <div className="relative z-10 w-12 h-12 rounded-xl bg-white/90 border border-white shadow flex items-center justify-center text-blue-600 font-bold text-[10px]">
+                              CLU
+                            </div>
+                          </div>
                         </div>
 
                         <div>
@@ -2306,12 +2216,12 @@ return (
 
                           <div className="text-sm text-gray-500 mt-1">VMware vSphere Cluster</div>
 
-                          <div className="mt-5 flex flex-wrap items-center gap-x-10 gap-y-5">
-                            <GlobalClusterMiniMetric icon="hosts" value={hostList.length} label="Hosts"/>
-                            <GlobalClusterMiniMetric icon="vm" value={activeVms} label="VMs actives"/>
-                            <GlobalClusterMiniMetric icon="cpu" value={totalCpu} label="Cores"/>
-                            <GlobalClusterMiniMetric icon="ram" value={formatRam(totalRam)} label="RAM totale"/>
-                            <GlobalClusterMiniMetric icon="storage" value={`${storageTotalTb} To`} label="Stockage total"/>
+                          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mt-5">
+                            <SoftMetric label="Hosts" value={hostList.length} tone="slate" icon="ti-server"/>
+                            <SoftMetric label="VMs actives" value={activeVms} tone="blue" icon="ti-device-desktop"/>
+                            <SoftMetric label="Cores" value={totalCpu} tone="blue" icon="ti-cpu"/>
+                            <SoftMetric label="RAM totale" value={formatRam(totalRam)} tone="violet" icon="ti-circuit-board"/>
+                            <SoftMetric label="Stockage total" value={`${storageTotalTb} To`} tone="emerald" icon="ti-database"/>
                           </div>
                         </div>
                       </div>
