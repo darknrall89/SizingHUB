@@ -2417,31 +2417,10 @@ return (
                     <div className="flex items-start gap-5 mb-6 pb-5 border-b border-gray-100">
                       <ServerRackVisual health={hostCpuPct>=80||hostRamPct>=80?"critical":hostCpuPct>=60||hostRamPct>=60?"warning":"healthy"}/>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap mb-2">
+                        <div className="flex items-center gap-2 flex-wrap mb-0">
                           <div className="text-xl font-semibold text-gray-900">{selectedName}</div>
                           <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 font-semibold">
                             {hostCpuPct>=80||hostRamPct>=80?"Critique":hostCpuPct>=60||hostRamPct>=60?"À surveiller":"Confortable"}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-3 flex-wrap text-sm text-gray-500">
-                          <span className="flex items-center gap-1">
-                            <i className="ti ti-network text-gray-400 text-base"/>
-                            {mgmtVmk?.ip || mgmtVmk?.IP || selectedHost.ip || "IP N/A"}
-                          </span>
-                          <span className="text-gray-300">·</span>
-                          <span className="flex items-center gap-1">
-                            <i className="ti ti-server text-gray-400 text-base"/>
-                            {selectedHost.model || selectedHost.cpuModel || "Modèle N/A"}
-                          </span>
-                          <span className="text-gray-300">·</span>
-                          <span className="flex items-center gap-1">
-                            <i className="ti ti-device-desktop text-gray-400 text-base"/>
-                            {hostVmCount || 0} VMs
-                          </span>
-                          <span className="text-gray-300">·</span>
-                          <span className="flex items-center gap-1">
-                            <i className="ti ti-versions text-gray-400 text-base"/>
-                            {selectedHost.esxVersion || selectedHost.esxiVersion || "ESXi N/A"}
                           </span>
                         </div>
                       </div>
