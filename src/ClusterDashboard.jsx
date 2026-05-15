@@ -2043,8 +2043,10 @@ export default function ClusterOverviewDashboard({
             const selectedName = selectedHost.name || selectedHost.id || "N/A";
 
             const sameHost = (row) => {
-              const h = row?.host || row?.Host || row?.hostname || row?.Hostname || row?.["Host Name"];
-              return String(h || "").toLowerCase() === String(selectedName || "").toLowerCase();
+              const h = String(row?.host || row?.Host || row?.hostname || row?.Hostname || row?.["Host Name"] || "").toLowerCase();
+              const sel = String(selectedName || "").toLowerCase();
+              const selFull = String(selectedHost.name || selectedHost.id || "").toLowerCase();
+              return h === sel || h === selFull || h.startsWith(sel+".") || sel.startsWith(h+".");
             };
 
             const nodeVmks = vmkRows.filter(sameHost);
@@ -2454,12 +2456,35 @@ return (
 
                         <div className="rounded-2xl border border-gray-100 p-5 min-h-[190px]">
                           <div className="text-sm font-semibold text-gray-800 mb-">Stockage — HBA / IQN</div>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-xs">
-                            <InfoRow label="HBA Fibre Channel" value={fcHbas.length}/>
-                            <InfoRow label="HBA iSCSI / IQN" value={iscsiHbas.length}/>
-                            <InfoRow label="WWN / WWPN" value={fcHbas[0] ? getHbaAddress(fcHbas[0]) : "N/A"}/>
-                            <InfoRow label="IQN déclaré" value={iscsiHbas[0] ? getHbaAddress(iscsiHbas[0]) : "N/A"}/>
-                          </div>
+                            <div className="grid grid-cols-2 gap-3 mb-4">
+                              <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+                                <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-1">Fibre Channel</div>
+                                <div className="text-2xl font-semibold text-gray-900">{fcHbas.length}</div>
+                                <div className="text-xs text-gray-500 mt-1">HBA détectés</div>
+                              </div>
+
+                              <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+                                <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-1">iSCSI / IQN</div>
+                                <div className="text-2xl font-semibold text-gray-900">{iscsiHbas.length}</div>
+                                <div className="text-xs text-gray-500 mt-1">IQN déclarés</div>
+                              </div>
+                            </div>
+
+                            <div className="rounded-xl border border-gray-100 overflow-hidden">
+                              <div className="grid grid-cols-[120px_1fr] text-xs border-b border-gray-100">
+                                <div className="bg-gray-50 px-3 py-2 text-gray-500 font-medium">WWPN</div>
+                                <div className="px-3 py-2 font-mono text-[11px] text-gray-700 break-all">
+                                  {fcHbas.length > 0 ? fcHbas.map(h => getHbaAddress(h)).join(" · ") : "N/A"}
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-[120px_1fr] text-xs">
+                                <div className="bg-gray-50 px-3 py-2 text-gray-500 font-medium">IQN</div>
+                                <div className="px-3 py-2 font-mono text-[11px] text-gray-700 break-all">
+                                  {iscsiHbas.length > 0 ? iscsiHbas.map(h => getHbaAddress(h)).join(" · ") : "N/A"}
+                                </div>
+                              </div>
+                            </div>
                         </div>
                       </div>
 
