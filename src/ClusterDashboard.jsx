@@ -2415,8 +2415,8 @@ return (
                     </div>
 
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        <div className="rounded-2xl border border-gray-100 p-5">
-                          <div className="text-sm font-semibold text-gray-800 mb-4">Informations générales</div>
+                        <div className="rounded-2xl border border-gray-100 p-5 min-h-[190px]">
+                          <div className="text-sm font-semibold text-gray-800 mb-">Informations générales</div>
                           <InfoRow label="Nom d'hôte" value={selectedName}/>
                           <InfoRow label="Adresse IP" value={mgmtVmk?.ip || mgmtVmk?.IP || selectedHost.ip}/>
                           <InfoRow label="Modèle" value={selectedHost.model || selectedHost.cpuModel || selectedHost.serverModel || selectedHost.hardwareModel}/>
@@ -2424,8 +2424,8 @@ return (
                           <InfoRow label="Nombre de VMs" value={hostVmCount}/>
                         </div>
 
-                        <div className="rounded-2xl border border-gray-100 p-5">
-                          <div className="text-sm font-semibold text-gray-800 mb-4">Ressources</div>
+                        <div className="rounded-2xl border border-gray-100 p-5 min-h-[190px]">
+                          <div className="text-sm font-semibold text-gray-800 mb-">Ressources</div>
 
                           <div className="mb-4">
                             <div className="flex items-center justify-between text-xs mb-1">
@@ -2450,16 +2450,16 @@ return (
                       </div>
 
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
-                        <div className="rounded-2xl border border-gray-100 p-4">
-                          <div className="text-sm font-semibold text-gray-800 mb-3">Réseau physique</div>
+                        <div className="rounded-2xl border border-gray-100 p-5 min-h-[190px]">
+                          <div className="text-sm font-semibold text-gray-800 mb-">Réseau physique</div>
                           <InfoRow label="Interfaces physiques" value={physicalNics || "N/A"}/>
                           <InfoRow label="Interfaces 10 Gbps" value={nics10g || "N/A"}/>
                           <InfoRow label="Interfaces 1 Gbps" value={nics1g || "N/A"}/>
                           <InfoRow label="VMkernel" value={nodeVmks.length}/>
                         </div>
 
-                        <div className="rounded-2xl border border-gray-100 p-4">
-                          <div className="text-sm font-semibold text-gray-800 mb-3">Stockage — HBA / IQN</div>
+                        <div className="rounded-2xl border border-gray-100 p-5 min-h-[190px]">
+                          <div className="text-sm font-semibold text-gray-800 mb-">Stockage — HBA / IQN</div>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-xs">
                             <InfoRow label="HBA Fibre Channel" value={fcHbas.length}/>
                             <InfoRow label="HBA iSCSI / IQN" value={iscsiHbas.length}/>
