@@ -224,7 +224,7 @@ const TopCpuConsumersBlock = ({ consumers = [], totalVcpu = 0 }) => {
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
       <div className="px-5 pt-5 pb-4 flex items-start justify-between">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">Top VMs — principales consommatrices CPU</h3>
+          <h3 className="text-lg font-semibold text-gray-900">Top VMs — Consommation CPU</h3>
           <p className="text-xs text-gray-400 mt-1">
             Analyse basée sur l’allocation vCPU issue de RVTools
           </p>
@@ -868,7 +868,7 @@ function FocusReseauNoeud({ vmkRows=[], hostsNics=[], claudeInsights=null }) {
           </div>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-4 xl:pt-10">
           <VmKernelGroup type="Management" rows={grouped.Management}/>
           <VmKernelGroup type="vMotion" rows={grouped.vMotion}/>
           <VmKernelGroup type="Storage" rows={grouped.Storage}/>
@@ -2703,7 +2703,7 @@ return (
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-4">
+                <div className="grid grid-cols-1 xl:grid-cols-[1.45fr_0.55fr] gap-5 items-start">
                   {/* Host cards */}
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
@@ -2769,65 +2769,75 @@ return (
                     ))}
                   </div>
 
-                  {/* Right column */}
-                  <div className="space-y-4">
-                    {/* Équilibrage */}
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-sm font-semibold text-gray-900">Équilibrage cluster (CPU)</h3>
-                        <i className="ti ti-info-circle text-gray-300 text-base"/>
-                      </div>
-                      <div className="space-y-3">
-                        {[...hostWithN1].sort((a,b)=>b.cpuPct-a.cpuPct).map((h,i)=>(
-                          <div key={i}>
-                            <div className="flex justify-between text-xs mb-1">
-                              <span className="font-medium text-gray-700">{h.name}</span>
-                              <span className={`font-semibold ${pctColor(h.cpuPct)}`}>{h.cpuPct}%</span>
-                            </div>
-                            <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
-                              <div className={`h-full rounded-full ${barColor(h.cpuPct)}`} style={{width:Math.min(100,h.cpuPct)+"%"}}/>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="flex justify-between text-[10px] text-gray-300 mt-3">
-                        <span>0%</span><span>50%</span><span>70%</span><span>85%</span><span>100%</span>
-                      </div>
-                    </div>
-
-                    {/* N-1 Projection */}
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-sm font-semibold text-gray-900">Projection N-1 (perte d'un hôte)</h3>
-                        <i className="ti ti-info-circle text-gray-300 text-base"/>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3 mb-3">
-                        <div className="rounded-xl bg-gray-50 p-3 text-center">
-                          <div className="text-xs text-gray-500 mb-1">CPU projeté</div>
-                          <div className={`text-2xl font-semibold ${pctColor(n1CpuPct)}`}>{n1CpuPct}%</div>
-                          <div className={`text-xs font-semibold mt-1 ${pctColor(n1CpuPct)}`}>
-                            {n1CpuPct>=85?"● Critique":n1CpuPct>=70?"● Tension":n1CpuPct>=50?"● Surveillance":"● Confortable"}
-                          </div>
+                    {/* Right column */}
+                    <div className="space-y-4 xl:pt-10">
+                      {/* Équilibrage */}
+                      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-sm font-semibold text-gray-900">Équilibrage cluster (CPU)</h3>
+                          <i className="ti ti-info-circle text-gray-300 text-base"/>
                         </div>
-                        <div className="rounded-xl bg-gray-50 p-3 text-center">
-                          <div className="text-xs text-gray-500 mb-1">RAM projetée</div>
-                          <div className={`text-2xl font-semibold ${pctColor(n1RamPct)}`}>{n1RamPct}%</div>
-                          <div className={`text-xs font-semibold mt-1 ${pctColor(n1RamPct)}`}>
-                            {n1RamPct>=85?"● Critique":n1RamPct>=70?"● Tension":n1RamPct>=50?"● Surveillance":"● Confortable"}
-                          </div>
+
+                        <div className="space-y-3">
+                          {[...hostWithN1].sort((a,b)=>b.cpuPct-a.cpuPct).map((h,i)=>(
+                            <div key={i}>
+                              <div className="flex justify-between text-xs mb-1">
+                                <span className="font-medium text-gray-700">{h.name}</span>
+                                <span className={`font-semibold ${pctColor(h.cpuPct)}`}>{h.cpuPct}%</span>
+                              </div>
+                              <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                                <div className={`h-full rounded-full ${barColor(h.cpuPct)}`} style={{width:Math.min(100,h.cpuPct)+"%"}}/>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="flex justify-between text-[10px] text-gray-300 mt-3">
+                          <span>0%</span><span>50%</span><span>70%</span><span>85%</span><span>100%</span>
                         </div>
                       </div>
-                      <div className="text-xs text-gray-400 text-center">
-                        {n1CpuPct>=85||n1RamPct>=85?"Cluster sous forte pression en cas de perte d'un hôte.":"Cluster résilient en cas de perte d'un hôte."}
+
+                      {/* N-1 Projection */}
+                      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-sm font-semibold text-gray-900">Projection N-1 (perte d'un hôte)</h3>
+                          <i className="ti ti-info-circle text-gray-300 text-base"/>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3 mb-3">
+                          <div className="rounded-xl bg-gray-50 p-3 text-center">
+                            <div className="text-xs text-gray-500 mb-1">CPU projeté</div>
+                            <div className={`text-2xl font-semibold ${pctColor(n1CpuPct)}`}>{n1CpuPct}%</div>
+                            <div className={`text-xs font-semibold mt-1 ${pctColor(n1CpuPct)}`}>
+                              {n1CpuPct>=85?"● Critique":n1CpuPct>=70?"● Tension":n1CpuPct>=50?"● Surveillance":"● Confortable"}
+                            </div>
+                          </div>
+
+                          <div className="rounded-xl bg-gray-50 p-3 text-center">
+                            <div className="text-xs text-gray-500 mb-1">RAM projetée</div>
+                            <div className={`text-2xl font-semibold ${pctColor(n1RamPct)}`}>{n1RamPct}%</div>
+                            <div className={`text-xs font-semibold mt-1 ${pctColor(n1RamPct)}`}>
+                              {n1RamPct>=85?"● Critique":n1RamPct>=70?"● Tension":n1RamPct>=50?"● Surveillance":"● Confortable"}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="text-xs text-gray-400 text-center">
+                          {n1CpuPct>=85||n1RamPct>=85?"Cluster sous forte pression en cas de perte d'un hôte.":"Cluster résilient en cas de perte d'un hôte."}
+                        </div>
                       </div>
                     </div>
+                </div>
 
+                  {/* Bottom: Timeline + Recommandations + Top VMs */}
+                  <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
                     {/* Timeline */}
                     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
                       <div className="flex items-center justify-between mb-3">
                         <h3 className="text-sm font-semibold text-gray-900">Timeline saturation <span className="font-normal text-gray-400">(estimation)</span></h3>
                         <i className="ti ti-info-circle text-gray-300 text-base"/>
                       </div>
+
                       <div className="flex items-center gap-2 mb-4">
                         <span className="text-xs text-gray-500">Croissance :</span>
                         {[10,20,30].map(r=>(
@@ -2838,6 +2848,7 @@ return (
                           </button>
                         ))}
                       </div>
+
                       <table className="w-full text-xs">
                         <thead>
                           <tr className="border-b border-gray-100">
@@ -2870,73 +2881,74 @@ return (
                           ))}
                         </tbody>
                       </table>
-                      <div className="text-[10px] text-gray-300 italic mt-3">Projection basée sur un taux de croissance estimé — ajustable</div>
-                    </div>
-                  </div>
-                </div>
 
-                {/* Bottom: Top VMs + Recommandations */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                    <h3 className="text-sm font-semibold text-gray-900 mb-4">Top VMs — Consommation CPU</h3>
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="border-b border-gray-100">
-                          <th className="text-left text-gray-400 font-medium pb-2">VM</th>
-                          <th className="text-center text-gray-400 font-medium pb-2">vCPU</th>
-                          <th className="text-left text-gray-400 font-medium pb-2">Utilisation CPU</th>
-                          <th className="text-right text-gray-400 font-medium pb-2">%</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {[...(topCpuConsumers||[])].sort((a,b)=>(Number(b.cpuUsagePct||b.cpuOverallMhz)||0)-(Number(a.cpuUsagePct||a.cpuOverallMhz)||0)).slice(0,5).map((vm,i)=>{
-                          const pct = Number(vm.cpuUsagePct||vm.cpuReadinessPct||vm.cpuPercent||0);
-                          const isWin = (vm.os||"").toLowerCase().includes("win");
+                      <div className="text-[10px] text-gray-300 italic mt-3">
+                        Projection basée sur un taux de croissance estimé — ajustable
+                      </div>
+                    </div>
+
+                    {/* Recommandations */}
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                      <h3 className="text-sm font-semibold text-gray-900 mb-4">Recommandations d'optimisation</h3>
+                      <div className="space-y-3">
+                        {(insights||[]).filter(i=>i.severity==="critical"||i.severity==="warning"||i.severity==="info").slice(0,4).map((ins,i)=>{
+                          const dot = ins.severity==="critical"?"bg-red-500":ins.severity==="warning"?"bg-amber-400":"bg-blue-400";
+                          const badge = ins.severity==="critical"?"bg-red-50 text-red-700 border-red-100":ins.severity==="warning"?"bg-amber-50 text-amber-700 border-amber-100":"bg-blue-50 text-blue-700 border-blue-100";
                           return (
-                            <tr key={i} className="border-b border-gray-50 last:border-0">
-                              <td className="py-2">
-                                <div className="flex items-center gap-2">
-                                  <span className={`text-base ${isWin?"text-blue-500":"text-orange-500"}`}>
-                                    <i className={`ti ${isWin?"ti-brand-windows":"ti-terminal-2"}`}/>
-                                  </span>
-                                  <span className="font-medium text-gray-700 truncate max-w-[120px]">{vm.name||vm.id}</span>
-                                </div>
-                              </td>
-                              <td className="py-2 text-center text-gray-600">{vm.vcpu||vm.vCpu||0}</td>
-                              <td className="py-2">
-                                <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden w-full">
-                                  <div className={`h-full rounded-full ${barColor(pct)}`} style={{width:Math.min(100,pct)+"%"}}/>
-                                </div>
-                              </td>
-                              <td className={`py-2 text-right font-semibold ${pctColor(pct)}`}>{pct}%</td>
-                            </tr>
+                            <div key={i} className="flex items-start gap-3 py-2 border-b border-gray-50 last:border-0">
+                              <span className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${dot}`}/>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-xs text-gray-700">{ins.recommendation||ins.title}</div>
+                              </div>
+                              {ins.impact && (
+                                <span className={`text-[11px] px-2 py-0.5 rounded-full border font-semibold flex-shrink-0 ${badge}`}>{ins.impact}</span>
+                              )}
+                            </div>
                           );
                         })}
-                      </tbody>
-                    </table>
-                  </div>
+                      </div>
+                    </div>
 
-                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                    <h3 className="text-sm font-semibold text-gray-900 mb-4">Recommandations d'optimisation</h3>
-                    <div className="space-y-3">
-                      {(insights||[]).filter(i=>i.severity==="critical"||i.severity==="warning"||i.severity==="info").slice(0,4).map((ins,i)=>{
-                        const dot = ins.severity==="critical"?"bg-red-500":ins.severity==="warning"?"bg-amber-400":"bg-blue-400";
-                        const badge = ins.severity==="critical"?"bg-red-50 text-red-700 border-red-100":ins.severity==="warning"?"bg-amber-50 text-amber-700 border-amber-100":"bg-blue-50 text-blue-700 border-blue-100";
-                        return (
-                          <div key={i} className="flex items-start gap-3 py-2 border-b border-gray-50 last:border-0">
-                            <span className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${dot}`}/>
-                            <div className="flex-1 min-w-0">
-                              <div className="text-xs text-gray-700">{ins.recommendation||ins.title}</div>
-                            </div>
-                            {ins.impact && (
-                              <span className={`text-[11px] px-2 py-0.5 rounded-full border font-semibold flex-shrink-0 ${badge}`}>{ins.impact}</span>
-                            )}
-                          </div>
-                        );
-                      })}
+                    {/* Top VMs */}
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                      <h3 className="text-sm font-semibold text-gray-900 mb-4">Top VMs — Consommation CPU</h3>
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-gray-100">
+                            <th className="text-left text-gray-400 font-medium pb-2">VM</th>
+                            <th className="text-center text-gray-400 font-medium pb-2">vCPU</th>
+                            <th className="text-left text-gray-400 font-medium pb-2">Utilisation CPU</th>
+                            <th className="text-right text-gray-400 font-medium pb-2">%</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {[...(topCpuConsumers||[])].sort((a,b)=>(Number(b.cpuUsagePct||b.cpuOverallMhz)||0)-(Number(a.cpuUsagePct||a.cpuOverallMhz)||0)).slice(0,5).map((vm,i)=>{
+                            const pct = Number(vm.cpuUsagePct||vm.cpuReadinessPct||vm.cpuPercent||0);
+                            const isWin = (vm.os||"").toLowerCase().includes("win");
+                            return (
+                              <tr key={i} className="border-b border-gray-50 last:border-0">
+                                <td className="py-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className={`text-base ${isWin?"text-blue-500":"text-orange-500"}`}>
+                                      <i className={`ti ${isWin?"ti-brand-windows":"ti-terminal-2"}`}/>
+                                    </span>
+                                    <span className="font-medium text-gray-700 truncate max-w-[120px]">{vm.name||vm.id}</span>
+                                  </div>
+                                </td>
+                                <td className="py-2 text-center text-gray-600">{vm.vcpu||vm.vCpu||0}</td>
+                                <td className="py-2">
+                                  <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden w-full">
+                                    <div className={`h-full rounded-full ${barColor(pct)}`} style={{width:Math.min(100,pct)+"%"}}/>
+                                  </div>
+                                </td>
+                                <td className={`py-2 text-right font-semibold ${pctColor(pct)}`}>{pct}%</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
-                </div>
               </>
             );
           })()}
@@ -2953,7 +2965,7 @@ return (
               {label:"Oversubscription",    val:clusterSummary.ramOversubscription||"N/A",    sub:"ratio alloue/physique",bg:"bg-gradient-to-br from-slate-500 to-slate-700"},
               {label:"Hosts en tension",    val:hosts.filter(h=>(h.ramUsagePercent||0)>=60).length, sub:"RAM >= 60%",   bg:hosts.filter(h=>(h.ramUsagePercent||0)>=60).length>0?"bg-gradient-to-br from-amber-500 to-amber-700":"bg-gradient-to-br from-emerald-500 to-emerald-700"},
             ].map(k=>(
-              <div key={k.label} className={"rounded-2xl p-4 text-white "+k.bg}>
+              <div key={k.label} className={"rounded-2xl p-5 text-white border border-white/10 "+k.bg}>
                 <div className="text-xs font-semibold uppercase tracking-widest opacity-70 mb-1">{k.label}</div>
                 <div className="text-2xl font-semibold">{k.val}</div>
                 <div className="text-xs opacity-60 mt-1">{k.sub}</div>
@@ -2982,9 +2994,9 @@ return (
                 const freeGb = h.totalRamGb - usedGb;
                 const health = (h.ramUsagePercent||0)>=80?"critical":(h.ramUsagePercent||0)>=60?"warning":"healthy";
                 return (
-                  <div key={h.id} className={"flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6 p-4 rounded-xl border transition-all hover:shadow-sm "+
+                  <div key={h.id} className={"grid grid-cols-1 xl:grid-cols-[220px_1fr_220px] gap-4 items-center px-5 py-4 rounded-2xl border transition-all hover:bg-gray-50/60 "+
                     (health==="critical"?"border-red-200 bg-red-50/20":health==="warning"?"border-amber-200 bg-amber-50/10":"border-gray-100 bg-gray-50")}>
-                    <div className="w-full lg:w-[280px] h-[58px] lg:h-[50px] flex-shrink-0 flex items-center justify-center lg:justify-start">
+                    <div className="w-full xl:w-[200px] h-[58px] flex-shrink-0 flex items-center justify-center xl:justify-start">
                       <ServerRackVisual health={health}/>
                     </div>
                     <div className="flex-1 min-w-0">
@@ -2996,7 +3008,7 @@ return (
                         </div>
                         <span className={tone.color+" text-base font-medium ml-4"}>{h.ramUsagePercent||0}%</span>
                       </div>
-                      <div className="relative w-full h-3 bg-gray-100 rounded-full overflow-hidden mb-1.5">
+                      <div className="relative w-full h-2.5 bg-gray-100 rounded-full overflow-hidden mb-1.5">
                         <div className={"h-full rounded-full transition-all "+((h.ramUsagePercent||0)>=80?"bg-red-400":(h.ramUsagePercent||0)>=60?"bg-amber-400":"bg-blue-400")} style={{width:Math.min(h.ramUsagePercent||0,100)+"%"}}/>
                         <div className="absolute top-0 bottom-0 w-px bg-amber-400 opacity-60" style={{left:"60%"}}/>
                         <div className="absolute top-0 bottom-0 w-px bg-red-400 opacity-60" style={{left:"80%"}}/>
@@ -3064,7 +3076,7 @@ return (
                   {label:"En tension",   val:warning,                   sub:"60-80% utilise",     bg:"bg-gradient-to-br from-amber-400 to-amber-600"},
                   {label:"Critiques",    val:critical,                  sub:">= 80% utilise",     bg:"bg-gradient-to-br from-red-500 to-red-700"},
                 ].map(k=>(
-                  <div key={k.label} className={"rounded-2xl p-4 text-white "+k.bg}>
+                  <div key={k.label} className={"rounded-2xl p-5 text-white border border-white/10 "+k.bg}>
                     <div className="text-xs font-semibold uppercase tracking-widest opacity-70 mb-1">{k.label}</div>
                     <div className="text-3xl font-medium">{k.val}</div>
                     <div className="text-xs opacity-60 mt-1">{k.sub}</div>
