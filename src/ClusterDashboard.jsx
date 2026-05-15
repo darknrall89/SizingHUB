@@ -2959,109 +2959,371 @@ return (
 
 {activeTab==="memory"&&(
         <div className="space-y-4">
-          {/* KPIs Memory */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
-            {[
-              {label:"RAM physique totale", val:formatRam(clusterSummary.totalRamGb),        sub:"cluster",              bg:"bg-gradient-to-br from-blue-500 to-blue-700"},
-              {label:"RAM allouee VMs",     val:clusterSummary.allocatedRamDisplay,           sub:"VMs poweredOn",        bg:"bg-gradient-to-br from-violet-500 to-violet-700"},
-              {label:"Oversubscription",    val:clusterSummary.ramOversubscription||"N/A",    sub:"ratio alloue/physique",bg:"bg-gradient-to-br from-slate-500 to-slate-700"},
-              {label:"Hosts en tension",    val:hosts.filter(h=>(h.ramUsagePercent||0)>=60).length, sub:"RAM >= 60%",   bg:hosts.filter(h=>(h.ramUsagePercent||0)>=60).length>0?"bg-gradient-to-br from-amber-500 to-amber-700":"bg-gradient-to-br from-emerald-500 to-emerald-700"},
-            ].map(k=>(
-              <div key={k.label} className={"rounded-2xl p-5 text-white border border-white/10 "+k.bg}>
-                <div className="text-xs font-semibold uppercase tracking-widest opacity-70 mb-1">{k.label}</div>
-                <div className="text-2xl font-semibold">{k.val}</div>
-                <div className="text-xs opacity-60 mt-1">{k.sub}</div>
-              </div>
-            ))}
-          </div>
+          {(()=>{
+            const hostList = hosts || [];
+            const totalRam = clusterSummary.totalRamGb || 0;
+            const allocatedRam = clusterSummary.allocatedRamGb || 0;
+            const activeVms = clusterSummary.activeVms || 0;
 
-            {/* ACC_HOSTS_MEMORY */}
-            <details open className="group">
-              <summary className="list-none cursor-pointer bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-4 flex items-center justify-between hover:bg-gray-50 transition">
-                <div>
-                  <div className="text-sm font-semibold text-gray-800">Hosts — utilisation mémoire par hôte</div>
-                  <div className="text-xs text-gray-400 mt-1">Preuve technique : répartition de la charge RAM par hyperviseur</div>
-                </div>
-                <div className="text-xs font-medium text-blue-600 group-open:hidden">Afficher</div>
-                <div className="text-xs font-medium text-gray-400 hidden group-open:block">Masquer</div>
-              </summary>
-              <div className="mt-3">
-          {/* Hosts RAM */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <h3 className="text-sm font-medium text-gray-800 mb-4">Memory — Utilisation RAM par host</h3>
-            <div className="space-y-3">
-              {[...hosts].sort((a,b)=>(b.ramUsagePercent||0)-(a.ramUsagePercent||0)).map(h=>{
-                const tone   = getUsageTone(h.ramUsagePercent||0);
-                const usedGb = Math.round((h.ramUsagePercent||0)*h.totalRamGb/100);
-                const freeGb = h.totalRamGb - usedGb;
-                const health = (h.ramUsagePercent||0)>=80?"critical":(h.ramUsagePercent||0)>=60?"warning":"healthy";
-                return (
-                  <div key={h.id} className={"grid grid-cols-1 xl:grid-cols-[220px_1fr_220px] gap-4 items-center px-5 py-4 rounded-2xl border transition-all hover:bg-gray-50/60 "+
-                    (health==="critical"?"border-red-200 bg-red-50/20":health==="warning"?"border-amber-200 bg-amber-50/10":"border-gray-100 bg-gray-50")}>
-                    <div className="w-full xl:w-[200px] h-[58px] flex-shrink-0 flex items-center justify-center xl:justify-start">
-                      <ServerRackVisual health={health}/>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-medium text-gray-800 truncate">{h.name}</span>
-                          <span className="text-xs text-gray-400">{formatRam(h.totalRamGb)} total</span>
-                          {(h.ramUsagePercent||0)>=80&&<span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-semibold">Critique</span>}
+            const avgRamPct = hostList.length ? Math.round(hostList.reduce((s,h)=>s+(Number(h.ramUsagePct||h.ramUsagePercent)||0),0)/hostList.length) : 0;
+            const overcommitRatio = totalRam > 0 ? (allocatedRam/totalRam).toFixed(1) : "N/A";
+            const avgRamPerVm = activeVms > 0 ? Math.round(allocatedRam/activeVms) : 0;
+
+            // Memory Score
+            const oversubScore = allocatedRam/totalRam < 1.5 ? 30 : allocatedRam/totalRam < 2.5 ? 20 : 10;
+            const ramScore = avgRamPct < 50 ? 35 : avgRamPct < 70 ? 25 : avgRamPct < 85 ? 15 : 5;
+            const balanceScore = (() => {
+              if (hostList.length < 2) return 35;
+              const rams = hostList.map(h=>Number(h.ramUsagePct||h.ramUsagePercent)||0);
+              const max = Math.max(...rams), min = Math.min(...rams);
+              return max-min < 20 ? 35 : max-min < 40 ? 25 : max-min < 60 ? 15 : 5;
+            })();
+            const memScore = Math.min(100, oversubScore + ramScore + balanceScore);
+            const memScoreLabel = memScore >= 80 ? "Bonne gestion mémoire" : memScore >= 60 ? "Gestion acceptable" : "Optimisation requise";
+            const memScoreSub = memScore >= 80 ? "Quelques optimisations possibles" : memScore >= 60 ? "Rightsizing recommandé" : "Action corrective urgente";
+
+            // Oversized VMs
+            const oversizedVms = (topMemoryConsumers||[]).filter(v=>v.ramGb>0&&v.usedRamGb>0&&v.ramGb>2*v.usedRamGb);
+            const recoverableRam = Math.round(oversizedVms.reduce((s,v)=>s+(v.ramGb-v.usedRamGb*1.2),0));
+
+            // Min hosts by RAM
+            const totalUsedRam = hostList.reduce((s,h)=>s+(Math.round((Number(h.ramUsagePct||h.ramUsagePercent)||0)/100*(h.totalRamGb||0))),0);
+            const maxRamPerHost = hostList.length ? Math.max(...hostList.map(h=>h.totalRamGb||0)) : 0;
+            const minHostsByRam = maxRamPerHost > 0 ? Math.max(1, Math.ceil(totalUsedRam/maxRamPerHost)) : hostList.length;
+            const savedHostsRam = Math.max(0, hostList.length - minHostsByRam);
+            const savedRamGb = savedHostsRam * Math.round(totalRam/hostList.length);
+
+            // N-1 RAM
+            const worstRamHost = [...hostList].sort((a,b)=>(Number(b.ramUsagePct||b.ramUsagePercent)||0)-(Number(a.ramUsagePct||a.ramUsagePercent)||0))[0];
+            const worstRamGb = worstRamHost?.totalRamGb || Math.round(totalRam/hostList.length);
+            const remainRam = totalRam - worstRamGb;
+            const n1RamPct = remainRam > 0 ? Math.min(99, Math.round(totalUsedRam/remainRam*100)) : 99;
+
+            // Timeline
+            const gr = (growthRate||20)/100;
+            const timeline = [3,6,12].map(m=>({
+              months: m,
+              ram: Math.min(99, Math.round(avgRamPct*(1+gr*m/12))),
+            }));
+
+            // Host with N-1
+            const hostWithN1 = hostList.map(h => {
+              const others = hostList.filter(x=>x.name!==h.name);
+              const otherRam = others.reduce((s,x)=>s+(x.totalRamGb||0),0);
+              const usedRam = hostList.reduce((s,x)=>s+(Math.round((Number(x.ramUsagePct||x.ramUsagePercent)||0)/100*(x.totalRamGb||0))),0);
+              const n1r = otherRam > 0 ? Math.min(99,Math.round(usedRam/otherRam*100)) : 0;
+              const ramPct = Number(h.ramUsagePct||h.ramUsagePercent)||0;
+              const allocPct = totalRam > 0 ? Math.round((h.totalRamGb||0)/totalRam*allocatedRam/(h.totalRamGb||1)*100) : 0;
+              const freeRamGb = Math.round((1-ramPct/100)*(h.totalRamGb||0));
+              const oversub = (h.totalRamGb||0) > 0 ? ((allocatedRam/hostList.length)/(h.totalRamGb||1)).toFixed(1)+":1" : "N/A";
+              const status = ramPct>=85?"critical":ramPct>=70?"warning":ramPct>=50?"watch":"healthy";
+              return {...h, n1RamPct:n1r, freeRamGb, oversub, status, ramPct, allocPct};
+            });
+
+            const pctColor = (p) => p>=85?"text-red-600":p>=70?"text-amber-600":p>=50?"text-orange-500":"text-emerald-600";
+            const barColorRam = (p) => p>=85?"bg-red-500":p>=70?"bg-amber-400":p>=50?"bg-orange-400":"bg-violet-500";
+
+            const statusBadge = (s) => {
+              if (s==="critical") return <span className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-red-50 text-red-700 border border-red-100 font-semibold"><i className="ti ti-alert-triangle"/>Critique</span>;
+              if (s==="warning") return <span className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-100 font-semibold"><i className="ti ti-alert-circle"/>Surveillance</span>;
+              if (s==="watch") return <span className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-orange-50 text-orange-700 border border-orange-100 font-semibold"><i className="ti ti-eye"/>Tension</span>;
+              return <span className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 font-semibold"><i className="ti ti-shield-check"/>Confortable</span>;
+            };
+
+            return (
+              <>
+                {/* KPI Bar */}
+                <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+                  {[
+                    {icon:"ti-database", label:"TOTAL RAM PHYSIQUE", value:formatRam(totalRam), sub:`${hostList.length} hôtes physiques`},
+                    {icon:"ti-layers-intersect", label:"RAM ALLOUÉE", value:formatRam(allocatedRam), sub:`ratio d'allocation ${overcommitRatio}:1`},
+                    {icon:"ti-arrows-exchange", label:"OVERCOMMIT RATIO", value:`${overcommitRatio}:1`, sub:"allocation vs physique"},
+                    {icon:"ti-device-desktop", label:"AVG RAM / VM", value:`${avgRamPerVm} GB`, sub:"par VM active"},
+                  ].map((k,i)=>(
+                    <div key={i} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center">
+                          <i className={`ti ${k.icon} text-violet-600 text-base`}/>
                         </div>
-                        <span className={tone.color+" text-base font-medium ml-4"}>{h.ramUsagePercent||0}%</span>
+                        <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">{k.label}</div>
                       </div>
-                      <div className="relative w-full h-2.5 bg-gray-100 rounded-full overflow-hidden mb-1.5">
-                        <div className={"h-full rounded-full transition-all "+((h.ramUsagePercent||0)>=80?"bg-red-400":(h.ramUsagePercent||0)>=60?"bg-amber-400":"bg-blue-400")} style={{width:Math.min(h.ramUsagePercent||0,100)+"%"}}/>
-                        <div className="absolute top-0 bottom-0 w-px bg-amber-400 opacity-60" style={{left:"60%"}}/>
-                        <div className="absolute top-0 bottom-0 w-px bg-red-400 opacity-60" style={{left:"80%"}}/>
+                      <div className="text-2xl font-semibold text-gray-900">{k.value}</div>
+                      <div className="text-xs text-gray-500 mt-1">{k.sub}</div>
+                    </div>
+                  ))}
+                  {/* Memory Score */}
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center gap-4">
+                    <div className="relative w-16 h-16 flex-shrink-0">
+                      <svg viewBox="0 0 36 36" className="w-16 h-16 -rotate-90">
+                        <circle cx="18" cy="18" r="15.9" fill="none" stroke="#f1f5f9" strokeWidth="3"/>
+                        <circle cx="18" cy="18" r="15.9" fill="none"
+                          stroke={memScore>=80?"#8b5cf6":memScore>=60?"#f59e0b":"#ef4444"}
+                          strokeWidth="3"
+                          strokeDasharray={`${memScore} ${100-memScore}`}
+                          strokeLinecap="round"/>
+                      </svg>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-sm font-bold text-gray-900">{memScore}</span>
                       </div>
-                      <div className="flex justify-between text-xs text-gray-400">
-                        <span>Utilise : <strong className="text-gray-600">{formatRam(usedGb)}</strong></span>
-                        <span>Libre : <strong className="text-gray-600">{formatRam(freeGb)}</strong></span>
-                      </div>
-                      {h.warningMessage&&<div className="mt-1 text-xs text-red-500 font-medium">{h.warningMessage}</div>}
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">MEMORY SCORE</div>
+                      <div className="text-sm font-semibold text-gray-900 mt-1">{memScoreLabel}</div>
+                      <div className="text-xs text-gray-500 mt-0.5">{memScoreSub}</div>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          </div>
-              </div>
-            </details>
-
-            {/* ACC_TOPVMS_MEMORY */}
-            <details className="group">
-              <summary className="list-none cursor-pointer bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-4 flex items-center justify-between hover:bg-gray-50 transition">
-                <div>
-                  <div className="text-sm font-semibold text-gray-800">Top VMs — principales consommatrices mémoire</div>
-                  <div className="text-xs text-gray-400 mt-1">Analyse des VMs les plus significatives en allocation RAM</div>
                 </div>
-                <div className="text-xs font-medium text-blue-600 group-open:hidden">Afficher</div>
-                <div className="text-xs font-medium text-gray-400 hidden group-open:block">Masquer</div>
-              </summary>
-              <div className="mt-3">
-          {/* Top Memory Consumers */}
-          <TopMemoryConsumersBlock
-            consumers={topMemoryConsumers}
-            totalAllocatedRam={clusterSummary.allocatedRamGb||0}
-          />
-              </div>
-            </details>
 
+                {/* Optimization Banner */}
+                <div className="bg-violet-50 border border-violet-100 rounded-2xl p-5 flex flex-col lg:flex-row lg:items-center gap-5">
+                  <div className="flex items-center gap-4 flex-1">
+                    <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center flex-shrink-0">
+                      <i className="ti ti-trending-up text-violet-600 text-xl"/>
+                    </div>
+                    <div>
+                      <div className="text-lg font-semibold text-violet-700">Mémoire optimisable</div>
+                      <div className="text-sm text-violet-600">~{recoverableRam} GB récupérables sur VMs surdimensionnées</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    {savedHostsRam > 0 && <>
+                      <div className="text-sm font-semibold text-gray-700">{minHostsByRam} hôte{minHostsByRam>1?"s":""} suffira{minHostsByRam>1?"ient":"it"} pour la charge RAM actuelle</div>
+                      <span className="text-xs px-3 py-1 rounded-full bg-white border border-violet-200 text-violet-700 font-semibold">−{savedHostsRam} serveur{savedHostsRam>1?"s":""}</span>
+                      <span className="text-xs px-3 py-1 rounded-full bg-white border border-blue-200 text-blue-700 font-semibold">{savedRamGb} GB libérés</span>
+                    </>}
+                  </div>
+                  <div className="flex gap-4">
+                    <div className="text-center">
+                      <div className="text-xl font-semibold text-violet-600">{avgRamPct}%</div>
+                      <div className="text-xs text-gray-500">RAM moyenne</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-xl font-semibold text-emerald-600">0 GB</div>
+                      <div className="text-xs text-gray-500">Balloon/Swap</div>
+                    </div>
+                  </div>
+                </div>
 
-          {/* Memory Insights */}
-          {insights.length>0&&(
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-              <h3 className="text-sm font-medium text-gray-800 mb-3">Memory Insights</h3>
-              <div className="space-y-2">
-                {insights.map(i=><OptimizationItem key={i.id} insight={i}/>)}
-              </div>
-            </div>
-          )}
+                <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-4">
+                  {/* Host cards */}
+                  <div className="space-y-3">
+                    <h3 className="text-lg font-semibold text-gray-900">Utilisation RAM par hôte</h3>
+                    {hostWithN1.map((h,i)=>(
+                      <div key={i} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                        <div className="grid grid-cols-1 lg:grid-cols-[270px_1fr_160px] gap-4 items-center">
+                          {/* Left: identity */}
+                          <div className="flex flex-col items-center gap-2">
+                            <ServerRackVisual compact health={h.status==="critical"?"critical":h.status==="warning"?"warning":"healthy"}/>
+                            <div className="text-center">
+                              <div className="font-semibold text-gray-900 text-sm truncate max-w-[240px]">{h.name}</div>
+                              <div className="flex items-center justify-center gap-1 text-xs text-emerald-600 mt-0.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"/>En ligne
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1">{h.totalRamGb||0} GB · {h.vmsCount||0} VMs</div>
+                            </div>
+                          </div>
+                          {/* Middle: bars */}
+                          <div className="space-y-3">
+                            <div>
+                              <div className="flex justify-between text-xs mb-1">
+                                <span className="text-gray-500">RAM utilisée</span>
+                                <span className={`font-semibold ${pctColor(h.ramPct)}`}>{h.ramPct}%</span>
+                              </div>
+                              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                                <div className={`h-full rounded-full ${barColorRam(h.ramPct)}`} style={{width:Math.min(100,h.ramPct)+"%"}}/>
+                              </div>
+                            </div>
+                            <div>
+                              <div className="flex justify-between text-xs mb-1">
+                                <span className="text-gray-500">RAM allouée</span>
+                                <span className="font-semibold text-blue-600">{h.allocPct}%</span>
+                              </div>
+                              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                                <div className="h-full rounded-full bg-blue-400" style={{width:Math.min(100,h.allocPct)+"%"}}/>
+                              </div>
+                            </div>
+                          </div>
+                          {/* Right: metrics + badge */}
+                          <div className="flex flex-col justify-center gap-3">
+                            <div className="grid grid-cols-3 gap-2 text-xs">
+                              <div className="rounded-xl bg-gray-50 border border-gray-100 p-2.5 text-center">
+                                <div className={`text-sm font-semibold ${h.freeRamGb<=10?"text-red-600":h.freeRamGb<=30?"text-amber-600":"text-emerald-600"}`}>{h.freeRamGb}GB</div>
+                                <div className="text-[10px] text-gray-400 mt-0.5">Libre</div>
+                              </div>
+                              <div className="rounded-xl bg-gray-50 border border-gray-100 p-2.5 text-center">
+                                <div className={`text-sm font-semibold ${pctColor(h.n1RamPct)}`}>{h.n1RamPct}%</div>
+                                <div className="text-[10px] text-gray-400 mt-0.5">N-1 RAM</div>
+                              </div>
+                              <div className="rounded-xl bg-gray-50 border border-gray-100 p-2.5 text-center">
+                                <div className="text-sm font-semibold text-gray-700">{h.oversub}</div>
+                                <div className="text-[10px] text-gray-400 mt-0.5">Oversub.</div>
+                              </div>
+                            </div>
+                            {statusBadge(h.status)}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Right column */}
+                  <div className="space-y-4">
+                    {/* Équilibrage RAM */}
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-sm font-semibold text-gray-900">Équilibrage cluster (RAM)</h3>
+                        <i className="ti ti-info-circle text-gray-300 text-base"/>
+                      </div>
+                      <div className="space-y-3">
+                        {[...hostWithN1].sort((a,b)=>b.ramPct-a.ramPct).map((h,i)=>(
+                          <div key={i}>
+                            <div className="flex justify-between text-xs mb-1">
+                              <span className="font-medium text-gray-700">{h.name}</span>
+                              <span className={`font-semibold ${pctColor(h.ramPct)}`}>{h.ramPct}%</span>
+                            </div>
+                            <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                              <div className={`h-full rounded-full ${barColorRam(h.ramPct)}`} style={{width:Math.min(100,h.ramPct)+"%"}}/>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex justify-between text-[10px] text-gray-300 mt-3">
+                        <span>0%</span><span>50%</span><span>70%</span><span>85%</span><span>100%</span>
+                      </div>
+                    </div>
+
+                    {/* N-1 RAM */}
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-sm font-semibold text-gray-900">Projection N-1 (perte d'un hôte)</h3>
+                        <i className="ti ti-info-circle text-gray-300 text-base"/>
+                      </div>
+                      <div className="rounded-xl bg-gray-50 p-4 text-center mb-3">
+                        <div className="text-xs text-gray-500 mb-1">RAM projetée</div>
+                        <div className={`text-3xl font-semibold ${pctColor(n1RamPct)}`}>{n1RamPct}%</div>
+                        <div className={`text-xs font-semibold mt-1 ${pctColor(n1RamPct)}`}>
+                          {n1RamPct>=85?"● Critique":n1RamPct>=70?"● Tension":n1RamPct>=50?"● Surveillance":"● Confortable"}
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-400 text-center">
+                        {n1RamPct>=85?"Cluster sous forte pression en cas de perte d'un hôte.":"Cluster résilient en cas de perte d'un hôte."}
+                      </div>
+                      <div className="text-[10px] text-gray-300 text-center mt-1">Basé sur redistribution de la charge RAM</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bottom section */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  {/* Timeline RAM */}
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold text-gray-900">Timeline saturation RAM <span className="font-normal text-gray-400">(estimation)</span></h3>
+                    </div>
+                    <div className="flex items-center gap-2 mb-4">
+                      <span className="text-xs text-gray-500">Croissance :</span>
+                      {[10,20,30].map(r=>(
+                        <button key={r}
+                          onClick={()=>setGrowthRate(r)}
+                          className={`text-xs px-2.5 py-1 rounded-lg border font-semibold transition-colors ${growthRate===r?"bg-violet-50 border-violet-200 text-violet-700":"border-gray-200 text-gray-500 hover:bg-gray-50"}`}>
+                          {r}%/an
+                        </button>
+                      ))}
+                    </div>
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-gray-100">
+                          <th className="text-left text-gray-400 font-medium pb-2">Horizon</th>
+                          <th className="text-center text-gray-400 font-medium pb-2">RAM</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {timeline.map((t,i)=>(
+                          <tr key={i} className="border-b border-gray-50 last:border-0">
+                            <td className="py-2 font-medium text-gray-700">{t.months} mois</td>
+                            <td className="py-2 text-center">
+                              <div className="flex items-center justify-center gap-2">
+                                <div className="w-20 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                  <div className={`h-full rounded-full ${barColorRam(t.ram)}`} style={{width:Math.min(100,t.ram)+"%"}}/>
+                                </div>
+                                <span className={`font-semibold ${pctColor(t.ram)}`}>{t.ram}%</span>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <div className="text-[10px] text-gray-300 italic mt-3">Projection basée sur un taux de croissance estimé — ajustable</div>
+                  </div>
+
+                  {/* VMs surdimensionnées */}
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-4">VMs surdimensionnées <span className="font-normal text-gray-400">(RAM)</span></h3>
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-gray-100">
+                          <th className="text-left text-gray-400 font-medium pb-2">VM</th>
+                          <th className="text-center text-gray-400 font-medium pb-2">Allouée</th>
+                          <th className="text-center text-gray-400 font-medium pb-2">Utilisée</th>
+                          <th className="text-center text-gray-400 font-medium pb-2">Gaspillage</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {oversizedVms.slice(0,5).map((vm,i)=>{
+                          const waste = Math.round(vm.ramGb - vm.usedRamGb);
+                          const wastePct = vm.ramGb > 0 ? Math.round(waste/vm.ramGb*100) : 0;
+                          return (
+                            <tr key={i} className="border-b border-gray-50 last:border-0">
+                              <td className="py-2 font-medium text-gray-700 truncate max-w-[100px]">{vm.name||vm.id}</td>
+                              <td className="py-2 text-center text-gray-600">{vm.ramGb}GB</td>
+                              <td className="py-2 text-center text-gray-600">{vm.usedRamGb}GB</td>
+                              <td className="py-2 text-center">
+                                <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-100 font-semibold">{waste}GB ({wastePct}%)</span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {oversizedVms.length===0&&(
+                          <tr><td colSpan="4" className="py-6 text-center text-gray-400">Aucune VM surdimensionnée détectée.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Indicateurs mémoire */}
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-4">Indicateurs mémoire</h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-xl bg-gray-50 p-3 text-center">
+                        <div className="text-xs text-gray-500 mb-1">Balloon mémoire</div>
+                        <div className="text-xl font-semibold text-emerald-600">0 GB</div>
+                        <div className="text-[10px] text-emerald-500 mt-0.5">● Aucun balloon actif</div>
+                      </div>
+                      <div className="rounded-xl bg-gray-50 p-3 text-center">
+                        <div className="text-xs text-gray-500 mb-1">Swap utilisé</div>
+                        <div className="text-xl font-semibold text-emerald-600">0 GB</div>
+                        <div className="text-[10px] text-emerald-500 mt-0.5">● Aucun swap actif</div>
+                      </div>
+                      <div className="rounded-xl bg-gray-50 p-3 text-center">
+                        <div className="text-xs text-gray-500 mb-1">VMs oversizées</div>
+                        <div className={`text-xl font-semibold ${oversizedVms.length>0?"text-amber-600":"text-emerald-600"}`}>{oversizedVms.length}</div>
+                        <div className="text-[10px] text-gray-400 mt-0.5">allouée &gt; 2× utilisée</div>
+                      </div>
+                      <div className="rounded-xl bg-gray-50 p-3 text-center">
+                        <div className="text-xs text-gray-500 mb-1">RAM récupérable</div>
+                        <div className="text-xl font-semibold text-blue-600">~{recoverableRam} GB</div>
+                        <div className="text-[10px] text-gray-400 mt-0.5">si rightsizing appliqué</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
         </div>
       )}
 
-      {activeTab==="storage"&&(
+{activeTab==="storage"&&(
         <div className="space-y-4">
           {/* KPIs stockage */}
           {datastores.length>0&&(()=>{
