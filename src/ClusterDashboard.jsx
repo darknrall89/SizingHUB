@@ -1902,6 +1902,7 @@ export const mapRvToolsAnalysisToClusterViewModel = (rv) => {
       vcpu: v.vcpu||0,
       cpuOverallMhz: v.cpuOverallMhz||0,
       cpuReadinessPct: v.cpuReadinessPct||0,
+      cpuUsagePct: v.vcpu>0&&v.cpuOverallMhz>0 ? Math.min(99,Math.round(v.cpuOverallMhz/(v.vcpu*2500)*100)) : 0,
       ramGb: v.ramGo||0,
       os: v.os||"N/A",
       powerState: v.powerstate||"poweredOn",
@@ -2576,8 +2577,14 @@ return (
             // N-1 projection
             const worstHost = [...hostList].sort((a,b)=>(Number(b.cpuUsagePct||b.cpuUsagePercent)||0)-(Number(a.cpuUsagePct||a.cpuUsagePercent)||0))[0];
             const remainingHosts = hostList.filter(h=>h.name !== worstHost?.name);
-            const n1CpuPct = remainingHosts.length && worstHost ? Math.round((totalCpu * avgCpuPct/100 + (worstHost.totalCpuCores||avgCoresPerHost) * (Number(worstHost.cpuUsagePct||worstHost.cpuUsagePercent)||0)/100) / (totalCpu - (worstHost.totalCpuCores||avgCoresPerHost)) * 100) : avgCpuPct;
-            const n1RamPct = remainingHosts.length && worstHost ? Math.round((totalRam * avgRamPct/100 + (worstHost.totalRamGb||totalRam/hostList.length) * (Number(worstHost.ramUsagePct||worstHost.ramUsagePercent)||0)/100) / (totalRam - (worstHost.totalRamGb||totalRam/hostList.length)) * 100) : avgRamPct;
+            const worstCpuCores = worstHost?.totalCpuCores || Math.round(totalCpu/hostList.length);
+            const worstRamGb = worstHost?.totalRamGb || Math.round(totalRam/hostList.length);
+            const remainCpu = totalCpu - worstCpuCores;
+            const remainRam = totalRam - worstRamGb;
+            const totalUsedCpu = totalCpu * avgCpuPct / 100;
+            const totalUsedRam = totalRam * avgRamPct / 100;
+            const n1CpuPct = remainCpu > 0 ? Math.min(99, Math.round(totalUsedCpu / remainCpu * 100)) : 99;
+            const n1RamPct = remainRam > 0 ? Math.min(99, Math.round(totalUsedRam / remainRam * 100)) : 99;
 
             // Timeline
             const gr = (growthRate||20)/100;
@@ -2876,7 +2883,7 @@ return (
                         </tr>
                       </thead>
                       <tbody>
-                        {(topCpuConsumers||[]).slice(0,5).map((vm,i)=>{
+                        {[...(topCpuConsumers||[])].sort((a,b)=>(Number(b.cpuUsagePct||b.cpuOverallMhz)||0)-(Number(a.cpuUsagePct||a.cpuOverallMhz)||0)).slice(0,5).map((vm,i)=>{
                           const pct = Number(vm.cpuUsagePct||vm.cpuReadinessPct||vm.cpuPercent||0);
                           const isWin = (vm.os||"").toLowerCase().includes("win");
                           return (
