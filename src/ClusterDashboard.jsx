@@ -2568,8 +2568,13 @@ return (
 
             // Hosts needed
             const totalUsedCores = hostList.reduce((s,h)=>s+(Math.round((Number(h.cpuUsagePct||h.cpuUsagePercent)||0)/100*(h.totalCpuCores||0))),0);
+            const totalUsedRamGb = hostList.reduce((s,h)=>s+(Math.round((Number(h.ramUsagePct||h.ramUsagePercent)||0)/100*(h.totalRamGb||0))),0);
+            const maxCoresPerHost = hostList.length ? Math.max(...hostList.map(h=>h.totalCpuCores||0)) : 0;
+            const maxRamPerHost = hostList.length ? Math.max(...hostList.map(h=>h.totalRamGb||0)) : 0;
             const avgCoresPerHost = hostList.length ? totalCpu/hostList.length : 0;
-            const minHostsNeeded = avgCoresPerHost > 0 ? Math.ceil(totalUsedCores/avgCoresPerHost) : hostList.length;
+            const minHostsByCpu = maxCoresPerHost > 0 ? Math.ceil(totalUsedCores/maxCoresPerHost) : hostList.length;
+            const minHostsByRam = maxRamPerHost > 0 ? Math.ceil(totalUsedRamGb/maxRamPerHost) : hostList.length;
+            const minHostsNeeded = Math.max(minHostsByCpu, minHostsByRam, 1);
             const savedHosts = Math.max(0, hostList.length - minHostsNeeded);
             const savedCores = savedHosts * Math.round(avgCoresPerHost);
             const savedRam = savedHosts * Math.round(totalRam/hostList.length);
@@ -2706,7 +2711,7 @@ return (
                     </div>
                     {hostWithN1.map((h,i)=>(
                       <div key={i} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                        <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr_180px] gap-5 items-center">
+                        <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr_160px] gap-5 items-center">
                           {/* Left: identity */}
                           <div className="flex items-center gap-3">
                             <ServerRackVisual health={h.status==="critical"?"critical":h.status==="warning"?"warning":"healthy"}/>
@@ -2741,21 +2746,22 @@ return (
                             </div>
                           </div>
                           {/* Right: metrics + badge */}
-                          <div className="flex flex-col gap-2">
-                            <div className="grid grid-cols-2 gap-2 text-xs">
-                              <div className="rounded-xl bg-gray-50 p-2 text-center">
-                                <div className={`font-semibold ${h.freeCores<=2?"text-red-600":h.freeCores<=5?"text-amber-600":"text-emerald-600"}`}>{h.freeCores} cores</div>
-                                <div className="text-gray-400">Libre</div>
+                          <div className="flex flex-col justify-center gap-3">
+                            <div className="grid grid-cols-3 gap-2 text-xs">
+                              <div className="rounded-xl bg-gray-50 border border-gray-100 p-2.5 text-center">
+                                <div className={`text-sm font-semibold ${h.freeCores<=2?"text-red-600":h.freeCores<=5?"text-amber-600":"text-emerald-600"}`}>{h.freeCores} cores</div>
+                                <div className="text-[10px] text-gray-400 mt-0.5">Libre</div>
                               </div>
-                              <div className="rounded-xl bg-gray-50 p-2 text-center">
-                                <div className={`font-semibold ${pctColor(h.n1CpuPct)}`}>{h.n1CpuPct}%</div>
-                                <div className="text-gray-400">N-1 CPU</div>
+                              <div className="rounded-xl bg-gray-50 border border-gray-100 p-2.5 text-center">
+                                <div className={`text-sm font-semibold ${pctColor(h.n1CpuPct)}`}>{h.n1CpuPct}%</div>
+                                <div className="text-[10px] text-gray-400 mt-0.5">N-1 CPU</div>
                               </div>
-                              <div className="rounded-xl bg-gray-50 p-2 text-center col-span-2">
-                                <div className="font-semibold text-gray-700">{h.oversub}</div>
-                                <div className="text-gray-400">Oversub. ratio</div>
+                              <div className="rounded-xl bg-gray-50 border border-gray-100 p-2.5 text-center">
+                                <div className="text-sm font-semibold text-gray-700">{h.oversub}</div>
+                                <div className="text-[10px] text-gray-400 mt-0.5">Oversub.</div>
                               </div>
-                            </div>
+                            </div
+>
                             {statusBadge(h.status)}
                           </div>
                         </div>
@@ -2891,7 +2897,7 @@ return (
                               <td className="py-2">
                                 <div className="flex items-center gap-2">
                                   <span className={`text-base ${isWin?"text-blue-500":"text-orange-500"}`}>
-                                    <i className={`ti ${isWin?"ti-brand-windows":"ti-brand-ubuntu"}`}/>
+                                    <i className={`ti ${isWin?"ti-brand-windows":"ti-terminal-2"}`}/>
                                   </span>
                                   <span className="font-medium text-gray-700 truncate max-w-[120px]">{vm.name||vm.id}</span>
                                 </div>
