@@ -1737,6 +1737,7 @@ export const mapRvToolsAnalysisToClusterViewModel = (rv) => {
       coresPerSocket:h.coresPerSocket||0,
       architecture:h.architecture||"N/A",
       tdpWatts:h.tdpWatts||0,
+      vms:h.vms||[],
       status:(h.cpuUsagePct||0)>=80||(h.ramUsagePct||0)>=80?"critical":"healthy",
       warning:(h.ramUsagePct||0)>=80?"RAM critique — risque de contention":null,
     })),
@@ -1984,6 +1985,7 @@ export default function ClusterOverviewDashboard({
   const [activeTab, setActiveTab] = useState("overview");
   const [vmFilter, setVmFilter] = useState("toutes");
   const [vmSearch, setVmSearch] = useState("");
+  const [showAllVms, setShowAllVms] = useState(false);
   const sortedHosts = [...hosts].sort((a,b)=>
     Math.max(b.cpuUsagePercent||0,b.ramUsagePercent||0)-Math.max(a.cpuUsagePercent||0,a.ramUsagePercent||0)
   );
@@ -4220,7 +4222,7 @@ return (
 
 
             const filteredVms = allVms.filter(v=>{
-              const matchSearch = !vmSearch || v.name.toLowerCase().includes(vmSearch.toLowerCase()) || v.hostName.toLowerCase().includes(vmSearch.toLowerCase());
+              const matchSearch = !vmSearch || (v.name||"").toLowerCase().includes(vmSearch.toLowerCase()) || (v.hostName||"").toLowerCase().includes(vmSearch.toLowerCase());
               const matchFilter = vmFilter==="toutes" || (vmFilter==="actives"&&v.powerState==="poweredOn") || (vmFilter==="eteintes"&&v.powerState!=="poweredOn") || (vmFilter==="oversizees"&&v.isOversized);
               return matchSearch && matchFilter;
             });
@@ -4314,7 +4316,7 @@ return (
                           </tr>
                         </thead>
                         <tbody>
-                          {filteredVms.slice(0,10).map((v,i)=>(
+                          {(showAllVms?filteredVms:filteredVms.slice(0,10)).map((v,i)=>(
                             <tr key={i} className={`border-b border-gray-50 last:border-0 ${v.isOversized?"border-l-2 border-l-amber-300":""}`}>
                               <td className="py-2.5 pr-3 font-semibold text-gray-800 truncate max-w-[140px]">{v.name}</td>
                               <td className="py-2.5 pr-3">
@@ -4349,7 +4351,7 @@ return (
                     </div>
                     <div className="mt-3 text-xs text-gray-400">
                       {filteredVms.length > 10 && <span>{filteredVms.length - 10} autres VMs — </span>}
-                      <button className="text-blue-500 hover:underline">Voir toutes les VMs →</button>
+                      <button onClick={()=>setShowAllVms(!showAllVms)} className="text-blue-500 hover:underline">{showAllVms?"Réduire ↑":"Voir toutes les VMs →"}</button>
                     </div>
                   </div>
 
