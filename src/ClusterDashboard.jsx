@@ -2711,7 +2711,7 @@ return (
                     </div>
                     {hostWithN1.map((h,i)=>(
                       <div key={i} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                          <div className="grid grid-cols-1 lg:grid-cols-[270px_1fr_160px] gap-4 items-center">
+                          <div className="grid grid-cols-1 lg:grid-cols-[270px_1fr_190px] gap-4 items-center">
                              {/* Left: identity */}
                              <div className="flex flex-col items-center gap-2">
                                <ServerRackVisual
@@ -3100,7 +3100,7 @@ return (
                     <h3 className="text-lg font-semibold text-gray-900">Utilisation RAM par hôte</h3>
                     {hostWithN1.map((h,i)=>(
                       <div key={i} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                        <div className="grid grid-cols-1 lg:grid-cols-[270px_1fr_160px] gap-4 items-center">
+                        <div className="grid grid-cols-1 lg:grid-cols-[270px_1fr_190px] gap-4 items-center">
                           {/* Left: identity */}
                           <div className="flex flex-col items-center gap-2">
                             <ServerRackVisual compact health={h.status==="critical"?"critical":h.status==="warning"?"warning":"healthy"}/>
