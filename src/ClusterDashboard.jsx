@@ -1735,6 +1735,8 @@ export const mapRvToolsAnalysisToClusterViewModel = (rv) => {
       vendor:h.vendor||"N/A",
       sockets:h.sockets||0,
       coresPerSocket:h.coresPerSocket||0,
+      architecture:h.architecture||"N/A",
+      tdpWatts:h.tdpWatts||0,
       status:(h.cpuUsagePct||0)>=80||(h.ramUsagePct||0)>=80?"critical":"healthy",
       warning:(h.ramUsagePct||0)>=80?"RAM critique — risque de contention":null,
     })),
@@ -2439,9 +2441,11 @@ return (
                           <InfoRow label="Version ESXi" value={selectedHost.esxVersion || selectedHost.version || selectedHost.esxiVersion}/>
                           <InfoRow label="Nombre de VMs" value={hostVmCount}/>
                         <InfoRow label="Modèle CPU" value={selectedHost.cpuModel}/>
+                        <InfoRow label="Architecture" value={selectedHost.architecture||"N/A"}/>
                         <InfoRow label="Sockets" value={selectedHost.sockets||"N/A"}/>
                         <InfoRow label="Cores / socket" value={selectedHost.coresPerSocket||"N/A"}/>
                         <InfoRow label="Total cores" value={selectedHost.totalCpuCores||"N/A"}/>
+                        {selectedHost.tdpWatts>0&&<InfoRow label="TDP" value={selectedHost.tdpWatts+" W"}/>}
                         </div>
 
                         <div className="rounded-2xl border border-gray-100 p-5 min-h-[190px]">

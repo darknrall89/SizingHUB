@@ -530,6 +530,47 @@ Si aucun VMkernel vMotion dédié, detected=false et explique dans note.`;
           } catch(e) {
             parsed.networkInsights = { vmotion:{detected:false,vlan:null,note:"Analyse indisponible"}, insights:[] };
           }
+          // Enrichissement CPU via Claude — architecture, sockets, cores/socket
+          try {
+            const uniqueCpus = [...new Set((parsed.hosts||[]).map(h=>h.cpuModel).filter(Boolean))];
+            if (uniqueCpus.length > 0) {
+              const cpuPrompt = `Tu es un expert en processeurs serveur. Pour chaque modèle CPU listé, retourne UNIQUEMENT un JSON sans markdown ni explication.
+Modèles: ${JSON.stringify(uniqueCpus)}
+Retourne exactement ce format:
+{
+  "<modele_cpu_exact>": {
+    "architecture": "<nom_microarchitecture ex: Ice Lake, Sapphire Rapids, Genoa, Milan, Rome>",
+    "cores_per_socket": <nombre entier>,
+    "typical_sockets": <1 ou 2>,
+    "tdp_watts": <nombre entier>
+  }
+}`;
+              const cpuRes = await fetch("https://api.anthropic.com/v1/messages", {
+                method: "POST",
+                headers: {"Content-Type":"application/json","x-api-key":import.meta.env.VITE_ANTHROPIC_API_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+                body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:1000, messages:[{role:"user",content:cpuPrompt}] })
+              });
+              const cpuData = await cpuRes.json();
+              const cpuText = cpuData.content?.[0]?.text||"{}";
+              const cpuJson = JSON.parse(cpuText.replace(/```json|```/g,"").trim());
+              parsed.cpuEnrichment = cpuJson;
+              // Enrichit les hosts avec les données CPU
+              parsed.hosts = (parsed.hosts||[]).map(h => {
+                const enriched = cpuJson[h.cpuModel] || {};
+                const coresPerSocket = enriched.cores_per_socket || h.coresPerSocket || 0;
+                const sockets = coresPerSocket > 0 ? Math.round(h.cores / coresPerSocket) : (enriched.typical_sockets || h.sockets || 0);
+                return {
+                  ...h,
+                  architecture: enriched.architecture || "N/A",
+                  coresPerSocket: coresPerSocket || h.coresPerSocket,
+                  sockets: sockets || h.sockets,
+                  tdpWatts: enriched.tdp_watts || 0,
+                };
+              });
+            }
+          } catch(e) {
+            console.warn("CPU enrichment failed:", e);
+          }
           results.push(parsed);
         } else {
           results.push({fileName:file.name, error:"Format non reconnu"});
