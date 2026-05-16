@@ -1976,6 +1976,178 @@ const ServerRackVisual = ({ health="healthy", compact=false }) => {
 
 
 
+
+const VmSlideOver = ({ vm, onClose }) => {
+  if (!vm) return null;
+  const isWin = (os) => (os||"").toLowerCase().includes("win");
+  const isActive = vm.powerState === "poweredOn";
+  const ramUsedPct = vm.ramGb > 0 && vm.usedRamGb > 0 ? Math.round(vm.usedRamGb/vm.ramGb*100) : 0;
+  const isOversized = vm.ramGb > 0 && vm.usedRamGb > 0 && vm.usedRamGb/vm.ramGb < 0.5;
+  const recommendedRam = isOversized ? Math.max(1, Math.round(vm.usedRamGb * 1.5)) : null;
+  const recommendedVcpu = vm.cpuUsagePct < 20 && vm.vcpu > 2 ? Math.max(1, Math.round(vm.vcpu/2)) : null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end">
+      <div className="absolute inset-0 bg-black/30" onClick={onClose}/>
+      <div className="relative w-[480px] h-full bg-white shadow-2xl overflow-y-auto flex flex-col">
+        {/* Header */}
+        <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-5 z-10">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h2 className="text-xl font-semibold text-gray-900 truncate">{vm.name}</h2>
+              <div className="flex items-center gap-2 mt-1.5">
+                <i className={`ti ${isWin(vm.os)?"ti-brand-windows text-blue-500":"ti-terminal-2 text-orange-500"} text-base`}/>
+                <span className="text-xs text-gray-500 truncate">{vm.os||"OS inconnu"}</span>
+              </div>
+              <div className="flex items-center gap-3 mt-2 flex-wrap">
+                <span className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-semibold border ${isActive?"bg-emerald-50 text-emerald-700 border-emerald-100":"bg-gray-50 text-gray-500 border-gray-200"}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${isActive?"bg-emerald-500":"bg-gray-400"}`}/>
+                  {isActive?"Active":"Éteinte"}
+                </span>
+                <span className="flex items-center gap-1 text-xs text-gray-500">
+                  <i className="ti ti-server text-gray-400"/>
+                  {vm.hostName||"N/A"}
+                </span>
+              </div>
+            </div>
+            <button onClick={onClose} className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-400 hover:bg-gray-50 flex-shrink-0">
+              <i className="ti ti-x text-base"/>
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 px-6 py-5 space-y-6">
+          {/* Compute */}
+          <div>
+            <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">1. Compute</div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-2xl border border-gray-100 p-4 text-center">
+                <div className="text-xs text-gray-500 mb-2">vCPU alloués</div>
+                <div className="text-3xl font-semibold text-blue-600">{vm.vcpu||0}</div>
+                <div className="text-xs text-gray-400 mt-1">alloués</div>
+              </div>
+              <div className="rounded-2xl border border-gray-100 p-4 text-center">
+                <div className="text-xs text-gray-500 mb-2">CPU utilisé</div>
+                <div className={`text-3xl font-semibold ${vm.cpuUsagePct>=80?"text-red-600":vm.cpuUsagePct>=50?"text-amber-600":"text-blue-600"}`}>{vm.cpuUsagePct||0}%</div>
+                <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-blue-500 rounded-full" style={{width:Math.min(100,vm.cpuUsagePct||0)+"%"}}/>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Mémoire */}
+          <div>
+            <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">2. Mémoire</div>
+            <div className="grid grid-cols-3 gap-3 mb-3">
+              <div className="rounded-2xl border border-gray-100 p-3 text-center">
+                <div className="text-[10px] text-gray-500 mb-1">RAM allouée</div>
+                <div className="text-xl font-semibold text-violet-600">{vm.ramGb||0} GB</div>
+              </div>
+              <div className="rounded-2xl border border-gray-100 p-3 text-center">
+                <div className="text-[10px] text-gray-500 mb-1">RAM utilisée</div>
+                <div className="text-xl font-semibold text-violet-600">{vm.usedRamGb||0} GB</div>
+                {vm.usedRamGb>0&&(
+                  <div className="mt-1.5 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-violet-500 rounded-full" style={{width:ramUsedPct+"%"}}/>
+                  </div>
+                )}
+              </div>
+              <div className="rounded-2xl border border-gray-100 p-3 text-center">
+                <div className="text-[10px] text-gray-500 mb-1">RAM active</div>
+                <div className="text-xl font-semibold text-violet-400">{vm.activeRamGb||"N/A"}{vm.activeRamGb?" GB":""}</div>
+              </div>
+            </div>
+            {isOversized&&(
+              <div className="rounded-xl bg-amber-50 border border-amber-100 p-3 flex items-start gap-2">
+                <i className="ti ti-alert-triangle text-amber-500 text-base flex-shrink-0 mt-0.5"/>
+                <div className="text-xs text-amber-700">
+                  <span className="font-semibold">VM surdimensionnée</span> — RAM allouée {Math.round(vm.ramGb/(vm.usedRamGb||1))}× supérieure à l'utilisation réelle. Recommandation : réduire à {recommendedRam} GB
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Stockage */}
+          <div>
+            <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">3. Stockage</div>
+            <div className="rounded-2xl border border-gray-100 overflow-hidden">
+              {[
+                {icon:"ti-database", label:"Disque total alloué", value:`${vm.diskGb||"N/A"}${vm.diskGb?" GB":""}`},
+                {icon:"ti-layers-subtract", label:"Datastore", value:vm.datastore||"N/A"},
+              ].map((r,i)=>(
+                <div key={i} className="flex items-center justify-between px-4 py-3 border-b border-gray-50 last:border-0">
+                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <i className={`ti ${r.icon} text-gray-400`}/>
+                    {r.label}
+                  </div>
+                  <span className="text-xs font-semibold text-gray-800">{r.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Réseau */}
+          <div>
+            <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">4. Réseau</div>
+            <div className="rounded-2xl border border-gray-100 overflow-hidden">
+              {[
+                {icon:"ti-network", label:"vNIC", value:`${vm.nicCount||1} interface${(vm.nicCount||1)>1?"s":""}`},
+                {icon:"ti-topology-star-3", label:"Port group", value:vm.portGroup||"N/A"},
+              ].map((r,i)=>(
+                <div key={i} className="flex items-center justify-between px-4 py-3 border-b border-gray-50 last:border-0">
+                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <i className={`ti ${r.icon} text-gray-400`}/>
+                    {r.label}
+                  </div>
+                  <span className="text-xs font-semibold text-gray-800">{r.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Rightsizing */}
+          {(isOversized||recommendedVcpu)&&(
+            <div className="rounded-2xl bg-amber-50 border border-amber-100 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <i className="ti ti-trending-down text-amber-600"/>
+                <div className="text-sm font-semibold text-amber-700">5. Recommandation rightsizing</div>
+              </div>
+              <div className="space-y-2">
+                {[
+                  {icon:"ti-current-location", label:"Actuel", value:`RAM ${vm.ramGb} GB / CPU ${vm.vcpu} vCPU`},
+                  {icon:"ti-target", label:"Recommandé", value:`RAM ${recommendedRam||vm.ramGb} GB / CPU ${recommendedVcpu||vm.vcpu} vCPU`},
+                  {icon:"ti-coin", label:"Gain potentiel", value:`${isOversized?`${vm.ramGb-(recommendedRam||vm.ramGb)} GB RAM récupérables`:""}${isOversized&&recommendedVcpu?" · ":""}${recommendedVcpu?`${vm.vcpu-(recommendedVcpu||vm.vcpu)} vCPU libérables`:""}`},
+                ].map((r,i)=>(
+                  <div key={i} className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2 text-amber-600">
+                      <i className={`ti ${r.icon}`}/>
+                      {r.label}
+                    </div>
+                    <span className="font-semibold text-amber-800">{r.value}</span>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between text-xs mt-1 pt-2 border-t border-amber-200">
+                  <span className="text-amber-600">Impact</span>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 font-semibold">Faible risque</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="sticky bottom-0 bg-white border-t border-gray-100 px-6 py-3 flex items-center justify-between">
+          <span className="text-[10px] text-gray-400 flex items-center gap-1">
+            <i className="ti ti-clock text-gray-300"/>
+            Données issues du dernier export RVTools
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function ClusterOverviewDashboard({
   platformContext={}, clusterSummary={}, hosts=[], insights=[],
   osDistrib=[], datastores=[], vlans=[], vSwitches=[], dvSwitches=[], vmOffList=[], uniquePortGroups=[], topMemoryConsumers=[], topCpuConsumers=[], networkData={}, optimizationData={},
@@ -1986,6 +2158,7 @@ export default function ClusterOverviewDashboard({
   const [vmFilter, setVmFilter] = useState("toutes");
   const [vmSearch, setVmSearch] = useState("");
   const [showAllVms, setShowAllVms] = useState(false);
+  const [selectedVm, setSelectedVm] = useState(null);
   const sortedHosts = [...hosts].sort((a,b)=>
     Math.max(b.cpuUsagePercent||0,b.ramUsagePercent||0)-Math.max(a.cpuUsagePercent||0,a.ramUsagePercent||0)
   );
@@ -1994,6 +2167,7 @@ export default function ClusterOverviewDashboard({
   const infos     = insights.filter(i=>i.severity==="info");
 
   return (
+    <>
     <div className="min-h-screen bg-gray-50 font-sans">
       <div className="mb-4 flex items-center justify-between">
         <div className="text-xs text-gray-400 font-mono">
@@ -4331,7 +4505,7 @@ return (
                         </thead>
                         <tbody>
                           {(showAllVms?filteredVms:filteredVms.slice(0,10)).map((v,i)=>(
-                            <tr key={i} className={`border-b border-gray-50 last:border-0 ${v.isOversized?"border-l-2 border-l-amber-300":""}`}>
+                            <tr key={i} onClick={()=>setSelectedVm(v)} className={`border-b border-gray-50 last:border-0 cursor-pointer hover:bg-gray-50 ${v.isOversized?"border-l-2 border-l-amber-300":""}`}>
                               <td className="py-2.5 pr-3 font-semibold text-gray-800 truncate max-w-[140px]">{v.name}</td>
                               <td className="py-2.5 pr-3">
                                 <i className={`ti ${isWin(v.os)?"ti-brand-windows text-blue-500":"ti-terminal-2 text-orange-500"} text-base`}/>
@@ -5075,5 +5249,7 @@ return (
         </div>
       )}
     </div>
+    {selectedVm&&<VmSlideOver vm={selectedVm} onClose={()=>setSelectedVm(null)}/>}
+    </>
   );
 }
