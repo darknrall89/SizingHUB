@@ -4355,6 +4355,7 @@ return (
               activeRamGb: v.activeRamGo||0,
               portGroup: v.portGroup||"N/A",
               nicCount: v.nicCount||1,
+              datastore: v.datastore||"N/A",
             })));
             const offVmsFromList = (vmOffList||[]).map(v=>({
               name: v.name,

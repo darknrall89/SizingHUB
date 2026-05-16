@@ -60,6 +60,7 @@ export default function AuditCalc({ th, isMobile=false }) {
       {id:"dvPort",     label:"dvPort",     desc:"VLANs distribues",      required:false},
       {id:"vSwitch",    label:"vSwitch",    desc:"vSwitches",             required:false},
       {id:"vHBA",       label:"vHBA",       desc:"HBA / FC / WWN",       required:false},
+      {id:"vDisk",      label:"vDisk",      desc:"Disques virtuels / datastores", required:false},
       {id:"vNIC",       label:"vNIC",       desc:"NIC physiques / vitesse", required:false},
       {id:"dvSwitch",   label:"dvSwitch",   desc:"Distributed vSwitches", required:false},
     ];
@@ -114,6 +115,15 @@ export default function AuditCalc({ th, isMobile=false }) {
     const osDistrib = Object.entries(osCount).sort((a,b)=>b[1]-a[1]);
 
     const vSwitchData = getJson("vSwitch");
+    const vDiskData = getJson("vDisk");
+    const vmDiskMap = {};
+    (vDiskData||[]).forEach(d=>{
+      const vm = d["VM"]||d["Name"]||"";
+      if (!vm) return;
+      if (!vmDiskMap[vm]) vmDiskMap[vm] = [];
+      const ds = d["Datastore"]||d["datastore"]||"";
+      if (ds && !vmDiskMap[vm].includes(ds)) vmDiskMap[vm].push(ds);
+    });
     const vNetData = getJson("vNetwork");
     const vmNics = {};
     vNetData.filter(r=>r["Template"]!=="True"&&r["Powerstate"]==="poweredOn").forEach(r=>{
@@ -151,6 +161,7 @@ export default function AuditCalc({ th, isMobile=false }) {
           powerstate: v["Powerstate"],
           portGroup: vmNics[v["VM"]]?.[0]?.network||"N/A",
           nicCount: (vmNics[v["VM"]]||[]).length||1,
+          datastore: (vmDiskMap[v["VM"]]||[])[0]||"N/A",
         })),
       };
     });
