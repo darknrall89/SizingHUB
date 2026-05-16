@@ -3200,12 +3200,6 @@ return (
                       </div>
                       <div className="text-[10px] text-gray-300 text-center mt-1">Basé sur redistribution de la charge RAM</div>
                     </div>
-                  </div>
-                </div>
-
-                {/* Bottom section */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                  {/* Timeline RAM */}
                   <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="text-sm font-semibold text-gray-900">Timeline saturation RAM <span className="font-normal text-gray-400">(estimation)</span></h3>
@@ -3245,8 +3239,12 @@ return (
                     </table>
                     <div className="text-[10px] text-gray-300 italic mt-3">Projection basée sur un taux de croissance estimé — ajustable</div>
                   </div>
+                  </div>
+                </div>
 
-                  {/* VMs surdimensionnées */}
+                {/* Bottom section */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {/* Timeline RAM */}
                   <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
                     <h3 className="text-sm font-semibold text-gray-900 mb-4">VMs surdimensionnées <span className="font-normal text-gray-400">(RAM)</span></h3>
                     <table className="w-full text-xs">
