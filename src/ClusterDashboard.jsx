@@ -2703,7 +2703,7 @@ return (
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-4">
+                <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-4 items-stretch">
                   {/* Host cards */}
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
@@ -2772,7 +2772,7 @@ return (
                   </div>
 
                     {/* Right column */}
-                    <div className="space-y-4 xl:pt-10">
+                    <div className="space-y-4">
                       {/* Équilibrage */}
                       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
                         <div className="flex items-center justify-between mb-4">
@@ -2820,12 +2820,6 @@ return (
                           {n1CpuPct>=85||n1RamPct>=85?"Cluster sous forte pression en cas de perte d'un hôte.":"Cluster résilient en cas de perte d'un hôte."}
                         </div>
                       </div>
-                    </div>
-                </div>
-
-                  {/* Bottom: Timeline + Recommandations + Top VMs */}
-                  <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-                    {/* Timeline */}
                     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
                       <div className="flex items-center justify-between mb-3">
                         <h3 className="text-sm font-semibold text-gray-900">Timeline saturation <span className="font-normal text-gray-400">(estimation)</span></h3>
@@ -2880,7 +2874,11 @@ return (
                         Projection basée sur un taux de croissance estimé — ajustable
                       </div>
                     </div>
+                    </div>
+                </div>
 
+                  {/* Bottom: Timeline + Recommandations + Top VMs */}
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                     {/* Recommandations */}
                     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
                       <h3 className="text-sm font-semibold text-gray-900 mb-4">Recommandations d'optimisation</h3>
