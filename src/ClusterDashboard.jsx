@@ -3651,6 +3651,514 @@ return (
         </div>
       )}
 
+{activeTab==="network"&&(()=>{
+        const nd = networkData||{};
+          const claudeInsights = nd.claudeInsights || null;
+          console.log("🔎 SizingHUB networkData keys:", Object.keys(nd || {}));
+          console.log("🔎 SizingHUB hbaRows:", nd.hbaRows);
+          console.log("🔎 SizingHUB networkData full:", nd);
+        const hostsNics = nd.hostsNics||[];
+          const hbaRows = nd.hbaRows || nd.vHBA || nd.vhba || nd.hba || [];
+        const allVlans = nd.vlans||vlans||[];
+        const allVSwitches = nd.vSwitches||vSwitches||[];
+        const allDvSwitches = nd.dvSwitches||dvSwitches||[];
+        const allPGs = nd.uniquePortGroups||uniquePortGroups||[];
+        const totalNics = hostsNics.reduce((s,h)=>s+(h.nics||0),0);
+        const segments = [...new Map(allVlans.map(v=>[v.name,v])).values()];
+
+          const vmkRows = nd.vmKernel || nd.vmk || nd.vmkernels || nd.vmkernel || nd.vSC_VMK || [];
+          const datastoreRows = nd.datastores || datastores || [];
+
+          const networkText = [
+            ...segments.map(s=>s.name||""),
+            ...allPGs.map(p=>p.portGroup||p.name||p.network||""),
+            ...allVSwitches.map(sw=>sw.name||""),
+            ...allDvSwitches.map(sw=>sw.name||""),
+            ...vmkRows.map(v=>Object.values(v||{}).join(" "))
+          ].join(" ").toLowerCase();
+
+          const datastoreText = datastoreRows
+            .map(d=>Object.values(d||{}).join(" "))
+            .join(" ")
+            .toLowerCase();
+
+          const vmotionNetworks = [...new Set(vmkRows
+            .filter(v=>{
+              const t = Object.values(v||{}).join(" ").toLowerCase();
+              return t.includes("vmotion") || t.includes("v-motion") || t.includes("v motion") || t.includes("migration");
+            })
+            .map(v=>v.portGroup || v["Port Group"] || v.network || v["Network"] || v.name || v["Name"])
+            .filter(Boolean)
+          )];
+
+          const storageNetworks = [...new Set(vmkRows
+            .filter(v=>{
+              const t = Object.values(v||{}).join(" ").toLowerCase();
+              return t.includes("iscsi") || t.includes("nfs") || t.includes("storage") || t.includes("san") || t.includes("vmfs");
+            })
+            .map(v=>v.portGroup || v["Port Group"] || v.network || v["Network"] || v.name || v["Name"])
+            .filter(Boolean)
+          )];
+
+          const hasVmotion =
+            vmotionNetworks.length > 0 ||
+            networkText.includes("vmotion") ||
+            networkText.includes("v-motion") ||
+            networkText.includes("v motion") ||
+            networkText.includes("migration");
+
+          const hasStorage =
+            storageNetworks.length > 0 ||
+            networkText.includes("iscsi") ||
+            networkText.includes("nfs") ||
+            networkText.includes("storage") ||
+            networkText.includes("san") ||
+            networkText.includes("vmfs") ||
+            datastoreText.includes("iscsi") ||
+            datastoreText.includes("nfs") ||
+            datastoreText.includes("vmfs") ||
+            datastoreText.includes("vsan");
+
+          const hasManagement = segments.some(seg=>{
+            const n=(seg.name||"").toLowerCase();
+            return n.includes("mgmt")||n.includes("management")||n.includes("adm");
+          });
+
+          const redundancyScore = hostsNics.length===0 ? 0 : Math.round(
+            hostsNics.filter(h=>(h.nics||0)>=2).length / hostsNics.length * 100
+          );
+
+          let networkScore = 55;
+          if(hasVmotion) networkScore += 10;
+          if(hasStorage) networkScore += 15;
+          if(hasManagement) networkScore += 10;
+          if(redundancyScore>=80) networkScore += 10;
+          networkScore = Math.min(networkScore,100);
+
+          const networkStatus =
+            networkScore>=85 ? "Architecture réseau robuste" :
+            networkScore>=70 ? "Architecture cohérente" :
+            "Architecture à surveiller";
+
+          const networkStatusColor =
+            networkScore>=85 ? "text-emerald-600" :
+            networkScore>=70 ? "text-amber-600" :
+            "text-red-600";
+
+          const networkStatusBg =
+            networkScore>=85 ? "bg-emerald-50 border-emerald-100" :
+            networkScore>=70 ? "bg-amber-50 border-amber-100" :
+            "bg-red-50 border-red-100";
+
+          const networkInsights = [];
+          if(!hasVmotion) networkInsights.push({severity:"warning", text:"Aucun réseau vMotion dédié détecté."});
+          if(!hasStorage) networkInsights.push({severity:"critical", text:"Aucun réseau stockage dédié détecté."});
+          if(!hasManagement) networkInsights.push({severity:"warning", text:"Aucun réseau de management clairement identifié."});
+
+        return (
+          <div className="space-y-4">
+              {/* NETWORK HEALTH */}
+              <div className={"rounded-3xl border shadow-sm p-6 "+networkStatusBg}>
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+                  <div className="flex items-center gap-5">
+                    <div className="relative w-28 h-28 flex-shrink-0">
+                      <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
+                        <circle cx="60" cy="60" r="48" fill="none" stroke="#e5e7eb" strokeWidth="10"/>
+                        <circle
+                          cx="60"
+                          cy="60"
+                          r="48"
+                          fill="none"
+                          stroke={networkScore>=85 ? "#10b981" : networkScore>=70 ? "#f59e0b" : "#ef4444"}
+                          strokeWidth="10"
+                          strokeLinecap="round"
+                          strokeDasharray={301}
+                          strokeDashoffset={301 - (301 * networkScore / 100)}
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <div className={"text-3xl font-bold "+networkStatusColor}>{networkScore}</div>
+                        <div className="text-xs text-gray-400">/100</div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-xs uppercase tracking-widest text-gray-400 mb-1">Network Health</div>
+                      <div className={"text-2xl font-semibold "+networkStatusColor}>{networkStatus}</div>
+                      <div className="text-sm text-gray-500 mt-2 max-w-xl">
+                        Analyse de segmentation, résilience réseau, isolation des flux et cohérence VMware.
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div className="bg-white rounded-2xl border border-gray-100 px-4 py-3 text-center">
+                      <div className="text-2xl font-semibold text-blue-600">{segments.length}</div>
+                      <div className="text-xs text-gray-500 mt-1">Segments</div>
+                    </div>
+                    <div className="bg-white rounded-2xl border border-gray-100 px-4 py-3 text-center">
+                      <div className="text-2xl font-semibold text-indigo-600">{totalNics}</div>
+                      <div className="text-xs text-gray-500 mt-1">NICs</div>
+                    </div>
+                    <div className="bg-white rounded-2xl border border-gray-100 px-4 py-3 text-center">
+                      <div className="text-2xl font-semibold text-emerald-600">{redundancyScore}%</div>
+                      <div className="text-xs text-gray-500 mt-1">Redondance</div>
+                    </div>
+                    <div className="bg-white rounded-2xl border border-gray-100 px-4 py-3 text-center">
+                      <div className={"text-2xl font-semibold "+(hasStorage?"text-emerald-600":"text-red-600")}>{hasStorage ? "OK" : "NON"}</div>
+                      <div className="text-xs text-gray-500 mt-1">Stockage dédié</div>
+                    </div>
+                  </div>
+                </div>
+
+                {networkInsights.length>0&&(
+                  <div className="mt-5 pt-5 border-t border-white/60">
+                    <div className="text-xs uppercase tracking-widest text-gray-400 mb-3">Insights réseau détectés</div>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                      {networkInsights.map((i,idx)=>(
+                        <div key={idx} className={"rounded-2xl border px-4 py-3 flex items-start gap-3 "+(i.severity==="critical"?"bg-red-50 border-red-100":"bg-amber-50 border-amber-100")}>
+                          {i.severity==="critical"
+                            ? <AlertTriangle size={16} className="text-red-500 mt-0.5"/>
+                            : <Info size={16} className="text-amber-500 mt-0.5"/>}
+                          <div className={(i.severity==="critical"?"text-red-700":"text-amber-700")+" text-sm"}>{i.text}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* KPIs Réseau Premium */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+                  <div className="text-xs uppercase tracking-widest text-gray-400 mb-2">Hosts</div>
+                  <div className="text-3xl font-semibold text-gray-800">{hosts.length}</div>
+                  <div className="text-sm text-gray-500 mt-1">Noeuds connectés</div>
+                </div>
+
+                <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+                  <div className="text-xs uppercase tracking-widest text-gray-400 mb-2">NICs physiques</div>
+                  <div className="text-3xl font-semibold text-blue-600">{totalNics}</div>
+                  <div className="text-sm text-gray-500 mt-1">Interfaces réseau</div>
+                </div>
+
+                <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+                  <div className="text-xs uppercase tracking-widest text-gray-400 mb-2">Segments réseau</div>
+                  <div className="text-3xl font-semibold text-violet-600">{segments.length}</div>
+                  <div className="text-sm text-gray-500 mt-1">VLANs / Port Groups</div>
+                </div>
+
+                <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+                  <div className="text-xs uppercase tracking-widest text-gray-400 mb-2">Redondance</div>
+                  <div className={"text-3xl font-semibold "+(redundancyScore>=80?"text-emerald-600":"text-amber-600")}>{redundancyScore}%</div>
+                  <div className="text-sm text-gray-500 mt-1">Résilience réseau</div>
+                </div>
+              </div>
+
+              <NetworkFabric
+                  hosts={hosts.length}
+                  segments={segments.length}
+                  portGroups={allPGs.length}
+                  hasManagement={hasManagement}
+                  hasVmotion={hasVmotion}
+                  hasStorage={hasStorage}
+                  redundancyScore={redundancyScore}
+                  vmKernel={vmkRows}
+                  segmentList={segments}
+                  portGroupList={allPGs}
+                  hostsNics={hostsNics}
+                  hbaRows={hbaRows}
+                />
+
+            {/* Host NICs */}
+            {/* Focus réseau nœud */}
+            {hostsNics.length > 0 && (
+              <FocusReseauNoeud vmkRows={vmkRows} hostsNics={hostsNics} claudeInsights={claudeInsights} />
+            )}
+
+
+
+            {/* VMkernel Adapters */}
+            {vmkRows.length > 0 && (
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-medium text-gray-800">VMkernel Adapters</h3>
+                  <span className="text-xs text-gray-400">{vmkRows.length} adaptateur{vmkRows.length > 1 ? "s" : ""} détecté{vmkRows.length > 1 ? "s" : ""}</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-gray-100">
+                        {["Host","Device","Port Group","VLAN","IP","Subnet","MTU","Rôle"].map(h => (
+                          <th key={h} className="text-left text-gray-400 font-medium pb-2 pr-4 whitespace-nowrap">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {vmkRows.map((vmk, i) => {
+                        const pg = (vmk.portGroup || "").toLowerCase();
+                        const role =
+                          pg.includes("vmotion") || pg.includes("v-motion") ? "vMotion" :
+                          pg.includes("iscsi") || pg.includes("san") || pg.includes("nfs") || pg.includes("storage") ? "Storage" :
+                          pg.includes("management") || pg.includes("mgmt") ? "Management" : "VM";
+                        const roleStyle =
+                          role === "vMotion"    ? "bg-violet-50 text-violet-700 border-violet-200" :
+                          role === "Storage"    ? "bg-orange-50 text-orange-700 border-orange-200" :
+                          role === "Management" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                          "bg-sky-50 text-sky-700 border-sky-200";
+                        const mtuWarn = role === "Storage" && vmk.mtu && vmk.mtu < 9000;
+                        const cidr = vmk.subnet ? vmk.subnet.split(".").map(Number).reduce((a,b) => a + b.toString(2).split("").filter(c=>c==="1").length, 0) : null;
+                        return (
+                          <tr key={i} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                            <td className="py-2 pr-4 font-mono text-gray-700 whitespace-nowrap">{vmk.host || "—"}</td>
+                            <td className="py-2 pr-4 font-mono text-blue-600 whitespace-nowrap">{vmk.device || "—"}</td>
+                            <td className="py-2 pr-4 text-gray-600 whitespace-nowrap">{vmk.portGroup || "—"}</td>
+                            <td className="py-2 pr-4">
+                              {vmk.vlan != null
+                                ? <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded text-gray-700">{vmk.vlan}</span>
+                                : <span className="text-gray-300">—</span>}
+                            </td>
+                            <td className="py-2 pr-4 font-mono text-gray-800 whitespace-nowrap">{vmk.ip || "—"}</td>
+                            <td className="py-2 pr-4 font-mono text-gray-500">{cidr ? `/${cidr}` : "—"}</td>
+                            <td className="py-2 pr-4">
+                              {vmk.mtu
+                                ? <span className={mtuWarn ? "text-amber-600 font-semibold" : "text-gray-600"}>{vmk.mtu}{mtuWarn ? " ⚠" : ""}</span>
+                                : <span className="text-gray-300">—</span>}
+                            </td>
+                            <td className="py-2 pr-4">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${roleStyle}`}>
+                                {role}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                {vmkRows.some(v => (v.portGroup||"").toLowerCase().includes("iscsi") && v.mtu && v.mtu < 9000) && (
+                  <div className="mt-3 flex items-center gap-2 text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
+                    <span>⚠</span>
+                    <span>MTU 1500 détecté sur les interfaces iSCSI — jumbo frames (MTU 9000) recommandés pour optimiser les performances stockage</span>
+                  </div>
+                )}
+              </div>
+            )}
+            {/* Network Segments - vue logique par type */}
+            {(allVlans.length>0||allPGs.length>0)&&(
+              <NetworkSegmentsView
+                segments={(allVlans.length>0?allVlans:allPGs.map(p=>({name:p.portGroup,vlan:p.vlan,switch:p.switch,mtu:null}))).map(s=>({...s,vSwitchName:s.switch}))}
+                totalHosts={hosts.length}
+              />
+            )}
+
+            {/* vSwitches - vue logique regroupée */}
+            {allVSwitches.length>0&&(
+              <VSwitchesView
+                vSwitches={allVSwitches}
+                totalHosts={hosts.length}
+              />
+            )}
+
+            {/* dvSwitches */}
+            {allDvSwitches.length>0&&(
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                <h3 className="text-sm font-medium text-gray-800 mb-4">Distributed vSwitches ({allDvSwitches.length})</h3>
+                {allDvSwitches.map((dv,i)=>(
+                  <div key={i} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
+                    <div>
+                      <div className="text-sm font-semibold text-gray-800">{dv.name} <span className="text-xs text-gray-400">v{dv.version}</span></div>
+                      <div className="text-xs text-gray-400 mt-0.5 truncate max-w-xs">{dv.hosts}</div>
+                    </div>
+                    <div className="text-right text-xs text-gray-500 font-mono">
+                      <div>{dv.vms} VMs · {dv.ports} ports</div>
+                      <div>MTU {dv.mtu}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {allVlans.length===0&&allVSwitches.length===0&&allDvSwitches.length===0&&(
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 text-center py-12">
+                <div className="text-gray-400 text-sm">Aucune donnee reseau detectee</div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      
+{activeTab==="optimization"&&(()=>{
+        const od = optimizationData||{};
+        const score = od.score||0;
+        const scoreColor = score>=80?"text-emerald-500":score>=60?"text-amber-500":"text-red-500";
+        const scoreBg = score>=80?"bg-emerald-500":score>=60?"bg-amber-500":"bg-red-500";
+        const statusLabel = score>=80?"Sain":score>=60?"Warning":"Critique";
+        const recs = od.recommendations||[];
+        const qw = od.quickWins||[];
+        const risks = od.risks||[];
+        const savings = od.savings||{};
+        const catColors = {
+          cleanup:"bg-green-100 text-green-700",
+          balancing:"bg-blue-100 text-blue-700",
+          risk:"bg-red-100 text-red-700",
+          rightsizing:"bg-orange-100 text-orange-700",
+          consolidation:"bg-violet-100 text-violet-700",
+        };
+        const sevColors = {
+          critical:"border-red-200 bg-red-50/30",
+          high:"border-orange-200 bg-orange-50/20",
+          medium:"border-amber-200 bg-amber-50/10",
+          low:"border-gray-100 bg-gray-50",
+        };
+        const effortColors = {low:"bg-emerald-100 text-emerald-700",medium:"bg-amber-100 text-amber-700",high:"bg-red-100 text-red-700"};
+
+        return (
+          <div className="space-y-4">
+            {/* Score + KPIs */}
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+              {/* Score */}
+              <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col items-center justify-center">
+                <div className="text-sm font-semibold text-gray-500 mb-3">Optimization Score</div>
+                <div className="relative w-32 h-32 mb-3">
+                  <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+                    <circle cx="50" cy="50" r="40" fill="none" stroke="#f1f5f9" strokeWidth="10"/>
+                    <circle cx="50" cy="50" r="40" fill="none" stroke={score>=80?"#10b981":score>=60?"#f59e0b":"#ef4444"} strokeWidth="10"
+                      strokeDasharray={`${score*2.51} 251`} strokeLinecap="round"/>
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className={"text-3xl font-medium "+scoreColor}>{score}</span>
+                    <span className="text-xs text-gray-400">/ 100</span>
+                  </div>
+                </div>
+                <div className={"text-sm font-medium "+scoreColor}>{statusLabel}</div>
+                <div className="text-xs text-gray-400 mt-1">{od.optimizationPotentialPercent||0}% d optimisation possible</div>
+              </div>
+              {/* KPIs */}
+              <div className="lg:col-span-3 grid grid-cols-2 gap-3">
+                {[
+                  {label:"VMs inactives",     val:od.idleVmCount||0,    sub:"depuis +20 jours",      icon:"🔴", bg:"bg-red-50",   text:"text-red-600"},
+                  {label:"Total VMs",          val:od.totalVmCount||0,   sub:"inventaire complet",    icon:"🖥️", bg:"bg-blue-50",  text:"text-blue-600"},
+                  {label:"Hosts en tension",   val:risks.length,         sub:"RAM ou CPU critique",   icon:"⚠️", bg:"bg-amber-50", text:"text-amber-600"},
+                  {label:"Recommandations",    val:recs.length,          sub:"actions identifiees",   icon:"💡", bg:"bg-violet-50",text:"text-violet-600"},
+                ].map(k=>(
+                  <div key={k.label} className={"rounded-xl p-4 "+k.bg}>
+                    <div className="text-lg mb-1">{k.icon}</div>
+                    <div className={"text-2xl font-medium "+k.text}>{k.val}</div>
+                    <div className="text-xs font-semibold text-gray-700 mt-0.5">{k.label}</div>
+                    <div className="text-xs text-gray-400">{k.sub}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Quick Wins + Savings */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Quick Wins */}
+              {qw.length>0&&(
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                  <h3 className="text-sm font-medium text-gray-800 mb-3">Quick Wins</h3>
+                  <div className="space-y-3">
+                    {qw.map(q=>(
+                      <div key={q.id} className="flex items-start gap-3 p-3 rounded-xl bg-emerald-50 border border-emerald-100">
+                        <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <Zap size={14} className="text-emerald-600"/>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-gray-800">{q.title}</div>
+                          <div className="text-xs text-gray-500 mt-0.5">{q.description}</div>
+                          <div className="flex items-center gap-2 mt-1.5">
+                            <span className="text-xs font-semibold text-emerald-600">{q.gain}</span>
+                            <span className={"text-xs px-2 py-0.5 rounded-full font-medium "+(effortColors[q.effortLevel]||effortColors.medium)}>
+                              Effort {q.effortLevel}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Potential Savings */}
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                <h3 className="text-sm font-medium text-gray-800 mb-3">Potential Savings</h3>
+                <div className="space-y-3">
+                  {[
+                    {label:"CPU recuperable",     val:(savings.reclaimableCpu||0)+" vCPU",     color:"text-blue-600",   bg:"bg-blue-50"},
+                    {label:"RAM recuperable",      val:(savings.reclaimableRamGb||0)+" Go",      color:"text-orange-500", bg:"bg-orange-50"},
+                    {label:"Stockage recuperable", val:(savings.reclaimableStorageTb||0)+" To",  color:"text-emerald-600",bg:"bg-emerald-50"},
+                    {label:"Reduction hosts",      val:savings.potentialHostReduction>0?(savings.potentialHostReduction+" host(s)"):"Aucune",color:"text-violet-600",bg:"bg-violet-50"},
+                  ].map(k=>(
+                    <div key={k.label} className={"flex items-center justify-between p-3 rounded-xl "+k.bg}>
+                      <span className="text-sm text-gray-600">{k.label}</span>
+                      <span className={"text-lg font-medium "+k.color}>{k.val}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Recommendations */}
+            {recs.length>0&&(
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                <h3 className="text-sm font-medium text-gray-800 mb-3">Recommendations</h3>
+                <div className="space-y-3">
+                  {recs.map(r=>(
+                    <div key={r.id} className={"flex items-start gap-4 p-4 rounded-xl border "+( sevColors[r.severity]||sevColors.low)}>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <span className={"text-xs px-2 py-0.5 rounded-full font-semibold "+(catColors[r.category]||catColors.cleanup)}>{r.category}</span>
+                          <span className="text-sm font-medium text-gray-800">{r.title}</span>
+                        </div>
+                        <div className="text-xs text-gray-500 mb-2">{r.description}</div>
+                        <div className="text-xs text-gray-600 font-medium">{"→ "+r.recommendation}</div>
+                        {(r.estimatedGainCpu>0||r.estimatedGainRam>0||r.estimatedGainStorage>0)&&(
+                          <div className="flex gap-3 mt-2">
+                            {r.estimatedGainCpu>0&&<span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">{r.estimatedGainCpu} vCPU</span>}
+                            {r.estimatedGainRam>0&&<span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-medium">{r.estimatedGainRam} Go RAM</span>}
+                            {r.estimatedGainStorage>0&&<span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium">{r.estimatedGainStorage} To</span>}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-xs text-gray-400 whitespace-nowrap">{r.affectedObjectsCount} objet(s)</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Risks */}
+            {risks.length>0&&(
+              <div className="bg-white rounded-2xl border border-red-100 shadow-sm p-5">
+                <h3 className="text-sm font-medium text-gray-800 mb-3">Risks</h3>
+                <div className="space-y-2">
+                  {risks.map(r=>(
+                    <div key={r.id} className="flex items-start gap-3 p-3 rounded-xl bg-red-50 border border-red-100">
+                      <AlertTriangle size={15} className="text-red-500 flex-shrink-0 mt-0.5"/>
+                      <div>
+                        <div className="text-sm font-medium text-gray-800">{r.title}</div>
+                        <div className="text-xs text-gray-500 mt-0.5">{r.description}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {recs.length===0&&qw.length===0&&risks.length===0&&(
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 text-center py-12">
+                <div className="text-4xl mb-3">✅</div>
+                <div className="text-sm font-semibold text-gray-700">Infrastructure saine</div>
+                <div className="text-xs text-gray-400 mt-1">Aucune recommandation d optimisation identifiee</div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      
 {activeTab==="vms"&&(
         <div className="space-y-4">
           {osDistrib.length>0&&(
