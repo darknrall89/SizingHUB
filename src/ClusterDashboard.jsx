@@ -4351,6 +4351,8 @@ return (
               cpuUsagePct: v.vcpu>0&&v.cpuOverallMhz>0?Math.min(99,Math.round(v.cpuOverallMhz/(v.vcpu*2500)*100)):0,
               isOversized: v.ramGo>0&&v.usedRamGo>0&&v.usedRamGo/v.ramGo<0.5,
               wasteGb: Math.max(0,(v.ramGo||0)-(v.usedRamGo||0)),
+              diskGb: v.diskGo||0,
+              activeRamGb: v.activeRamGo||0,
             })));
             const offVmsFromList = (vmOffList||[]).map(v=>({
               name: v.name,
