@@ -4353,6 +4353,8 @@ return (
               wasteGb: Math.max(0,(v.ramGo||0)-(v.usedRamGo||0)),
               diskGb: v.diskGo||0,
               activeRamGb: v.activeRamGo||0,
+              portGroup: v.portGroup||"N/A",
+              nicCount: v.nicCount||1,
             })));
             const offVmsFromList = (vmOffList||[]).map(v=>({
               name: v.name,

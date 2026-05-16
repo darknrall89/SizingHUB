@@ -143,6 +143,8 @@ export default function AuditCalc({ th, isMobile=false }) {
           os: v["OS according to the VMware Tools"]||"N/A",
           diskGo: Math.round((v["Total disk capacity MiB"]||0)/1024),
           powerstate: v["Powerstate"],
+          portGroup: vmNics[v["VM"]]?.[0]?.network||"N/A",
+          nicCount: (vmNics[v["VM"]]||[]).length||1,
         })),
       };
     });
