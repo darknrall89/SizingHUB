@@ -4166,7 +4166,7 @@ return (
 {activeTab==="vms"&&(
         <div className="space-y-4">
           {(()=>{
-            const allVms = (hosts||[]).flatMap(h=>(h.vms||[]).map(v=>({
+            const activeVmsFromHosts = (hosts||[]).flatMap(h=>(h.vms||[]).map(v=>({
               name: v.name,
               hostName: h.shortName,
               vcpu: v.vcpu||0,
@@ -4178,6 +4178,20 @@ return (
               isOversized: v.ramGo>0&&v.usedRamGo>0&&v.usedRamGo/v.ramGo<0.5,
               wasteGb: Math.max(0,(v.ramGo||0)-(v.usedRamGo||0)),
             })));
+            const offVmsFromList = (vmOffList||[]).map(v=>({
+              name: v.name,
+              hostName: v.host||"N/A",
+              vcpu: v.cpu||0,
+              ramGb: v.ramGo||0,
+              usedRamGb: 0,
+              os: v.os||"N/A",
+              powerState: "poweredOff",
+              cpuUsagePct: 0,
+              isOversized: false,
+              wasteGb: 0,
+              daysSince: v.daysSince||null,
+            }));
+            const allVms = [...activeVmsFromHosts, ...offVmsFromList];
 
             const offVms = vmOffList||[];
             const activeVmsList = allVms.filter(v=>v.powerState==="poweredOn");
