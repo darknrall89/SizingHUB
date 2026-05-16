@@ -3313,783 +3313,335 @@ return (
 
 {activeTab==="storage"&&(
         <div className="space-y-4">
-          {/* KPIs stockage */}
-          {datastores.length>0&&(()=>{
-            const critical = datastores.filter(d=>Math.round(d.inUseMib/(d.capMib||1)*100)>=80).length;
-            const warning  = datastores.filter(d=>{const p=Math.round(d.inUseMib/(d.capMib||1)*100);return p>=60&&p<80;}).length;
-            const healthy  = datastores.length - critical - warning;
-            const totalGo  = datastores.reduce((s,d)=>s+(d.capMib||0),0)/1024;
-            const usedGo   = datastores.reduce((s,d)=>s+(d.inUseMib||0),0)/1024;
+          {(()=>{
+            const dsList = datastores || [];
+            const totalCapMib = dsList.reduce((s,d)=>s+(d.capMib||0),0);
+            const totalUsedMib = dsList.reduce((s,d)=>s+(d.inUseMib||0),0);
+            const totalFreeMib = totalCapMib - totalUsedMib;
+            const avgUsedPct = totalCapMib > 0 ? Math.round(totalUsedMib/totalCapMib*100) : 0;
+            const totalCapTb = (totalCapMib/1024/1024).toFixed(1);
+            const totalUsedTb = (totalUsedMib/1024/1024).toFixed(1);
+            const totalFreeTb = (totalFreeMib/1024/1024).toFixed(1);
+
+            const criticalDs = dsList.filter(d=>d.capMib>0&&Math.round(d.inUseMib/d.capMib*100)>=80);
+            const warningDs = dsList.filter(d=>d.capMib>0&&Math.round(d.inUseMib/d.capMib*100)>=60&&Math.round(d.inUseMib/d.capMib*100)<80);
+
+            const storageScore = (() => {
+              if (avgUsedPct >= 85) return 30;
+              if (avgUsedPct >= 70) return 55;
+              if (avgUsedPct >= 60) return 70;
+              return 85;
+            })();
+            const scoreLabel = storageScore >= 80 ? "Stockage sain" : storageScore >= 60 ? "Surveillance recommandée" : storageScore >= 40 ? "Capacité critique" : "Action urgente";
+            const scoreSub = storageScore >= 80 ? "Capacité confortable" : storageScore >= 60 ? "Capacité à surveiller" : "Migration recommandée";
+
+            const gr = (growthRate||20)/100;
+            const daysToSat = totalFreeMib > 0 && totalUsedMib > 0
+              ? Math.round(totalFreeMib / (totalUsedMib * gr / 365))
+              : 999;
+
+            const timeline = [3,6,12].map(m=>({
+              months: m,
+              pct: Math.min(99, Math.round(avgUsedPct*(1+gr*m/12))),
+            }));
+
+            const vmfsDs = dsList.filter(d=>(d.type||"").toUpperCase().includes("VMFS"));
+            const nfsDs = dsList.filter(d=>(d.type||"").toUpperCase().includes("NFS"));
+            const vmfsCap = (vmfsDs.reduce((s,d)=>s+(d.capMib||0),0)/1024/1024).toFixed(1);
+            const nfsCap = (nfsDs.reduce((s,d)=>s+(d.capMib||0),0)/1024/1024).toFixed(1);
+
+            const pctColor = (p) => p>=80?"text-red-600":p>=60?"text-amber-600":"text-emerald-600";
+            const barColor = (p) => p>=80?"bg-red-500":p>=60?"bg-amber-400":"bg-emerald-500";
+
+            const fmtMib = (mib) => {
+              if (mib >= 1024*1024) return (mib/1024/1024).toFixed(1)+" To";
+              return (mib/1024).toFixed(0)+" GB";
+            };
+
+            const dsWithPct = dsList.map(d=>({
+              ...d,
+              pct: d.capMib>0 ? Math.round(d.inUseMib/d.capMib*100) : 0,
+            })).sort((a,b)=>b.pct-a.pct);
+
+            const topCritical = dsWithPct.slice(0,4);
+
             return (
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
-                {[
-                  {label:"Datastores",   val:datastores.length,        sub:"total",              bg:"bg-gradient-to-br from-slate-500 to-slate-700"},
-                  {label:"Sains",        val:healthy,                   sub:"< 60% utilise",      bg:"bg-gradient-to-br from-emerald-500 to-emerald-700"},
-                  {label:"En tension",   val:warning,                   sub:"60-80% utilise",     bg:"bg-gradient-to-br from-amber-400 to-amber-600"},
-                  {label:"Critiques",    val:critical,                  sub:">= 80% utilise",     bg:"bg-gradient-to-br from-red-500 to-red-700"},
-                ].map(k=>(
-                  <div key={k.label} className={"rounded-2xl p-5 text-white border border-white/10 "+k.bg}>
-                    <div className="text-xs font-semibold uppercase tracking-widest opacity-70 mb-1">{k.label}</div>
-                    <div className="text-3xl font-medium">{k.val}</div>
-                    <div className="text-xs opacity-60 mt-1">{k.sub}</div>
+              <>
+                {/* KPI Bar */}
+                <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+                  {[
+                    {icon:"ti-database", label:"TOTAL CAPACITÉ", value:`${totalCapTb} To`, sub:"cluster total"},
+                    {icon:"ti-chart-pie", label:"CAPACITÉ UTILISÉE", value:`${totalUsedTb} To`, sub:`${avgUsedPct}% du total`, color:"text-amber-600"},
+                    {icon:"ti-circle-check", label:"CAPACITÉ LIBRE", value:`${totalFreeTb} To`, sub:"disponible", color:"text-emerald-600"},
+                    {icon:"ti-layers-subtract", label:"DATASTORES", value:dsList.length, sub:"volumes montés"},
+                  ].map((k,i)=>(
+                    <div key={i} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">
+                          <i className={`ti ${k.icon} text-emerald-600 text-base`}/>
+                        </div>
+                        <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">{k.label}</div>
+                      </div>
+                      <div className={`text-2xl font-semibold ${k.color||"text-gray-900"}`}>{k.value}</div>
+                      <div className={`text-xs mt-1 ${k.color?"font-semibold "+k.color:"text-gray-500"}`}>{k.sub}</div>
+                    </div>
+                  ))}
+                  {/* Storage Score */}
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center gap-4">
+                    <div className="relative w-16 h-16 flex-shrink-0">
+                      <svg viewBox="0 0 36 36" className="w-16 h-16 -rotate-90">
+                        <circle cx="18" cy="18" r="15.9" fill="none" stroke="#f1f5f9" strokeWidth="3"/>
+                        <circle cx="18" cy="18" r="15.9" fill="none"
+                          stroke={storageScore>=80?"#10b981":storageScore>=60?"#f59e0b":"#ef4444"}
+                          strokeWidth="3"
+                          strokeDasharray={`${storageScore} ${100-storageScore}`}
+                          strokeLinecap="round"/>
+                      </svg>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-sm font-bold text-gray-900">{storageScore}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">STORAGE SCORE</div>
+                      <div className={`text-sm font-semibold mt-1 ${storageScore>=80?"text-emerald-600":storageScore>=60?"text-amber-600":"text-red-600"}`}>{scoreLabel}</div>
+                      <div className="text-xs text-gray-500 mt-0.5">{scoreSub}</div>
+                    </div>
                   </div>
-                ))}
-              </div>
+                </div>
+
+                {/* Banner */}
+                <div className={`border rounded-2xl p-5 flex flex-col lg:flex-row lg:items-center gap-5 ${criticalDs.length>0?"bg-amber-50 border-amber-100":"bg-emerald-50 border-emerald-100"}`}>
+                  <div className="flex items-center gap-4 flex-1">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${criticalDs.length>0?"bg-amber-100":"bg-emerald-100"}`}>
+                      <i className={`ti ${criticalDs.length>0?"ti-alert-triangle text-amber-600":"ti-shield-check text-emerald-600"} text-xl`}/>
+                    </div>
+                    <div>
+                      <div className={`text-lg font-semibold ${criticalDs.length>0?"text-amber-700":"text-emerald-700"}`}>
+                        {criticalDs.length>0?"Stockage sous surveillance":"Stockage sain"}
+                      </div>
+                      <div className={`text-sm ${criticalDs.length>0?"text-amber-600":"text-emerald-600"}`}>
+                        {criticalDs.length>0?`${criticalDs.length} datastore${criticalDs.length>1?"s":""} dépassent 80% de capacité`:"Tous les datastores sont dans les limites acceptables"}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-4">
+                    <div className="bg-white/80 rounded-xl px-5 py-3 text-center">
+                      <div className={`text-xl font-semibold ${pctColor(avgUsedPct)}`}>{avgUsedPct}%</div>
+                      <div className="text-xs text-gray-500">Utilisation moyenne</div>
+                    </div>
+                    <div className="bg-white/80 rounded-xl px-5 py-3 text-center">
+                      <div className={`text-xl font-semibold ${daysToSat<60?"text-red-600":daysToSat<120?"text-amber-600":"text-emerald-600"}`}>
+                        {daysToSat>=999?"∞":daysToSat+"j"}
+                      </div>
+                      <div className="text-xs text-gray-500">Jours avant saturation</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Main grid */}
+                <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-4">
+                  {/* Datastores table */}
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                    <div className="flex items-center gap-2 mb-4">
+                      <i className="ti ti-database text-gray-400 text-lg"/>
+                      <h3 className="text-lg font-semibold text-gray-900">Datastores</h3>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-gray-100">
+                            {["Nom","Type","Capacité","Utilisé","Libre","Utilisation","Hôtes","VMs"].map(h=>(
+                              <th key={h} className="text-left text-gray-400 font-medium pb-3 pr-3 whitespace-nowrap">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {dsWithPct.map((d,i)=>(
+                            <tr key={i} className="border-b border-gray-50 last:border-0">
+                              <td className="py-2.5 pr-3 font-semibold text-gray-800 whitespace-nowrap">{d.name}</td>
+                              <td className="py-2.5 pr-3">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${(d.type||"").toUpperCase().includes("NFS")?"bg-violet-50 text-violet-700 border border-violet-100":"bg-blue-50 text-blue-700 border border-blue-100"}`}>
+                                  {d.type||"VMFS"}
+                                </span>
+                              </td>
+                              <td className="py-2.5 pr-3 text-gray-600">{fmtMib(d.capMib)}</td>
+                              <td className="py-2.5 pr-3 text-gray-600">{fmtMib(d.inUseMib)}</td>
+                              <td className="py-2.5 pr-3 text-gray-600">{fmtMib(d.capMib-d.inUseMib)}</td>
+                              <td className="py-2.5 pr-3">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                    <div className={`h-full rounded-full ${barColor(d.pct)}`} style={{width:Math.min(100,d.pct)+"%"}}/>
+                                  </div>
+                                  <span className={`font-semibold ${pctColor(d.pct)}`}>{d.pct}%</span>
+                                </div>
+                              </td>
+                              <td className="py-2.5 pr-3 text-gray-600 text-center">{d.hosts||0}</td>
+                              <td className="py-2.5 text-gray-600 text-center">{d.vms||0}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Right column */}
+                  <div className="space-y-4">
+                    {/* Répartition par type */}
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                      <h3 className="text-sm font-semibold text-gray-900 mb-4">Répartition par type</h3>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="rounded-xl bg-blue-50 border border-blue-100 p-3 text-center">
+                          <div className="text-2xl font-semibold text-blue-700">{vmfsDs.length}</div>
+                          <div className="text-xs font-semibold text-blue-600 mt-1">VMFS</div>
+                          <div className="text-xs text-blue-500 mt-0.5">{vmfsCap} To</div>
+                        </div>
+                        <div className="rounded-xl bg-violet-50 border border-violet-100 p-3 text-center">
+                          <div className="text-2xl font-semibold text-violet-700">{nfsDs.length}</div>
+                          <div className="text-xs font-semibold text-violet-600 mt-1">NFS</div>
+                          <div className="text-xs text-violet-500 mt-0.5">{nfsCap} To</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Top critiques */}
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                      <h3 className="text-sm font-semibold text-gray-900 mb-4">Top datastores critiques</h3>
+                      <div className="space-y-3">
+                        {topCritical.map((d,i)=>(
+                          <div key={i}>
+                            <div className="flex justify-between text-xs mb-1">
+                              <span className="font-medium text-gray-700 truncate max-w-[160px]">{d.name}</span>
+                              <span className={`font-semibold ${pctColor(d.pct)}`}>{d.pct}%</span>
+                            </div>
+                            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                              <div className={`h-full rounded-full ${barColor(d.pct)}`} style={{width:Math.min(100,d.pct)+"%"}}/>
+                            </div>
+                            <div className="text-[10px] text-gray-400 mt-0.5">{fmtMib(d.capMib-d.inUseMib)} libre</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Timeline stockage */}
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                      <h3 className="text-sm font-semibold text-gray-900 mb-3">Timeline saturation <span className="font-normal text-gray-400">(estimation)</span></h3>
+                      <div className="flex items-center gap-2 mb-4">
+                        <span className="text-xs text-gray-500">Croissance :</span>
+                        {[10,20,30].map(r=>(
+                          <button key={r}
+                            onClick={()=>setGrowthRate(r)}
+                            className={`text-xs px-2.5 py-1 rounded-lg border font-semibold transition-colors ${growthRate===r?"bg-emerald-50 border-emerald-200 text-emerald-700":"border-gray-200 text-gray-500 hover:bg-gray-50"}`}>
+                            {r}%/an
+                          </button>
+                        ))}
+                      </div>
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-gray-100">
+                            <th className="text-left text-gray-400 font-medium pb-2">Horizon</th>
+                            <th className="text-center text-gray-400 font-medium pb-2">Utilisation</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {timeline.map((t,i)=>(
+                            <tr key={i} className="border-b border-gray-50 last:border-0">
+                              <td className="py-2 font-medium text-gray-700">{t.months} mois</td>
+                              <td className="py-2 text-center">
+                                <div className="flex items-center justify-center gap-2">
+                                  <div className="w-20 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                    <div className={`h-full rounded-full ${barColor(t.pct)}`} style={{width:Math.min(100,t.pct)+"%"}}/>
+                                  </div>
+                                  <span className={`font-semibold ${pctColor(t.pct)}`}>{t.pct}%</span>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <div className="text-[10px] text-gray-300 italic mt-3">Projection basée sur un taux de croissance estimé — ajustable</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bottom */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {/* VMs par datastore */}
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-4">VMs par datastore <span className="font-normal text-gray-400">(Top 5)</span></h3>
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-gray-100">
+                          <th className="text-left text-gray-400 font-medium pb-2">Datastore</th>
+                          <th className="text-center text-gray-400 font-medium pb-2">VMs hébergées</th>
+                          <th className="text-right text-gray-400 font-medium pb-2">Espace moyen/VM</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {dsWithPct.filter(d=>d.vms>0).slice(0,5).map((d,i)=>{
+                          const avgPerVm = d.vms>0 ? Math.round(d.inUseMib/d.vms/1024) : 0;
+                          return (
+                            <tr key={i} className="border-b border-gray-50 last:border-0">
+                              <td className="py-2.5 font-medium text-gray-700 truncate max-w-[150px]">{d.name}</td>
+                              <td className="py-2.5 text-center">
+                                <div className="flex items-center justify-center gap-2">
+                                  <div className="w-20 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                    <div className="h-full rounded-full bg-blue-400" style={{width:Math.min(100,d.vms/Math.max(...dsWithPct.map(x=>x.vms||0))*100)+"%"}}/>
+                                  </div>
+                                  <span className="text-gray-700 font-semibold">{d.vms}</span>
+                                </div>
+                              </td>
+                              <td className="py-2.5 text-right text-gray-600">{avgPerVm} GB</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Recommandations stockage */}
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-4">Recommandations stockage</h3>
+                    <div className="space-y-3">
+                      {criticalDs.slice(0,2).map((d,i)=>(
+                        <div key={i} className="flex items-start gap-3 py-2 border-b border-gray-50">
+                          <span className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0 bg-red-500"/>
+                          <div className="flex-1">
+                            <div className="text-xs font-semibold text-gray-800">{d.name} critique — migration recommandée</div>
+                            <div className="text-[10px] text-gray-400 mt-0.5">Le datastore dépasse {d.pct}% de capacité.</div>
+                          </div>
+                          <span className="text-[11px] px-2 py-0.5 rounded-full border bg-red-50 text-red-700 border-red-100 font-semibold flex-shrink-0">Impact: Élevé</span>
+                        </div>
+                      ))}
+                      {warningDs.slice(0,2).map((d,i)=>(
+                        <div key={i} className="flex items-start gap-3 py-2 border-b border-gray-50">
+                          <span className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0 bg-amber-400"/>
+                          <div className="flex-1">
+                            <div className="text-xs font-semibold text-gray-800">{d.name} à surveiller</div>
+                            <div className="text-[10px] text-gray-400 mt-0.5">Utilisation à {d.pct}% — prévoir extension.</div>
+                          </div>
+                          <span className="text-[11px] px-2 py-0.5 rounded-full border bg-amber-50 text-amber-700 border-amber-100 font-semibold flex-shrink-0">Impact: Moyen</span>
+                        </div>
+                      ))}
+                      {daysToSat<120&&(
+                        <div className="flex items-start gap-3 py-2">
+                          <span className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0 bg-blue-400"/>
+                          <div className="flex-1">
+                            <div className="text-xs font-semibold text-gray-800">Prévoir extension capacité dans {daysToSat}j</div>
+                            <div className="text-[10px] text-gray-400 mt-0.5">La tendance indique un dépassement à ~{daysToSat} jours.</div>
+                          </div>
+                          <span className="text-[11px] px-2 py-0.5 rounded-full border bg-blue-50 text-blue-700 border-blue-100 font-semibold flex-shrink-0">Planification</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </>
             );
           })()}
-            {/* STORAGE_PREMIUM_SUMMARY */}
-            {datastores.length>0&&(()=>{
-              const fmtGo = (mib=0) => Math.round((mib||0)/1024);
-              const fmtTo = (mib=0) => ((mib||0)/1024/1024).toFixed(1);
-
-              const estimateDailyGrowthGo = (d, usedPct, vmCount) => {
-                const capGo = fmtGo(d.capMib||0);
-                const base = Math.max(2, Math.round(capGo * 0.0015));
-                const pressure = usedPct >= 85 ? 2.2 : usedPct >= 75 ? 1.6 : usedPct >= 60 ? 1.2 : 0.8;
-                const vmFactor = vmCount >= 50 ? 1.5 : vmCount >= 20 ? 1.25 : vmCount >= 10 ? 1.1 : 1;
-                return Math.max(1, Math.round(base * pressure * vmFactor));
-              };
-
-              const enriched = datastores.map(d=>{
-                const usedPct = d.capMib>0 ? Math.round((d.inUseMib/d.capMib)*100) : 0;
-                const freeMib = Math.max((d.capMib||0)-(d.inUseMib||0),0);
-                const vmCount = Number(d.vmCount || d.vms || d.vm || d.nbVm || 0);
-                const dailyGrowthGo = estimateDailyGrowthGo(d, usedPct, vmCount);
-                const daysToFull = dailyGrowthGo > 0 ? Math.round(fmtGo(freeMib)/dailyGrowthGo) : null;
-
-                const risk =
-                  usedPct >= 85 || (daysToFull !== null && daysToFull <= 30) ? "critical" :
-                  usedPct >= 75 || (daysToFull !== null && daysToFull <= 60) ? "warning" :
-                  "healthy";
-
-                return {...d, usedPct, freeMib, vmCount, dailyGrowthGo, daysToFull, risk};
-              }).sort((a,b)=>b.usedPct-a.usedPct);
-
-              const maxDs = enriched[0];
-              const healthyCount = enriched.filter(d=>d.risk==="healthy").length;
-              const warningCount = enriched.filter(d=>d.risk==="warning").length;
-              const criticalCount = enriched.filter(d=>d.risk==="critical").length;
-              const totalMib = enriched.reduce((s,d)=>s+(d.capMib||0),0);
-              const usedMib = enriched.reduce((s,d)=>s+(d.inUseMib||0),0);
-              const freeMib = Math.max(totalMib-usedMib,0);
-              const globalPct = totalMib>0 ? Math.round(usedMib/totalMib*100) : 0;
-
-              const nearestSaturation = enriched
-                .filter(d=>d.daysToFull !== null && d.daysToFull > 0)
-                .sort((a,b)=>a.daysToFull-b.daysToFull)[0];
-
-              const impactedVms = enriched
-                .filter(d=>d.risk==="critical")
-                .reduce((s,d)=>s+(Number(d.vmCount)||0),0);
-
-              const status =
-                criticalCount>0 ? "Stockage sous tension" :
-                warningCount>0 ? "Stockage à surveiller" :
-                "Stockage globalement sain";
-
-              const statusColor =
-                criticalCount>0 ? "text-red-600" :
-                warningCount>0 ? "text-amber-600" :
-                "text-emerald-600";
-
-              const statusBg =
-                criticalCount>0 ? "bg-red-50 border-red-100" :
-                warningCount>0 ? "bg-amber-50 border-amber-100" :
-                "bg-emerald-50 border-emerald-100";
-
-              const topRisks = enriched.filter(d=>d.risk!=="healthy").slice(0,4);
-
-              return (
-                <div className="space-y-4 mb-4">
-                  <div className={"rounded-2xl border shadow-sm p-5 "+statusBg}>
-                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                      <div>
-                        <div className="text-xs text-gray-400 uppercase">Synthèse — Storage</div>
-                        <div className={"text-xl font-semibold mt-1 "+statusColor}>{status}</div>
-                        <div className="text-sm text-gray-600 mt-2">
-                          Max utilisation : <strong>{maxDs?.name}</strong> ({maxDs?.usedPct}%)
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-4">
-                        <div className="text-center">
-                          <div className="text-lg font-semibold text-amber-600">{warningCount}</div>
-                          <div className="text-xs text-gray-500">Warning</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-lg font-semibold text-red-600">{criticalCount}</div>
-                          <div className="text-xs text-gray-500">Critique</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-lg font-semibold text-emerald-600">{healthyCount}</div>
-                          <div className="text-xs text-gray-500">Sains</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 xl:grid-cols-5 gap-3">
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-                      <div className="text-xs uppercase tracking-widest text-gray-400">Capacité totale</div>
-                      <div className="text-2xl font-semibold text-gray-900 mt-2">{fmtTo(totalMib)} To</div>
-                      <div className="text-xs text-gray-500 mt-1">{fmtTo(usedMib)} To utilisés ({globalPct}%)</div>
-                    </div>
-
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-                      <div className="text-xs uppercase tracking-widest text-gray-400">Capacité libre</div>
-                      <div className="text-2xl font-semibold text-emerald-600 mt-2">{fmtTo(freeMib)} To</div>
-                      <div className="text-xs text-gray-500 mt-1">{100-globalPct}% disponible</div>
-                    </div>
-
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-                      <div className="text-xs uppercase tracking-widest text-gray-400">Saturation estimée</div>
-                      <div className={"text-2xl font-semibold mt-2 "+(nearestSaturation?.daysToFull<=30?"text-red-600":nearestSaturation?.daysToFull<=60?"text-amber-600":"text-emerald-600")}>
-                        {nearestSaturation ? `${nearestSaturation.daysToFull} j` : "N/A"}
-                      </div>
-                      <div className="text-xs text-gray-500 mt-1">{nearestSaturation?.name || "projection non disponible"}</div>
-                    </div>
-
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-                      <div className="text-xs uppercase tracking-widest text-gray-400">VMs impactées</div>
-                      <div className="text-2xl font-semibold text-blue-600 mt-2">{impactedVms || "N/A"}</div>
-                      <div className="text-xs text-gray-500 mt-1">sur datastores critiques</div>
-                    </div>
-
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-                      <div className="text-xs uppercase tracking-widest text-gray-400">Méthode</div>
-                      <div className="text-sm font-semibold text-gray-800 mt-2">Heuristique RVTools</div>
-                      <div className="text-xs text-gray-500 mt-1">sans historique réel</div>
-                    </div>
-                  </div>
-
-                  {topRisks.length>0&&(
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                      <div className="mb-4">
-                        <h3 className="text-sm font-semibold text-gray-800">Datastores prioritaires</h3>
-                        <p className="text-xs text-gray-400 mt-1">Projection prudente basée sur capacité libre, taux d’usage et densité VM</p>
-                      </div>
-
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                          {topRisks.map(d=>{
-                            const critical = d.risk==="critical";
-                            const urgent = d.daysToFull !== null && d.daysToFull <= 30;
-                            const riskLabel = critical ? "Risque critique" : "Risque élevé";
-                            const recommendation =
-                              urgent
-                                ? "Étendre le datastore ou déplacer des VMs prioritaires."
-                                : d.usedPct >= 80
-                                ? "Prévoir une extension de capacité à court terme."
-                                : "Surveiller la tendance et valider la croissance réelle.";
-
-                            return (
-                              <div key={d.name} className={"rounded-xl border p-4 "+(critical?"border-red-200 bg-red-50/40":"border-amber-200 bg-amber-50/40")}>
-                                <div className="flex items-start justify-between gap-3">
-                                  <div className="min-w-0">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      <div className="text-sm font-semibold text-gray-800 truncate">{d.name}</div>
-                                      <span className={"text-[10px] px-2 py-0.5 rounded-full font-semibold "+(critical?"bg-red-100 text-red-700":"bg-amber-100 text-amber-700")}>
-                                        {riskLabel}
-                                      </span>
-                                    </div>
-                                    <div className="text-xs text-gray-500 mt-1">
-                                      {fmtGo(d.inUseMib)} Go utilisés / {fmtGo(d.capMib)} Go · {d.vmCount || "N/A"} VMs
-                                    </div>
-                                  </div>
-
-                                  <div className={"text-lg font-semibold "+(critical?"text-red-600":"text-amber-600")}>
-                                    {d.usedPct}%
-                                  </div>
-                                </div>
-
-                                <div className="mt-3 h-2 bg-white rounded-full overflow-hidden">
-                                  <div className={(critical?"bg-red-500":"bg-amber-400")+" h-full rounded-full"} style={{width:Math.min(100,d.usedPct)+"%"}}/>
-                                </div>
-
-                                <div className="mt-4 rounded-lg bg-white/70 border border-white px-3 py-2">
-                                  <div className="flex items-center justify-between text-[11px] text-gray-500 mb-1">
-                                    <span>Aujourd’hui</span>
-                                    <span>{d.daysToFull ? `Saturation estimée : ${d.daysToFull} j` : "Projection N/A"}</span>
-                                  </div>
-
-                                  <div className="relative h-2 bg-gray-100 rounded-full overflow-hidden">
-                                    <div
-                                      className={(critical?"bg-red-400":"bg-amber-400")+" h-full rounded-full"}
-                                      style={{width: d.daysToFull ? Math.max(12, Math.min(100, 100 - d.daysToFull))+"%" : "35%"}}
-                                    />
-                                    <div className="absolute top-0 bottom-0 w-px bg-red-400 opacity-70" style={{left:"85%"}}/>
-                                  </div>
-                                </div>
-
-                                <div className="mt-3 grid grid-cols-3 gap-3 text-xs">
-                                  <div>
-                                    <div className="text-gray-400">Libre</div>
-                                    <div className="font-semibold text-gray-800">{fmtGo(d.freeMib)} Go</div>
-                                  </div>
-                                  <div>
-                                    <div className="text-gray-400">Croissance estimée</div>
-                                    <div className="font-semibold text-gray-800">~{d.dailyGrowthGo} Go/j</div>
-                                  </div>
-                                  <div>
-                                    <div className="text-gray-400">Impact</div>
-                                    <div className="font-semibold text-gray-800">{d.vmCount || "N/A"} VMs</div>
-                                  </div>
-                                </div>
-
-                                <div className="mt-3 text-xs font-medium text-gray-700">
-                                  💡 {recommendation}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-
-                      <div className="mt-4 rounded-xl bg-blue-50 border border-blue-100 px-4 py-3 text-xs text-blue-700">
-                        Estimation indicative : pour une projection fiable, conserver plusieurs imports RVTools dans le temps afin de calculer une vraie tendance.
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-
-            {/* Liste datastores triée par criticité */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-medium text-gray-800">Datastores ({datastores.length})</h3>
-              <div className="flex items-center gap-4 text-xs text-gray-400">
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"/>Sain (&lt;60%)</span>
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block"/>Modere (60-80%)</span>
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block"/>Critique (&gt;=80%)</span>
-              </div>
-            </div>
-            <div className="space-y-3">
-              {[...datastores].sort((a,b)=>{
-                const pa=Math.round(a.inUseMib/(a.capMib||1)*100);
-                const pb=Math.round(b.inUseMib/(b.capMib||1)*100);
-                return pb-pa;
-              }).map((d,i)=><DatastoreCard key={i} ds={d}/>)}
-            </div>
-          </div>
-
-          {/* Insights stockage */}
-          {insights.filter(i=>i.id&&i.id.includes&&(i.id.includes("storage")||i.id.includes("ds"))).length>0&&(
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-              <h3 className="text-sm font-medium text-gray-800 mb-3">Storage Insights</h3>
-              <div className="space-y-2">
-                {insights.map(i=><OptimizationItem key={i.id} insight={i}/>)}
-              </div>
-            </div>
-          )}
         </div>
       )}
 
-      {activeTab==="network"&&(()=>{
-        const nd = networkData||{};
-          const claudeInsights = nd.claudeInsights || null;
-          console.log("🔎 SizingHUB networkData keys:", Object.keys(nd || {}));
-          console.log("🔎 SizingHUB hbaRows:", nd.hbaRows);
-          console.log("🔎 SizingHUB networkData full:", nd);
-        const hostsNics = nd.hostsNics||[];
-          const hbaRows = nd.hbaRows || nd.vHBA || nd.vhba || nd.hba || [];
-        const allVlans = nd.vlans||vlans||[];
-        const allVSwitches = nd.vSwitches||vSwitches||[];
-        const allDvSwitches = nd.dvSwitches||dvSwitches||[];
-        const allPGs = nd.uniquePortGroups||uniquePortGroups||[];
-        const totalNics = hostsNics.reduce((s,h)=>s+(h.nics||0),0);
-        const segments = [...new Map(allVlans.map(v=>[v.name,v])).values()];
-
-          const vmkRows = nd.vmKernel || nd.vmk || nd.vmkernels || nd.vmkernel || nd.vSC_VMK || [];
-          const datastoreRows = nd.datastores || datastores || [];
-
-          const networkText = [
-            ...segments.map(s=>s.name||""),
-            ...allPGs.map(p=>p.portGroup||p.name||p.network||""),
-            ...allVSwitches.map(sw=>sw.name||""),
-            ...allDvSwitches.map(sw=>sw.name||""),
-            ...vmkRows.map(v=>Object.values(v||{}).join(" "))
-          ].join(" ").toLowerCase();
-
-          const datastoreText = datastoreRows
-            .map(d=>Object.values(d||{}).join(" "))
-            .join(" ")
-            .toLowerCase();
-
-          const vmotionNetworks = [...new Set(vmkRows
-            .filter(v=>{
-              const t = Object.values(v||{}).join(" ").toLowerCase();
-              return t.includes("vmotion") || t.includes("v-motion") || t.includes("v motion") || t.includes("migration");
-            })
-            .map(v=>v.portGroup || v["Port Group"] || v.network || v["Network"] || v.name || v["Name"])
-            .filter(Boolean)
-          )];
-
-          const storageNetworks = [...new Set(vmkRows
-            .filter(v=>{
-              const t = Object.values(v||{}).join(" ").toLowerCase();
-              return t.includes("iscsi") || t.includes("nfs") || t.includes("storage") || t.includes("san") || t.includes("vmfs");
-            })
-            .map(v=>v.portGroup || v["Port Group"] || v.network || v["Network"] || v.name || v["Name"])
-            .filter(Boolean)
-          )];
-
-          const hasVmotion =
-            vmotionNetworks.length > 0 ||
-            networkText.includes("vmotion") ||
-            networkText.includes("v-motion") ||
-            networkText.includes("v motion") ||
-            networkText.includes("migration");
-
-          const hasStorage =
-            storageNetworks.length > 0 ||
-            networkText.includes("iscsi") ||
-            networkText.includes("nfs") ||
-            networkText.includes("storage") ||
-            networkText.includes("san") ||
-            networkText.includes("vmfs") ||
-            datastoreText.includes("iscsi") ||
-            datastoreText.includes("nfs") ||
-            datastoreText.includes("vmfs") ||
-            datastoreText.includes("vsan");
-
-          const hasManagement = segments.some(seg=>{
-            const n=(seg.name||"").toLowerCase();
-            return n.includes("mgmt")||n.includes("management")||n.includes("adm");
-          });
-
-          const redundancyScore = hostsNics.length===0 ? 0 : Math.round(
-            hostsNics.filter(h=>(h.nics||0)>=2).length / hostsNics.length * 100
-          );
-
-          let networkScore = 55;
-          if(hasVmotion) networkScore += 10;
-          if(hasStorage) networkScore += 15;
-          if(hasManagement) networkScore += 10;
-          if(redundancyScore>=80) networkScore += 10;
-          networkScore = Math.min(networkScore,100);
-
-          const networkStatus =
-            networkScore>=85 ? "Architecture réseau robuste" :
-            networkScore>=70 ? "Architecture cohérente" :
-            "Architecture à surveiller";
-
-          const networkStatusColor =
-            networkScore>=85 ? "text-emerald-600" :
-            networkScore>=70 ? "text-amber-600" :
-            "text-red-600";
-
-          const networkStatusBg =
-            networkScore>=85 ? "bg-emerald-50 border-emerald-100" :
-            networkScore>=70 ? "bg-amber-50 border-amber-100" :
-            "bg-red-50 border-red-100";
-
-          const networkInsights = [];
-          if(!hasVmotion) networkInsights.push({severity:"warning", text:"Aucun réseau vMotion dédié détecté."});
-          if(!hasStorage) networkInsights.push({severity:"critical", text:"Aucun réseau stockage dédié détecté."});
-          if(!hasManagement) networkInsights.push({severity:"warning", text:"Aucun réseau de management clairement identifié."});
-
-        return (
-          <div className="space-y-4">
-              {/* NETWORK HEALTH */}
-              <div className={"rounded-3xl border shadow-sm p-6 "+networkStatusBg}>
-                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-                  <div className="flex items-center gap-5">
-                    <div className="relative w-28 h-28 flex-shrink-0">
-                      <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
-                        <circle cx="60" cy="60" r="48" fill="none" stroke="#e5e7eb" strokeWidth="10"/>
-                        <circle
-                          cx="60"
-                          cy="60"
-                          r="48"
-                          fill="none"
-                          stroke={networkScore>=85 ? "#10b981" : networkScore>=70 ? "#f59e0b" : "#ef4444"}
-                          strokeWidth="10"
-                          strokeLinecap="round"
-                          strokeDasharray={301}
-                          strokeDashoffset={301 - (301 * networkScore / 100)}
-                        />
-                      </svg>
-                      <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        <div className={"text-3xl font-bold "+networkStatusColor}>{networkScore}</div>
-                        <div className="text-xs text-gray-400">/100</div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="text-xs uppercase tracking-widest text-gray-400 mb-1">Network Health</div>
-                      <div className={"text-2xl font-semibold "+networkStatusColor}>{networkStatus}</div>
-                      <div className="text-sm text-gray-500 mt-2 max-w-xl">
-                        Analyse de segmentation, résilience réseau, isolation des flux et cohérence VMware.
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                    <div className="bg-white rounded-2xl border border-gray-100 px-4 py-3 text-center">
-                      <div className="text-2xl font-semibold text-blue-600">{segments.length}</div>
-                      <div className="text-xs text-gray-500 mt-1">Segments</div>
-                    </div>
-                    <div className="bg-white rounded-2xl border border-gray-100 px-4 py-3 text-center">
-                      <div className="text-2xl font-semibold text-indigo-600">{totalNics}</div>
-                      <div className="text-xs text-gray-500 mt-1">NICs</div>
-                    </div>
-                    <div className="bg-white rounded-2xl border border-gray-100 px-4 py-3 text-center">
-                      <div className="text-2xl font-semibold text-emerald-600">{redundancyScore}%</div>
-                      <div className="text-xs text-gray-500 mt-1">Redondance</div>
-                    </div>
-                    <div className="bg-white rounded-2xl border border-gray-100 px-4 py-3 text-center">
-                      <div className={"text-2xl font-semibold "+(hasStorage?"text-emerald-600":"text-red-600")}>{hasStorage ? "OK" : "NON"}</div>
-                      <div className="text-xs text-gray-500 mt-1">Stockage dédié</div>
-                    </div>
-                  </div>
-                </div>
-
-                {networkInsights.length>0&&(
-                  <div className="mt-5 pt-5 border-t border-white/60">
-                    <div className="text-xs uppercase tracking-widest text-gray-400 mb-3">Insights réseau détectés</div>
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-                      {networkInsights.map((i,idx)=>(
-                        <div key={idx} className={"rounded-2xl border px-4 py-3 flex items-start gap-3 "+(i.severity==="critical"?"bg-red-50 border-red-100":"bg-amber-50 border-amber-100")}>
-                          {i.severity==="critical"
-                            ? <AlertTriangle size={16} className="text-red-500 mt-0.5"/>
-                            : <Info size={16} className="text-amber-500 mt-0.5"/>}
-                          <div className={(i.severity==="critical"?"text-red-700":"text-amber-700")+" text-sm"}>{i.text}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* KPIs Réseau Premium */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
-                  <div className="text-xs uppercase tracking-widest text-gray-400 mb-2">Hosts</div>
-                  <div className="text-3xl font-semibold text-gray-800">{hosts.length}</div>
-                  <div className="text-sm text-gray-500 mt-1">Noeuds connectés</div>
-                </div>
-
-                <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
-                  <div className="text-xs uppercase tracking-widest text-gray-400 mb-2">NICs physiques</div>
-                  <div className="text-3xl font-semibold text-blue-600">{totalNics}</div>
-                  <div className="text-sm text-gray-500 mt-1">Interfaces réseau</div>
-                </div>
-
-                <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
-                  <div className="text-xs uppercase tracking-widest text-gray-400 mb-2">Segments réseau</div>
-                  <div className="text-3xl font-semibold text-violet-600">{segments.length}</div>
-                  <div className="text-sm text-gray-500 mt-1">VLANs / Port Groups</div>
-                </div>
-
-                <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
-                  <div className="text-xs uppercase tracking-widest text-gray-400 mb-2">Redondance</div>
-                  <div className={"text-3xl font-semibold "+(redundancyScore>=80?"text-emerald-600":"text-amber-600")}>{redundancyScore}%</div>
-                  <div className="text-sm text-gray-500 mt-1">Résilience réseau</div>
-                </div>
-              </div>
-
-              <NetworkFabric
-                  hosts={hosts.length}
-                  segments={segments.length}
-                  portGroups={allPGs.length}
-                  hasManagement={hasManagement}
-                  hasVmotion={hasVmotion}
-                  hasStorage={hasStorage}
-                  redundancyScore={redundancyScore}
-                  vmKernel={vmkRows}
-                  segmentList={segments}
-                  portGroupList={allPGs}
-                  hostsNics={hostsNics}
-                  hbaRows={hbaRows}
-                />
-
-            {/* Host NICs */}
-            {/* Focus réseau nœud */}
-            {hostsNics.length > 0 && (
-              <FocusReseauNoeud vmkRows={vmkRows} hostsNics={hostsNics} claudeInsights={claudeInsights} />
-            )}
-
-
-
-            {/* VMkernel Adapters */}
-            {vmkRows.length > 0 && (
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-medium text-gray-800">VMkernel Adapters</h3>
-                  <span className="text-xs text-gray-400">{vmkRows.length} adaptateur{vmkRows.length > 1 ? "s" : ""} détecté{vmkRows.length > 1 ? "s" : ""}</span>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="border-b border-gray-100">
-                        {["Host","Device","Port Group","VLAN","IP","Subnet","MTU","Rôle"].map(h => (
-                          <th key={h} className="text-left text-gray-400 font-medium pb-2 pr-4 whitespace-nowrap">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {vmkRows.map((vmk, i) => {
-                        const pg = (vmk.portGroup || "").toLowerCase();
-                        const role =
-                          pg.includes("vmotion") || pg.includes("v-motion") ? "vMotion" :
-                          pg.includes("iscsi") || pg.includes("san") || pg.includes("nfs") || pg.includes("storage") ? "Storage" :
-                          pg.includes("management") || pg.includes("mgmt") ? "Management" : "VM";
-                        const roleStyle =
-                          role === "vMotion"    ? "bg-violet-50 text-violet-700 border-violet-200" :
-                          role === "Storage"    ? "bg-orange-50 text-orange-700 border-orange-200" :
-                          role === "Management" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
-                          "bg-sky-50 text-sky-700 border-sky-200";
-                        const mtuWarn = role === "Storage" && vmk.mtu && vmk.mtu < 9000;
-                        const cidr = vmk.subnet ? vmk.subnet.split(".").map(Number).reduce((a,b) => a + b.toString(2).split("").filter(c=>c==="1").length, 0) : null;
-                        return (
-                          <tr key={i} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                            <td className="py-2 pr-4 font-mono text-gray-700 whitespace-nowrap">{vmk.host || "—"}</td>
-                            <td className="py-2 pr-4 font-mono text-blue-600 whitespace-nowrap">{vmk.device || "—"}</td>
-                            <td className="py-2 pr-4 text-gray-600 whitespace-nowrap">{vmk.portGroup || "—"}</td>
-                            <td className="py-2 pr-4">
-                              {vmk.vlan != null
-                                ? <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded text-gray-700">{vmk.vlan}</span>
-                                : <span className="text-gray-300">—</span>}
-                            </td>
-                            <td className="py-2 pr-4 font-mono text-gray-800 whitespace-nowrap">{vmk.ip || "—"}</td>
-                            <td className="py-2 pr-4 font-mono text-gray-500">{cidr ? `/${cidr}` : "—"}</td>
-                            <td className="py-2 pr-4">
-                              {vmk.mtu
-                                ? <span className={mtuWarn ? "text-amber-600 font-semibold" : "text-gray-600"}>{vmk.mtu}{mtuWarn ? " ⚠" : ""}</span>
-                                : <span className="text-gray-300">—</span>}
-                            </td>
-                            <td className="py-2 pr-4">
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${roleStyle}`}>
-                                {role}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                {vmkRows.some(v => (v.portGroup||"").toLowerCase().includes("iscsi") && v.mtu && v.mtu < 9000) && (
-                  <div className="mt-3 flex items-center gap-2 text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
-                    <span>⚠</span>
-                    <span>MTU 1500 détecté sur les interfaces iSCSI — jumbo frames (MTU 9000) recommandés pour optimiser les performances stockage</span>
-                  </div>
-                )}
-              </div>
-            )}
-            {/* Network Segments - vue logique par type */}
-            {(allVlans.length>0||allPGs.length>0)&&(
-              <NetworkSegmentsView
-                segments={(allVlans.length>0?allVlans:allPGs.map(p=>({name:p.portGroup,vlan:p.vlan,switch:p.switch,mtu:null}))).map(s=>({...s,vSwitchName:s.switch}))}
-                totalHosts={hosts.length}
-              />
-            )}
-
-            {/* vSwitches - vue logique regroupée */}
-            {allVSwitches.length>0&&(
-              <VSwitchesView
-                vSwitches={allVSwitches}
-                totalHosts={hosts.length}
-              />
-            )}
-
-            {/* dvSwitches */}
-            {allDvSwitches.length>0&&(
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                <h3 className="text-sm font-medium text-gray-800 mb-4">Distributed vSwitches ({allDvSwitches.length})</h3>
-                {allDvSwitches.map((dv,i)=>(
-                  <div key={i} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
-                    <div>
-                      <div className="text-sm font-semibold text-gray-800">{dv.name} <span className="text-xs text-gray-400">v{dv.version}</span></div>
-                      <div className="text-xs text-gray-400 mt-0.5 truncate max-w-xs">{dv.hosts}</div>
-                    </div>
-                    <div className="text-right text-xs text-gray-500 font-mono">
-                      <div>{dv.vms} VMs · {dv.ports} ports</div>
-                      <div>MTU {dv.mtu}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {allVlans.length===0&&allVSwitches.length===0&&allDvSwitches.length===0&&(
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 text-center py-12">
-                <div className="text-gray-400 text-sm">Aucune donnee reseau detectee</div>
-              </div>
-            )}
-          </div>
-        );
-      })()}
-
-      {activeTab==="optimization"&&(()=>{
-        const od = optimizationData||{};
-        const score = od.score||0;
-        const scoreColor = score>=80?"text-emerald-500":score>=60?"text-amber-500":"text-red-500";
-        const scoreBg = score>=80?"bg-emerald-500":score>=60?"bg-amber-500":"bg-red-500";
-        const statusLabel = score>=80?"Sain":score>=60?"Warning":"Critique";
-        const recs = od.recommendations||[];
-        const qw = od.quickWins||[];
-        const risks = od.risks||[];
-        const savings = od.savings||{};
-        const catColors = {
-          cleanup:"bg-green-100 text-green-700",
-          balancing:"bg-blue-100 text-blue-700",
-          risk:"bg-red-100 text-red-700",
-          rightsizing:"bg-orange-100 text-orange-700",
-          consolidation:"bg-violet-100 text-violet-700",
-        };
-        const sevColors = {
-          critical:"border-red-200 bg-red-50/30",
-          high:"border-orange-200 bg-orange-50/20",
-          medium:"border-amber-200 bg-amber-50/10",
-          low:"border-gray-100 bg-gray-50",
-        };
-        const effortColors = {low:"bg-emerald-100 text-emerald-700",medium:"bg-amber-100 text-amber-700",high:"bg-red-100 text-red-700"};
-
-        return (
-          <div className="space-y-4">
-            {/* Score + KPIs */}
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-              {/* Score */}
-              <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col items-center justify-center">
-                <div className="text-sm font-semibold text-gray-500 mb-3">Optimization Score</div>
-                <div className="relative w-32 h-32 mb-3">
-                  <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
-                    <circle cx="50" cy="50" r="40" fill="none" stroke="#f1f5f9" strokeWidth="10"/>
-                    <circle cx="50" cy="50" r="40" fill="none" stroke={score>=80?"#10b981":score>=60?"#f59e0b":"#ef4444"} strokeWidth="10"
-                      strokeDasharray={`${score*2.51} 251`} strokeLinecap="round"/>
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className={"text-3xl font-medium "+scoreColor}>{score}</span>
-                    <span className="text-xs text-gray-400">/ 100</span>
-                  </div>
-                </div>
-                <div className={"text-sm font-medium "+scoreColor}>{statusLabel}</div>
-                <div className="text-xs text-gray-400 mt-1">{od.optimizationPotentialPercent||0}% d optimisation possible</div>
-              </div>
-              {/* KPIs */}
-              <div className="lg:col-span-3 grid grid-cols-2 gap-3">
-                {[
-                  {label:"VMs inactives",     val:od.idleVmCount||0,    sub:"depuis +20 jours",      icon:"🔴", bg:"bg-red-50",   text:"text-red-600"},
-                  {label:"Total VMs",          val:od.totalVmCount||0,   sub:"inventaire complet",    icon:"🖥️", bg:"bg-blue-50",  text:"text-blue-600"},
-                  {label:"Hosts en tension",   val:risks.length,         sub:"RAM ou CPU critique",   icon:"⚠️", bg:"bg-amber-50", text:"text-amber-600"},
-                  {label:"Recommandations",    val:recs.length,          sub:"actions identifiees",   icon:"💡", bg:"bg-violet-50",text:"text-violet-600"},
-                ].map(k=>(
-                  <div key={k.label} className={"rounded-xl p-4 "+k.bg}>
-                    <div className="text-lg mb-1">{k.icon}</div>
-                    <div className={"text-2xl font-medium "+k.text}>{k.val}</div>
-                    <div className="text-xs font-semibold text-gray-700 mt-0.5">{k.label}</div>
-                    <div className="text-xs text-gray-400">{k.sub}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Quick Wins + Savings */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {/* Quick Wins */}
-              {qw.length>0&&(
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                  <h3 className="text-sm font-medium text-gray-800 mb-3">Quick Wins</h3>
-                  <div className="space-y-3">
-                    {qw.map(q=>(
-                      <div key={q.id} className="flex items-start gap-3 p-3 rounded-xl bg-emerald-50 border border-emerald-100">
-                        <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                          <Zap size={14} className="text-emerald-600"/>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium text-gray-800">{q.title}</div>
-                          <div className="text-xs text-gray-500 mt-0.5">{q.description}</div>
-                          <div className="flex items-center gap-2 mt-1.5">
-                            <span className="text-xs font-semibold text-emerald-600">{q.gain}</span>
-                            <span className={"text-xs px-2 py-0.5 rounded-full font-medium "+(effortColors[q.effortLevel]||effortColors.medium)}>
-                              Effort {q.effortLevel}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Potential Savings */}
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                <h3 className="text-sm font-medium text-gray-800 mb-3">Potential Savings</h3>
-                <div className="space-y-3">
-                  {[
-                    {label:"CPU recuperable",     val:(savings.reclaimableCpu||0)+" vCPU",     color:"text-blue-600",   bg:"bg-blue-50"},
-                    {label:"RAM recuperable",      val:(savings.reclaimableRamGb||0)+" Go",      color:"text-orange-500", bg:"bg-orange-50"},
-                    {label:"Stockage recuperable", val:(savings.reclaimableStorageTb||0)+" To",  color:"text-emerald-600",bg:"bg-emerald-50"},
-                    {label:"Reduction hosts",      val:savings.potentialHostReduction>0?(savings.potentialHostReduction+" host(s)"):"Aucune",color:"text-violet-600",bg:"bg-violet-50"},
-                  ].map(k=>(
-                    <div key={k.label} className={"flex items-center justify-between p-3 rounded-xl "+k.bg}>
-                      <span className="text-sm text-gray-600">{k.label}</span>
-                      <span className={"text-lg font-medium "+k.color}>{k.val}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Recommendations */}
-            {recs.length>0&&(
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                <h3 className="text-sm font-medium text-gray-800 mb-3">Recommendations</h3>
-                <div className="space-y-3">
-                  {recs.map(r=>(
-                    <div key={r.id} className={"flex items-start gap-4 p-4 rounded-xl border "+( sevColors[r.severity]||sevColors.low)}>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <span className={"text-xs px-2 py-0.5 rounded-full font-semibold "+(catColors[r.category]||catColors.cleanup)}>{r.category}</span>
-                          <span className="text-sm font-medium text-gray-800">{r.title}</span>
-                        </div>
-                        <div className="text-xs text-gray-500 mb-2">{r.description}</div>
-                        <div className="text-xs text-gray-600 font-medium">{"→ "+r.recommendation}</div>
-                        {(r.estimatedGainCpu>0||r.estimatedGainRam>0||r.estimatedGainStorage>0)&&(
-                          <div className="flex gap-3 mt-2">
-                            {r.estimatedGainCpu>0&&<span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">{r.estimatedGainCpu} vCPU</span>}
-                            {r.estimatedGainRam>0&&<span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-medium">{r.estimatedGainRam} Go RAM</span>}
-                            {r.estimatedGainStorage>0&&<span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium">{r.estimatedGainStorage} To</span>}
-                          </div>
-                        )}
-                      </div>
-                      <div className="text-xs text-gray-400 whitespace-nowrap">{r.affectedObjectsCount} objet(s)</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Risks */}
-            {risks.length>0&&(
-              <div className="bg-white rounded-2xl border border-red-100 shadow-sm p-5">
-                <h3 className="text-sm font-medium text-gray-800 mb-3">Risks</h3>
-                <div className="space-y-2">
-                  {risks.map(r=>(
-                    <div key={r.id} className="flex items-start gap-3 p-3 rounded-xl bg-red-50 border border-red-100">
-                      <AlertTriangle size={15} className="text-red-500 flex-shrink-0 mt-0.5"/>
-                      <div>
-                        <div className="text-sm font-medium text-gray-800">{r.title}</div>
-                        <div className="text-xs text-gray-500 mt-0.5">{r.description}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {recs.length===0&&qw.length===0&&risks.length===0&&(
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 text-center py-12">
-                <div className="text-4xl mb-3">✅</div>
-                <div className="text-sm font-semibold text-gray-700">Infrastructure saine</div>
-                <div className="text-xs text-gray-400 mt-1">Aucune recommandation d optimisation identifiee</div>
-              </div>
-            )}
-          </div>
-        );
-      })()}
-
-      {activeTab==="vms"&&(
+{activeTab==="vms"&&(
         <div className="space-y-4">
           {osDistrib.length>0&&(
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
