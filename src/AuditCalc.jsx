@@ -121,6 +121,8 @@ export default function AuditCalc({ th, isMobile=false }) {
         shortName: (() => { const h2 = h["Host"]||""; const first = h2.split(".")[0]; return /^\d+$/.test(first) ? h2 : first; })(),
         cpuModel: (h["CPU Model"]||"").replace(/\(R\)/g,"").replace(/\(TM\)/g,""),
         cores: h["# Cores"]||0,
+        sockets: h["# CPU"]||0,
+        coresPerSocket: h["# CPU"]>0 ? Math.round((h["# Cores"]||0)/(h["# CPU"]||1)) : 0,
         cpuUsagePct: h["CPU usage %"]||0,
         ramGo: Math.round((h["# Memory"]||0)/1024),
         ramUsagePct: h["Memory usage %"]||0,
