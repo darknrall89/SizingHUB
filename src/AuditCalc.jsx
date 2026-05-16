@@ -114,6 +114,12 @@ export default function AuditCalc({ th, isMobile=false }) {
     const osDistrib = Object.entries(osCount).sort((a,b)=>b[1]-a[1]);
 
     const vSwitchData = getJson("vSwitch");
+    const vNetData = getJson("vNetwork");
+    const vmNics = {};
+    vNetData.filter(r=>r["Template"]!=="True"&&r["Powerstate"]==="poweredOn").forEach(r=>{
+      if (!vmNics[r["VM"]]) vmNics[r["VM"]]=[];
+      vmNics[r["VM"]].push({nic:r["NIC label"]||"",network:r["Network"]||"N/A",ip:r["IPv4 Address"]||"N/A",switch:r["Switch"]||"N/A"});
+    });
     const hosts = vHost.map(h=>{
       const hostVms = vmOn.filter(v=>v["Host"]===h["Host"]);
       return {
@@ -303,12 +309,6 @@ export default function AuditCalc({ th, isMobile=false }) {
       mtu: dv["Max MTU"]||0,
     }));
 
-    const vNetData = getJson("vNetwork");
-    const vmNics = {};
-    vNetData.filter(r=>r["Template"]!=="True"&&r["Powerstate"]==="poweredOn").forEach(r=>{
-      if (!vmNics[r["VM"]]) vmNics[r["VM"]]=[];
-      vmNics[r["VM"]].push({nic:r["NIC label"]||"",network:r["Network"]||"N/A",ip:r["IPv4 Address"]||"N/A",switch:r["Switch"]||"N/A"});
-    });
     const esxVersions = [...new Set(vHost.map(r=>r["ESX Version"]).filter(Boolean))];
     return {
       fileName, source:"RVTools",
