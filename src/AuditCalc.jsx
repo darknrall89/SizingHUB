@@ -117,12 +117,23 @@ export default function AuditCalc({ th, isMobile=false }) {
     const vSwitchData = getJson("vSwitch");
     const vDiskData = getJson("vDisk");
     const vmDiskMap = {};
+    const dsDiskMap = {};
     (vDiskData||[]).forEach(d=>{
       const vm = d["VM"]||d["Name"]||"";
-      if (!vm) return;
-      if (!vmDiskMap[vm]) vmDiskMap[vm] = [];
       const ds = d["Datastore"]||d["datastore"]||"";
-      if (ds && !vmDiskMap[vm].includes(ds)) vmDiskMap[vm].push(ds);
+      const thin = d["Thin"]||d["thin"]||d["Thin Provisioned"]||false;
+      const capMib = Number(d["Capacity MiB"]||d["Size MiB"]||0);
+      if (vm) {
+        if (!vmDiskMap[vm]) vmDiskMap[vm] = [];
+        if (ds && !vmDiskMap[vm].includes(ds)) vmDiskMap[vm].push(ds);
+      }
+      if (ds) {
+        if (!dsDiskMap[ds]) dsDiskMap[ds] = {vms:[], thinCount:0, totalCount:0, totalMib:0};
+        if (vm && !dsDiskMap[ds].vms.includes(vm)) dsDiskMap[ds].vms.push(vm);
+        dsDiskMap[ds].totalCount++;
+        dsDiskMap[ds].totalMib += capMib;
+        if (String(thin).toLowerCase()==="true") dsDiskMap[ds].thinCount++;
+      }
     });
     const vNetData = getJson("vNetwork");
     const vmNics = {};
@@ -334,6 +345,7 @@ export default function AuditCalc({ th, isMobile=false }) {
       totalRamPhysGo: Math.round(vHost.reduce((s,h)=>s+(h["# Memory"]||0),0)/1024),
         vmOffList, vlans, uniquePortGroups, vmNics, vSwitches,
       vHBA,
+      dsDiskMap,
       hostsNics: (() => {
         const byHost = {};
         (vNIC||[]).forEach(n => {

@@ -1884,6 +1884,7 @@ export const mapRvToolsAnalysisToClusterViewModel = (rv) => {
       })(),
     },
     datastores: rv.datastores || [],
+    dsDiskMap: rv.networkData?.dsDiskMap || rv.dsDiskMap || {},
     topMemoryConsumers: (rv.hosts||[]).flatMap(h=>(h.vms||[]).map(v=>({
       id: v.name,
       name: v.name,
@@ -1975,6 +1976,225 @@ const ServerRackVisual = ({ health="healthy", compact=false }) => {
 
 
 
+
+
+
+const DsSlideOver = ({ ds, dsDiskMap, datastores, hosts, growthRate, setGrowthRate, onClose }) => {
+  if (!ds) return null;
+
+  const pct = ds.capMib > 0 ? Math.round(ds.inUseMib/ds.capMib*100) : 0;
+  const freeMib = ds.capMib - ds.inUseMib;
+  const fmtMib = (mib) => mib>=1024*1024?(mib/1024/1024).toFixed(1)+" To":(mib/1024).toFixed(0)+" GB";
+  const pctColor = (p) => p>=80?"text-red-600":p>=60?"text-amber-600":"text-emerald-600";
+  const barColor = (p) => p>=80?"bg-red-500":p>=60?"bg-amber-400":"bg-emerald-500";
+
+  const diskInfo = dsDiskMap?.[ds.name] || {};
+  const thinPct = diskInfo.totalCount>0 ? Math.round(diskInfo.thinCount/diskInfo.totalCount*100) : 0;
+  const dsVms = diskInfo.vms || [];
+
+  const gr = (growthRate||20)/100;
+  const timeline = [3,6,12].map(m=>({
+    months: m,
+    pct: Math.min(100, Math.round(pct*(1+gr*m/12))),
+  }));
+
+  const connectedHosts = (hosts||[]).filter(h=>h.totalCpuCores>0).slice(0, ds.hosts||4);
+
+  const isWin = (os) => (os||"").toLowerCase().includes("win");
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end">
+      <div className="absolute inset-0 bg-black/30" onClick={onClose}/>
+      <div className="relative w-[500px] h-full bg-white shadow-2xl overflow-y-auto flex flex-col">
+        {/* Header */}
+        <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-5 z-10">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h2 className="text-xl font-semibold text-gray-900 truncate">{ds.name}</h2>
+              <div className="flex items-center gap-2 mt-2 flex-wrap">
+                <span className="text-xs px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100 font-semibold">{ds.type||"VMFS"}</span>
+                <span className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-semibold border ${pct>=80?"bg-red-50 text-red-700 border-red-100":pct>=60?"bg-amber-50 text-amber-700 border-amber-100":"bg-emerald-50 text-emerald-700 border-emerald-100"}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${pct>=80?"bg-red-500":pct>=60?"bg-amber-400":"bg-emerald-500"}`}/>
+                  {pct}% utilisé
+                </span>
+              </div>
+              <div className="text-xs text-gray-500 mt-2 flex items-center gap-3">
+                <span><i className="ti ti-database text-gray-400 mr-1"/>{fmtMib(ds.capMib)} capacité</span>
+                <span>·</span>
+                <span><i className="ti ti-server text-gray-400 mr-1"/>{ds.hosts||0} hôtes connectés</span>
+                <span>·</span>
+                <span><i className="ti ti-device-desktop text-gray-400 mr-1"/>{ds.vms||dsVms.length||0} VMs</span>
+              </div>
+            </div>
+            <button onClick={onClose} className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-400 hover:bg-gray-50 flex-shrink-0">
+              <i className="ti ti-x text-base"/>
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 px-6 py-5 space-y-6">
+          {/* Capacité */}
+          <div>
+            <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">1. Capacité</div>
+            <div className="h-5 bg-gray-100 rounded-full overflow-hidden mb-2">
+              <div className={`h-full rounded-full ${barColor(pct)}`} style={{width:Math.min(100,pct)+"%"}}/>
+            </div>
+            <div className={`text-xs font-semibold mb-4 ${pctColor(pct)}`}>
+              {fmtMib(ds.inUseMib)} utilisés · {fmtMib(freeMib)} libres · {pct}%
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                {label:"Capacité totale", value:fmtMib(ds.capMib), color:"text-gray-700"},
+                {label:"Espace utilisé", value:fmtMib(ds.inUseMib), color:pctColor(pct)},
+                {label:"Espace libre", value:fmtMib(freeMib), color:freeMib<ds.capMib*0.2?"text-red-600":"text-emerald-600"},
+              ].map((m,i)=>(
+                <div key={i} className="rounded-xl border border-gray-100 p-3 text-center">
+                  <div className="text-[10px] text-gray-500 mb-1">{m.label}</div>
+                  <div className={`text-lg font-semibold ${m.color}`}>{m.value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* VMs hébergées */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide">2. VMs hébergées</div>
+              <span className="text-xs text-gray-500">{dsVms.length} VMs</span>
+            </div>
+            {dsVms.length > 0 ? (
+              <div className="rounded-2xl border border-gray-100 overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-gray-100 bg-gray-50">
+                      <th className="text-left text-gray-400 font-medium px-4 py-2">VM</th>
+                      <th className="text-center text-gray-400 font-medium px-3 py-2">État</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dsVms.slice(0,8).map((vmName,i)=>(
+                      <tr key={i} className="border-b border-gray-50 last:border-0">
+                        <td className="px-4 py-2.5 font-medium text-gray-800 truncate max-w-[280px]">{vmName}</td>
+                        <td className="px-3 py-2.5 text-center">
+                          <span className="flex items-center justify-center gap-1 text-emerald-600 text-[10px] font-semibold">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"/>Active
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {dsVms.length > 8 && (
+                  <div className="px-4 py-2 border-t border-gray-50 text-xs text-blue-500">{dsVms.length - 8} autres VMs</div>
+                )}
+              </div>
+            ) : (
+              <div className="text-xs text-gray-400 text-center py-4">Aucune donnée vDisk disponible.</div>
+            )}
+          </div>
+
+          {/* Analyse */}
+          <div>
+            <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">3. Analyse</div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-2xl border border-gray-100 p-4 text-center">
+                <div className="flex items-center justify-center gap-1 text-xs text-gray-500 mb-2">
+                  <i className="ti ti-layers text-gray-400"/>Thin provisioning
+                </div>
+                <div className={`text-2xl font-semibold ${thinPct>=50?"text-emerald-600":"text-amber-600"}`}>{thinPct}%</div>
+                <div className="text-[10px] text-gray-400 mt-1">des vmdk en thin</div>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold mt-2 inline-block ${thinPct>=50?"bg-emerald-50 text-emerald-700 border border-emerald-100":"bg-amber-50 text-amber-700 border border-amber-100"}`}>
+                  {thinPct>=50?"Optimisé":"À optimiser"}
+                </span>
+              </div>
+              <div className="rounded-2xl border border-gray-100 p-4 text-center">
+                <div className="flex items-center justify-center gap-1 text-xs text-gray-500 mb-2">
+                  <i className="ti ti-camera text-gray-400"/>Snapshots
+                </div>
+                <div className="text-2xl font-semibold text-gray-700">N/A</div>
+                <div className="text-[10px] text-gray-400 mt-1">vSnapshot non exporté</div>
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold mt-2 inline-block bg-gray-50 text-gray-500 border border-gray-200">
+                  Non disponible
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Timeline */}
+          <div>
+            <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">4. Timeline saturation</div>
+            <div className="bg-white rounded-2xl border border-gray-100 p-4">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-xs text-gray-500">Taux de croissance :</span>
+                {[10,20,30].map(r=>(
+                  <button key={r} onClick={()=>setGrowthRate(r)}
+                    className={`text-xs px-2.5 py-1 rounded-lg border font-semibold transition-colors ${growthRate===r?"bg-emerald-50 border-emerald-200 text-emerald-700":"border-gray-200 text-gray-500 hover:bg-gray-50"}`}>
+                    {r}%/an
+                  </button>
+                ))}
+              </div>
+              <table className="w-full text-xs mb-3">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    <th className="text-left text-gray-400 font-medium pb-2">Horizon</th>
+                    <th className="text-center text-gray-400 font-medium pb-2">Utilisation</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {timeline.map((t,i)=>(
+                    <tr key={i} className="border-b border-gray-50 last:border-0">
+                      <td className="py-2 font-medium text-gray-700">{t.months} mois</td>
+                      <td className="py-2 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <div className="w-24 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full ${barColor(t.pct)}`} style={{width:Math.min(100,t.pct)+"%"}}/>
+                          </div>
+                          <span className={`font-semibold ${pctColor(t.pct)}`}>{t.pct}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {timeline[0].pct >= 90 && (
+                <div className="rounded-xl bg-amber-50 border border-amber-100 p-3 flex items-start gap-2">
+                  <i className="ti ti-alert-triangle text-amber-500 text-base flex-shrink-0"/>
+                  <div className="text-xs text-amber-700 font-semibold">Saturation imminente — extension ou migration recommandée sous 3 mois</div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Hôtes connectés */}
+          <div>
+            <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">5. Hôtes connectés</div>
+            <div className="rounded-2xl border border-gray-100 overflow-hidden">
+              {(hosts||[]).slice(0, ds.hosts||4).map((h,i)=>(
+                <div key={i} className="flex items-center justify-between px-4 py-3 border-b border-gray-50 last:border-0">
+                  <div className="flex items-center gap-2 text-xs text-gray-700">
+                    <i className="ti ti-server text-gray-400"/>
+                    <span className="font-medium">{h.name}</span>
+                  </div>
+                  <span className="flex items-center gap-1 text-xs text-emerald-600 font-semibold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"/>En ligne
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="sticky bottom-0 bg-white border-t border-gray-100 px-6 py-3">
+          <span className="text-[10px] text-gray-400 flex items-center gap-1">
+            <i className="ti ti-clock text-gray-300"/>
+            Données issues du dernier export RVTools
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 
 const VmSlideOver = ({ vm, onClose }) => {
@@ -2150,7 +2370,7 @@ const VmSlideOver = ({ vm, onClose }) => {
 
 export default function ClusterOverviewDashboard({
   platformContext={}, clusterSummary={}, hosts=[], insights=[],
-  osDistrib=[], datastores=[], vlans=[], vSwitches=[], dvSwitches=[], vmOffList=[], uniquePortGroups=[], topMemoryConsumers=[], topCpuConsumers=[], networkData={}, optimizationData={},
+  osDistrib=[], datastores=[], vlans=[], vSwitches=[], dvSwitches=[], vmOffList=[], uniquePortGroups=[], topMemoryConsumers=[], topCpuConsumers=[], networkData={}, optimizationData={}, dsDiskMap={},
 }) {
   const [selectedOverviewHostId, setSelectedOverviewHostId] = useState("");
   const [growthRate, setGrowthRate] = useState(20);
@@ -2159,6 +2379,7 @@ export default function ClusterOverviewDashboard({
   const [vmSearch, setVmSearch] = useState("");
   const [showAllVms, setShowAllVms] = useState(false);
   const [selectedVm, setSelectedVm] = useState(null);
+  const [selectedDs, setSelectedDs] = useState(null);
   const sortedHosts = [...hosts].sort((a,b)=>
     Math.max(b.cpuUsagePercent||0,b.ramUsagePercent||0)-Math.max(a.cpuUsagePercent||0,a.ramUsagePercent||0)
   );
@@ -3645,7 +3866,7 @@ return (
                         </thead>
                         <tbody>
                           {dsWithPct.map((d,i)=>(
-                            <tr key={i} className="border-b border-gray-50 last:border-0">
+                            <tr key={i} onClick={()=>setSelectedDs(d)} className="border-b border-gray-50 last:border-0 cursor-pointer hover:bg-gray-50">
                               <td className="py-2.5 pr-3 font-semibold text-gray-800 whitespace-nowrap">{d.name}</td>
                               <td className="py-2.5 pr-3">
                                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${(d.type||"").toUpperCase().includes("NFS")?"bg-violet-50 text-violet-700 border border-violet-100":"bg-blue-50 text-blue-700 border border-blue-100"}`}>
@@ -5255,6 +5476,7 @@ return (
       )}
     </div>
     {selectedVm&&<VmSlideOver vm={selectedVm} onClose={()=>setSelectedVm(null)}/>}
+    {selectedDs&&<DsSlideOver ds={selectedDs} dsDiskMap={dsDiskMap} datastores={datastores} hosts={hosts} growthRate={growthRate} setGrowthRate={setGrowthRate} onClose={()=>setSelectedDs(null)}/>}
     </>
   );
 }
