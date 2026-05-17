@@ -1884,7 +1884,7 @@ export const mapRvToolsAnalysisToClusterViewModel = (rv) => {
       })(),
     },
     datastores: rv.datastores || [],
-    dsDiskMap: rv.networkData?.dsDiskMap || rv.dsDiskMap || {},
+    dsDiskMap: rv.dsDiskMap && !Array.isArray(rv.dsDiskMap) ? rv.dsDiskMap : (rv.networkData?.dsDiskMap || {}),
     topMemoryConsumers: (rv.hosts||[]).flatMap(h=>(h.vms||[]).map(v=>({
       id: v.name,
       name: v.name,
@@ -1988,9 +1988,25 @@ const DsSlideOver = ({ ds, dsDiskMap, datastores, hosts, growthRate, setGrowthRa
   const pctColor = (p) => p>=80?"text-red-600":p>=60?"text-amber-600":"text-emerald-600";
   const barColor = (p) => p>=80?"bg-red-500":p>=60?"bg-amber-400":"bg-emerald-500";
 
-  const diskInfo = dsDiskMap?.[ds.name] || {};
+  const normalizeDsName = (v) => String(v || "")
+    .replace(/^\[/, "")
+    .replace(/\]$/, "")
+    .trim()
+    .toLowerCase();
+  const dsName = ds.name || ds.Name || ds.Datastore || ds.datastore || "";
+  const dsKey =
+    Object.keys(dsDiskMap || {}).find(k => k === dsName) ||
+    Object.keys(dsDiskMap || {}).find(k => normalizeDsName(k) === normalizeDsName(dsName));
+  const diskInfo = dsKey ? (dsDiskMap?.[dsKey] || {}) : {};
   const thinPct = diskInfo.totalCount>0 ? Math.round(diskInfo.thinCount/diskInfo.totalCount*100) : 0;
-  const dsVms = diskInfo.vms || [];
+  const dsVms = Array.isArray(diskInfo.vms) ? diskInfo.vms : [];
+
+  console.log("🧪 DS Sidebar selected ds:", ds);
+  console.log("🧪 DS Sidebar dsName:", dsName);
+  console.log("🧪 DS Sidebar dsDiskMap keys:", Object.keys(dsDiskMap || {}).slice(0,20));
+  console.log("🧪 DS Sidebar matched key:", dsKey);
+  console.log("🧪 DS Sidebar diskInfo:", diskInfo);
+  console.log("🧪 DS Sidebar VMs:", dsVms);
 
   const gr = (growthRate||20)/100;
   const timeline = [3,6,12].map(m=>({
@@ -3866,7 +3882,7 @@ return (
                         </thead>
                         <tbody>
                           {dsWithPct.map((d,i)=>(
-                            <tr key={i} onClick={()=>setSelectedDs(d)} className="border-b border-gray-50 last:border-0 cursor-pointer hover:bg-gray-50">
+                            <tr key={i} onClick={()=>{ console.log("click ds:", d.name); setSelectedDs(d); }} className="border-b border-gray-50 last:border-0 cursor-pointer hover:bg-gray-50">
                               <td className="py-2.5 pr-3 font-semibold text-gray-800 whitespace-nowrap">{d.name}</td>
                               <td className="py-2.5 pr-3">
                                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${(d.type||"").toUpperCase().includes("NFS")?"bg-violet-50 text-violet-700 border border-violet-100":"bg-blue-50 text-blue-700 border border-blue-100"}`}>
