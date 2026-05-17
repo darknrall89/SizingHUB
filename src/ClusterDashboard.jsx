@@ -1888,7 +1888,8 @@ export const mapRvToolsAnalysisToClusterViewModel = (rv) => {
     topMemoryConsumers: (rv.hosts||[]).flatMap(h=>(h.vms||[]).map(v=>({
       id: v.name,
       name: v.name,
-      hostName: h.shortName,
+      hostName: h.shortName || h.name || h.host || "N/A",
+                host: h.shortName || h.name || h.host || "N/A",
       allocatedRamGb: v.ramGo||0,
       usedRamGb: v.usedRamGo||0,
       activeRamGb: v.activeRamGo||0,
@@ -1897,7 +1898,7 @@ export const mapRvToolsAnalysisToClusterViewModel = (rv) => {
       vcpu: v.vcpu||0,
       cpuOverallMhz: v.cpuOverallMhz||0,
       cpuReadinessPct: v.cpuReadinessPct||0,
-      os: v.os||"N/A",
+      os: v.os || v.guestOs || v.guestFullName || v.operatingSystem || "N/A",
       powerState: v.powerstate||"poweredOn",
       isOversized: v.ramGo>0&&(v.usedRamGo||0)/v.ramGo<0.5,
     }))).filter(v=>v.powerState==="poweredOn").sort((a,b)=>b.allocatedRamGb-a.allocatedRamGb).slice(0,8),
@@ -4759,9 +4760,12 @@ return (
                             <tr key={i} onClick={()=>setSelectedVm(v)} className={`border-b border-gray-50 last:border-0 cursor-pointer hover:bg-gray-50 ${v.isOversized?"border-l-2 border-l-amber-300":""}`}>
                               <td className="py-2.5 pr-3 font-semibold text-gray-800 truncate max-w-[140px]">{v.name}</td>
                               <td className="py-2.5 pr-3">
-                                <i className={`ti ${isWin(v.os)?"ti-brand-windows text-blue-500":"ti-terminal-2 text-orange-500"} text-base`}/>
-                              </td>
-                              <td className="py-2.5 pr-3 text-gray-500 truncate max-w-[100px]">{v.hostName}</td>
+                                  <div className="flex items-center gap-2 min-w-[180px]">
+                                    <i className={`ti ${isWin(v.os)?"ti-brand-windows text-blue-500":"ti-terminal-2 text-orange-500"} text-base flex-shrink-0`}/>
+                                    <span className="text-gray-600 truncate">{v.os || "N/A"}</span>
+                                  </div>
+                                </td>
+                              <td className="py-2.5 pr-3 text-gray-500 truncate max-w-[100px]">{v.hostName || v.host || "N/A"}</td>
                               <td className="py-2.5 pr-3 text-gray-700 font-medium">{v.vcpu}</td>
                               <td className="py-2.5 pr-3 text-gray-700">{v.ramGb} GB</td>
                               <td className="py-2.5 pr-3">
