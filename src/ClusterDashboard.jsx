@@ -3876,7 +3876,16 @@ return (
                         <thead>
                           <tr className="border-b border-gray-100">
                             {["Nom","Type","Capacité","Utilisé","Libre","Utilisation","Hôtes","VMs"].map(h=>(
-                              <th key={h} className="text-left text-gray-400 font-medium pb-3 pr-3 whitespace-nowrap">{h}</th>
+                              <th
+                                key={h}
+                                className={`${
+                                  h==="Hôtes" || h==="VMs"
+                                    ? "text-right"
+                                    : "text-left"
+                                } text-gray-400 font-medium pb-3 pr-3 whitespace-nowrap`}
+                              >
+                                {h}
+                              </th>
                             ))}
                           </tr>
                         </thead>
@@ -3900,8 +3909,8 @@ return (
                                   <span className={`font-semibold ${pctColor(d.pct)}`}>{d.pct}%</span>
                                 </div>
                               </td>
-                              <td className="py-2.5 pr-3 text-gray-600 text-center">{d.hosts||0}</td>
-                              <td className="py-2.5 text-gray-600 text-center">{d.vms||0}</td>
+                              <td className="py-2.5 pr-3 text-gray-600 text-right">{d.hosts||0}</td>
+                              <td className="py-2.5 text-gray-600 text-right">{d.vms||0}</td>
                             </tr>
                           ))}
                         </tbody>
