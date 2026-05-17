@@ -2002,6 +2002,7 @@ const DsSlideOver = ({ ds, dsDiskMap, datastores, hosts, growthRate, setGrowthRa
   const diskInfo = dsKey ? (dsDiskMap?.[dsKey] || {}) : {};
   const thinPct = diskInfo.totalCount>0 ? Math.round(diskInfo.thinCount/diskInfo.totalCount*100) : 0;
   const dsVms = Array.isArray(diskInfo.vms) ? diskInfo.vms : [];
+  const [showAllDsVms, setShowAllDsVms] = useState(false);
 
   console.log("🧪 DS Sidebar selected ds:", ds);
   console.log("🧪 DS Sidebar dsName:", dsName);
@@ -2090,7 +2091,7 @@ const DsSlideOver = ({ ds, dsDiskMap, datastores, hosts, growthRate, setGrowthRa
                     </tr>
                   </thead>
                   <tbody>
-                    {dsVms.slice(0,8).map((vmName,i)=>(
+                    {dsVms.slice(0, showAllDsVms ? dsVms.length : 8).map((vmName,i)=>(
                       <tr key={i} className="border-b border-gray-50 last:border-0">
                         <td className="px-4 py-2.5 font-medium text-gray-800 truncate max-w-[280px]">{vmName}</td>
                         <td className="px-3 py-2.5 text-center">
@@ -2102,9 +2103,21 @@ const DsSlideOver = ({ ds, dsDiskMap, datastores, hosts, growthRate, setGrowthRa
                     ))}
                   </tbody>
                 </table>
-                {dsVms.length > 8 && (
-                  <div className="px-4 py-2 border-t border-gray-50 text-xs text-blue-500">{dsVms.length - 8} autres VMs</div>
-                )}
+                  {dsVms.length > 8 && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setShowAllDsVms(v => !v);
+                      }}
+                      className="relative z-20 w-full cursor-pointer text-left px-4 py-2 border-t border-gray-50 text-xs text-blue-500 hover:bg-blue-50 transition-colors"
+                    >
+                      {showAllDsVms
+                        ? "Réduire la liste ↑"
+                        : `${dsVms.length - 8} autres VMs — Voir toute la liste →`}
+                    </button>
+                  )}
               </div>
             ) : (
               <div className="text-xs text-gray-400 text-center py-4">Aucune donnée vDisk disponible.</div>
