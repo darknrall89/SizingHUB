@@ -1889,7 +1889,7 @@ export const mapRvToolsAnalysisToClusterViewModel = (rv) => {
       id: v.name,
       name: v.name,
       hostName: h.shortName || h.name || h.host || "N/A",
-                host: h.shortName || h.name || h.host || "N/A",
+                host: h.name || h.id || "N/A",
       allocatedRamGb: v.ramGo||0,
       usedRamGb: v.usedRamGo||0,
       activeRamGb: v.activeRamGo||0,
@@ -1905,7 +1905,8 @@ export const mapRvToolsAnalysisToClusterViewModel = (rv) => {
     topCpuConsumers: (rv.hosts||[]).flatMap(h=>(h.vms||[]).map(v=>({
       id: v.name,
       name: v.name,
-      hostName: h.shortName,
+      hostName: h.shortName || h.name || h.host || "N/A",
+                host: h.shortName || h.name || h.host || "N/A",
       vcpu: v.vcpu||0,
       cpuOverallMhz: v.cpuOverallMhz||0,
       cpuReadinessPct: v.cpuReadinessPct||0,
@@ -4587,9 +4588,9 @@ return (
 {activeTab==="vms"&&(
         <div className="space-y-4">
           {(()=>{
-            const activeVmsFromHosts = (hosts||[]).flatMap(h=>(h.vms||[]).map(v=>({
+              const activeVmsFromHosts = (hosts||[]).flatMap(h=>(h.vms||[]).map(v=>({
               name: v.name,
-              hostName: h.shortName,
+              hostName: h.name || h.id || "N/A",
               vcpu: v.vcpu||0,
               ramGb: v.ramGo||0,
               usedRamGb: v.usedRamGo||0,
@@ -5460,39 +5461,6 @@ return (
                     </div>
                   );
                 })}
-              </div>
-            </div>
-          )}
-          {vmOffList.length>0&&(
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-              <h3 className="text-sm font-medium text-gray-800 mb-1">VMs eteintes ({vmOffList.length})</h3>
-              <p className="text-xs text-gray-400 mb-4">Ressources recuperables si decommissionnement</p>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-gray-100">
-                      {["Nom VM","Host","vCPU","RAM","Derniere MAJ","Statut"].map(col=>(
-                        <th key={col} className="text-left py-2 px-2 text-gray-400 font-semibold uppercase tracking-wide">{col}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {vmOffList.map((v,i)=>(
-                      <tr key={i} className={"border-b border-gray-50 "+(i%2===0?"":"bg-gray-50/50")}>
-                        <td className="py-2 px-2 font-semibold text-gray-800">{v.name}</td>
-                        <td className="py-2 px-2 text-gray-500">{v.host}</td>
-                        <td className="py-2 px-2 font-mono text-gray-600">{v.cpu}</td>
-                        <td className="py-2 px-2 font-mono text-gray-600">{v.ramGo} Go</td>
-                        <td className="py-2 px-2 text-gray-500">{v.powerOn?new Date(v.powerOn).toLocaleDateString("fr-FR"):v.creationDate?new Date(v.creationDate).toLocaleDateString("fr-FR"):"Jamais"}</td>
-                        <td className="py-2 px-2">
-                          {v.daysSince===null?<span className="bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-medium">Jamais</span>
-                          :v.daysSince>20?<span className="bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full font-medium">{v.daysSince}j</span>
-                          :<span className="bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-medium">{v.daysSince}j</span>}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
               </div>
             </div>
           )}
