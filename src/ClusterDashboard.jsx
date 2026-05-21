@@ -3180,6 +3180,62 @@ return (
                           </tbody>
                         </table>
                       </div>
+                    {/* ── Datastores connectés ── */}
+                    {(() => {
+                      const hName = (selectedName || "").toLowerCase();
+                      const nodeDs = datastores.filter(d =>
+                        (d.hostNames || []).some(hn =>
+                          hn.toLowerCase() === hName ||
+                          hn.toLowerCase().startsWith(hName.split(".")[0]) ||
+                          hName.startsWith(hn.toLowerCase().split(".")[0])
+                        )
+                      );
+                      return (
+                        <div className="mt-4 rounded-2xl border border-gray-100 overflow-hidden">
+                          <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+                            <span className="text-sm font-semibold text-gray-800">Datastores connectés</span>
+                            {nodeDs.length > 0 && (
+                              <span className="text-xs text-gray-400">
+                                {nodeDs.length} datastore{nodeDs.length>1?"s":""} · {(nodeDs.reduce((s,d)=>s+(d.capMib||0),0)/1024/1024).toFixed(1)} To total
+                              </span>
+                            )}
+                          </div>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="border-b border-gray-100">
+                                  {["Nom","Type","Capacité","Utilisé","Libre","Utilisation"].map(col=>(
+                                    <th key={col} className="text-left text-gray-400 font-medium px-4 py-2 whitespace-nowrap">{col}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {nodeDs.map((d,i)=>{
+                                  const pct    = d.capMib>0 ? Math.round(d.inUseMib/d.capMib*100) : 0;
+                                  const capTb  = (d.capMib/1024/1024).toFixed(1);
+                                  const usedTb = (d.inUseMib/1024/1024).toFixed(1);
+                                  const freeTb = ((d.capMib-d.inUseMib)/1024/1024).toFixed(1);
+                                  const tone   = pct>=80?"bg-red-50 text-red-700 border-red-100":pct>=60?"bg-amber-50 text-amber-700 border-amber-100":"bg-emerald-50 text-emerald-700 border-emerald-100";
+                                  return (
+                                    <tr key={i} className="border-b border-gray-50 last:border-0">
+                                      <td className="px-4 py-2 font-semibold text-gray-700 max-w-[180px] truncate" title={d.name}>{d.name}</td>
+                                      <td className="px-4 py-2"><span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-100 font-medium">{d.type}</span></td>
+                                      <td className="px-4 py-2 text-gray-600">{capTb} To</td>
+                                      <td className="px-4 py-2 text-gray-600">{usedTb} To</td>
+                                      <td className="px-4 py-2 text-gray-600">{freeTb} To</td>
+                                      <td className="px-4 py-2"><span className={`px-2 py-0.5 rounded-full border font-semibold ${tone}`}>{pct}%</span></td>
+                                    </tr>
+                                  );
+                                })}
+                                {nodeDs.length===0&&(
+                                  <tr><td colSpan="6" className="px-4 py-6 text-center text-gray-400">Aucun datastore associé détecté pour ce nœud.</td></tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      );
+                    })()}
                     </div>
                   </div>
                 </div>
