@@ -3090,8 +3090,8 @@ return (
                         {selectedHost.tdpWatts>0&&<InfoRow label="TDP" value={selectedHost.tdpWatts+" W"}/>}
                         </div>
 
-                        <div className="rounded-2xl border border-gray-100 p-5 min-h-[190px]">
-                          <div className="text-sm font-semibold text-gray-800 mb-">Ressources</div>
+                        <div className="rounded-2xl border border-gray-100 p-5">
+                          <div className="text-sm font-semibold text-gray-800 mb-3">Ressources</div>
 
                           <div className="mb-4">
                             <div className="flex items-center justify-between text-xs mb-1">
@@ -3103,7 +3103,7 @@ return (
                             </div>
                           </div>
 
-                          <div>
+                          <div className="mb-5">
                             <div className="flex items-center justify-between text-xs mb-1">
                               <span className="text-gray-500">RAM utilisée</span>
                               <strong className="text-gray-800">{hostRamPct}%</strong>
@@ -3112,34 +3112,14 @@ return (
                               <div className="h-full bg-violet-500 rounded-full" style={{width:Math.min(100,hostRamPct)+"%"}}/>
                             </div>
                           </div>
-                        </div>
-                      </div>
 
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
-                        <div className="rounded-2xl border border-gray-100 p-5 min-h-[190px]">
-                          <div className="text-sm font-semibold text-gray-800 mb-">Réseau physique</div>
-                          <InfoRow label="Interfaces physiques" value={physicalNics || "N/A"}/>
-                          <InfoRow label="Interfaces 10 Gbps" value={nics10g || "N/A"}/>
-                          <InfoRow label="Interfaces 1 Gbps" value={nics1g || "N/A"}/>
-                          <InfoRow label="VMkernel" value={nodeVmks.length}/>
-                        </div>
-
-                        <div className="rounded-2xl border border-gray-100 p-5 min-h-[190px]">
-                          <div className="text-sm font-semibold text-gray-800 mb-">Stockage — HBA / IQN</div>
-                            <div className="grid grid-cols-2 gap-3 mb-4">
-                              <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
-                                <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-1">Fibre Channel</div>
-                                <div className="text-2xl font-semibold text-gray-900">{fcHbas.length}</div>
-                                <div className="text-xs text-gray-500 mt-1">HBA détectés</div>
-                              </div>
-
-                              <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
-                                <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-1">iSCSI / IQN</div>
-                                <div className="text-2xl font-semibold text-gray-900">{iscsiHbas.length}</div>
-                                <div className="text-xs text-gray-500 mt-1">IQN déclarés</div>
-                              </div>
-                            </div>
-
+                          <div className="border-t border-gray-100 pt-4">
+                            <div className="text-sm font-semibold text-gray-800 mb-3">Réseau physique</div>
+                            <InfoRow label="Interfaces physiques" value={physicalNics || "N/A"}/>
+                            <InfoRow label="Interfaces 10 Gbps" value={nics10g || "N/A"}/>
+                            <InfoRow label="Interfaces 1 Gbps" value={nics1g || "N/A"}/>
+                            <InfoRow label="VMkernel" value={nodeVmks.length}/>
+                          </div>
                         </div>
                       </div>
 
