@@ -1721,7 +1721,8 @@ export const mapRvToolsAnalysisToClusterViewModel = (rv) => {
       warningsCount:insights.filter(i=>i.severity==="warning").length,
     },
     hosts:(rv.hosts||[]).map(h=>({
-      id:h.name, name:h.shortName,
+      id:h.name, name:h.shortName, fullName:h.name,
+      cluster:h.cluster||null, datacenter:h.datacenter||null,
       cpuUsagePercent:h.cpuUsagePct||0,
       ramUsagePercent:h.ramUsagePct||0,
       cpuUsagePct:h.cpuUsagePct||0,
@@ -2744,39 +2745,160 @@ return (
                 <div className="grid grid-cols-1 xl:grid-cols-[1.05fr_0.95fr] gap-4">
                   <div className="space-y-4">
                     <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
-                      <h3 className="text-lg font-semibold text-gray-900">Cluster Overview</h3>
+                      {/* ── Infrastructure Overview multi-cluster ── */}
+                      {(() => {
+                        const clusterMap = {};
+                        hostList.forEach(h => {
+                          const cl = h.cluster || h.Cluster || h.clusterName || null;
+                          const key = cl || "__orphan__";
+                          if (!clusterMap[key]) clusterMap[key] = { name: cl, hosts: [] };
+                          clusterMap[key].hosts.push(h);
+                        });
+                        const realClusters = Object.entries(clusterMap).filter(([k]) => k !== "__orphan__");
+                        const orphans = clusterMap["__orphan__"]?.hosts || [];
+                        const totalEntities = realClusters.length + (orphans.length > 0 ? 1 : 0);
+                        const truncCl = (n, max=46) => !n ? "—" : n.length > max ? n.slice(0, max) + "…" : n;
 
-                      <div className="mt-5 grid grid-cols-1 lg:grid-cols-[170px_1fr] gap-6 items-center">
-                        <div className="flex justify-center">
-                          <GlobalClusterStackIcon />
-                        </div>
-
-                        <div>
-                          <div className="flex items-center gap-3 flex-wrap">
-                            <div className="text-2xl font-semibold text-gray-900">
-                              {clusterSummary.name || clusterSummary.clusterName || platformContext?.clusterName || "Cluster VMware"}
+                        return (
+                          <>
+                            {/* En-tête avec KPIs globaux */}
+                            <div className="flex items-start justify-between gap-4 flex-wrap mb-5">
+                              <div>
+                                <h3 className="text-lg font-semibold text-gray-900">Infrastructure Overview</h3>
+                                <p className="text-sm text-gray-400 mt-0.5">Vue d&apos;ensemble de votre infrastructure vSphere</p>
+                              </div>
+                              <div className="flex items-center gap-3 flex-wrap">
+                                <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-100 bg-gray-50">
+                                  <span className="text-blue-500 text-base">🗂</span>
+                                  <div><div className="text-sm font-semibold text-gray-900">{totalEntities}</div><div className="text-[10px] text-gray-400">Cluster{totalEntities>1?"s":""}</div></div>
+                                </div>
+                                {orphans.length > 0 && (
+                                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-amber-200 bg-amber-50">
+                                    <AlertTriangle size={14} className="text-amber-500"/>
+                                    <div><div className="text-sm font-semibold text-amber-800">{orphans.length}</div><div className="text-[10px] text-amber-600">Hôte{orphans.length>1?"s":""} hors cluster</div></div>
+                                  </div>
+                                )}
+                                <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-100 bg-gray-50">
+                                  <span className="text-gray-500 text-base">👥</span>
+                                  <div><div className="text-sm font-semibold text-gray-900">{hostList.length}</div><div className="text-[10px] text-gray-400">Hôtes totaux</div></div>
+                                </div>
+                                <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-100 bg-gray-50">
+                                  <span className="text-gray-500 text-base">🖥</span>
+                                  <div><div className="text-sm font-semibold text-gray-900">{activeVms}</div><div className="text-[10px] text-gray-400">VMs totales</div></div>
+                                </div>
+                              </div>
                             </div>
-                            <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 font-semibold">Sain</span>
-                          </div>
 
-                          <div className="text-sm text-gray-500 mt-1">VMware vSphere Cluster</div>
+                            {/* Alerte Witness */}
+                            {orphans.length > 0 && (
+                              <div className="mb-5 flex items-start gap-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200">
+                                <AlertTriangle size={16} className="text-amber-500 mt-0.5 shrink-0"/>
+                                <div>
+                                  <div className="text-sm font-semibold text-amber-800">
+                                    {orphans.length} hôte{orphans.length>1?"s":""} hors cluster détecté{orphans.length>1?"s":""} — rôle Witness probable (vSAN)
+                                  </div>
+                                  <div className="text-xs text-amber-600 mt-0.5">
+                                    Cet hôte n&apos;est pas membre d&apos;un cluster vSphere et n&apos;est pas inclus dans les calculs de capacité.
+                                  </div>
+                                </div>
+                              </div>
+                            )}
 
-                          <div className="mt-5 flex flex-wrap items-center gap-x-10 gap-y-5">
-                            <GlobalClusterMiniMetric icon="hosts" value={hostList.length} label="Hosts"/>
-                            <GlobalClusterMiniMetric icon="vm" value={activeVms} label="VMs actives"/>
-                            <GlobalClusterMiniMetric icon="cpu" value={totalCpu} label="Cores"/>
-                            <GlobalClusterMiniMetric icon="ram" value={formatRam(totalRam)} label="RAM totale"/>
-                            <GlobalClusterMiniMetric icon="storage" value={`${storageTotalTb} To`} label="Stockage total"/>
-                          </div>
-                        </div>
-                      </div>
+                            {/* Production Clusters */}
+                            {realClusters.length > 0 && (
+                              <div className="mb-5">
+                                <div className="flex items-center gap-2 mb-3">
+                                  <span className="text-sm font-semibold text-gray-700">Production Clusters</span>
+                                  <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100 font-medium">{realClusters.length} cluster{realClusters.length>1?"s":""}</span>
+                                </div>
+                                <div className="space-y-3">
+                                  {realClusters.map(([key, grp]) => {
+                                    const grpVms = grp.hosts.reduce((s,h)=>s+(h.vmsCount||h.vmCount||h.vms||0),0);
+                                    const grpCpu = grp.hosts.length ? Math.round(grp.hosts.reduce((s,h)=>s+(Number(h.cpuUsagePct||h.cpuUsagePercent)||0),0)/grp.hosts.length) : 0;
+                                    const grpRam = grp.hosts.length ? Math.round(grp.hosts.reduce((s,h)=>s+(Number(h.ramUsagePct||h.ramUsagePercent)||0),0)/grp.hosts.length) : 0;
+                                    return (
+                                      <div key={key} className="rounded-2xl border border-blue-100 bg-blue-50/30 p-4">
+                                        <div className="flex items-center justify-between gap-3 mb-3">
+                                          <div className="flex items-center gap-2 min-w-0">
+                                            <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center shrink-0 text-sm">🗄</div>
+                                            <div className="min-w-0">
+                                              <div className="text-xs font-semibold text-gray-800 truncate" title={grp.name||""}>{truncCl(grp.name)}</div>
+                                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-600 border border-blue-100 font-medium">vSphere Cluster</span>
+                                            </div>
+                                          </div>
+                                          <div className="flex items-center gap-4 shrink-0">
+                                            <div className="text-right"><div className="text-sm font-semibold text-gray-800">{grp.hosts.length}</div><div className="text-[10px] text-gray-400">hôtes</div></div>
+                                            <div className="text-right"><div className="text-sm font-semibold text-gray-800">{grpVms}</div><div className="text-[10px] text-gray-400">VMs</div></div>
+                                          </div>
+                                        </div>
+                                        <div className="grid grid-cols-4 gap-2">
+                                          {[
+                                            {label:"CPU utilisé",  val:grpCpu+"%",     color:getUsageTone(grpCpu).color,     sub:"Libre : "+(100-grpCpu)+"%"},
+                                            {label:"RAM utilisée", val:grpRam+"%",     color:getUsageTone(grpRam).color,     sub:"Libre : "+(100-grpRam)+"%"},
+                                            {label:"Stockage",     val:storagePct+"%", color:getUsageTone(storagePct).color, sub:"Libre : "+(100-storagePct)+"%"},
+                                            {label:"vCPU moy./VM", val:String(avgVcpuPerVm), color:"text-gray-700", sub:"Souscrip. : "+cpuOversub},
+                                          ].map(m=>(
+                                            <div key={m.label} className="rounded-xl bg-white border border-blue-100 p-3">
+                                              <div className={"text-sm font-semibold "+m.color}>{m.val}</div>
+                                              <div className="text-[10px] text-gray-400 mt-0.5">{m.label}</div>
+                                              <div className="text-[10px] text-gray-300 mt-0.5">{m.sub}</div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
 
-                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-5">
-                        <SoftMetric label="CPU oversubscription" value={cpuOversub} tone="blue"/>
-                        <SoftMetric label="RAM oversubscription" value={ramOversub} tone="orange"/>
-                        <SoftMetric label="vCPU moyen / VM" value={avgVcpuPerVm} tone="blue"/>
-                        <SoftMetric label="RAM moyenne / VM" value={`${avgRamPerVm} GB`} tone="orange"/>
-                      </div>
+                            {/* Special Nodes — Witness */}
+                            {orphans.length > 0 && (
+                              <div className="mb-5">
+                                <div className="flex items-center gap-2 mb-3">
+                                  <span className="text-sm font-semibold text-gray-700">Infrastructure Special Nodes</span>
+                                  <span className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200 font-medium">{orphans.length} élément{orphans.length>1?"s":""}</span>
+                                </div>
+                                <div className="space-y-2">
+                                  {orphans.map((h,i)=>{
+                                    const hCpu = Number(h.cpuUsagePct||h.cpuUsagePercent)||0;
+                                    const hRam = Number(h.ramUsagePct||h.ramUsagePercent)||0;
+                                    return (
+                                      <div key={i} className="rounded-2xl border border-amber-200 bg-amber-50/30 p-4 flex items-center gap-6 flex-wrap">
+                                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                                          <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center shrink-0 text-amber-600">⚠</div>
+                                          <div>
+                                            <div className="text-sm font-semibold text-gray-800">{h.name||h.id||"N/A"}</div>
+                                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200 font-medium">Hors cluster</span>
+                                            <div className="text-xs text-amber-600 mt-0.5">Witness node vSAN probable</div>
+                                          </div>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-xs shrink-0">
+                                          <span className="font-medium text-gray-600">Rôle détecté</span>
+                                          <span className="px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-700 font-semibold">Witness (vSAN quorum)</span>
+                                        </div>
+                                        <div className="flex items-center gap-4 shrink-0">
+                                          <div className="text-center"><div className="text-sm font-semibold text-gray-700">{hCpu}%</div><div className="text-[10px] text-gray-400">CPU utilisé</div></div>
+                                          <div className="text-center"><div className="text-sm font-semibold text-violet-600">{hRam}%</div><div className="text-[10px] text-gray-400">RAM utilisée</div></div>
+                                          <div className="text-center"><div className="text-sm font-semibold text-gray-400">—</div><div className="text-[10px] text-gray-400">Stockage</div></div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* KPIs oversubscription */}
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                              <SoftMetric label="CPU oversubscription" value={cpuOversub} tone="blue"/>
+                              <SoftMetric label="RAM oversubscription" value={ramOversub} tone="orange"/>
+                              <SoftMetric label="vCPU moyen / VM"      value={String(avgVcpuPerVm)} tone="blue"/>
+                              <SoftMetric label="RAM moyenne / VM"     value={`${avgRamPerVm} GB`} tone="orange"/>
+                            </div>
+                          </>
+                        );
+                      })()}
                     </div>
 
                     <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
@@ -2866,6 +2988,22 @@ return (
                         <div className="rounded-2xl border border-gray-100 p-5 min-h-[190px]">
                           <div className="text-sm font-semibold text-gray-800 mb-">Informations générales</div>
                           <InfoRow label="Nom d'hôte" value={selectedName}/>
+                          {/* Ligne Cluster — avec badge Witness si hors cluster */}
+                          <div className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                            <span className="text-xs text-gray-400 shrink-0 w-36">Cluster</span>
+                            {(() => {
+                              const cl = selectedHost.cluster || selectedHost.Cluster || selectedHost.clusterName || null;
+                              const isWitness = !cl || cl === "" || cl === "N/A";
+                              if (isWitness) return (
+                                <span className="flex items-center gap-2 flex-wrap">
+                                  <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-xs font-semibold">Hors cluster</span>
+                                  <span className="text-xs text-gray-400">Witness node vSAN probable</span>
+                                </span>
+                              );
+                              const short = cl.length > 42 ? cl.slice(0, 42) + "…" : cl;
+                              return <span className="text-xs text-gray-700 text-right truncate max-w-[220px]" title={cl}>{short}</span>;
+                            })()}
+                          </div>
                           <InfoRow label="Adresse IP" value={mgmtVmk?.ip || mgmtVmk?.IP || selectedHost.ip}/>
                           <InfoRow label="Modèle" value={selectedHost.model || selectedHost.cpuModel || selectedHost.serverModel || selectedHost.hardwareModel}/>
                           <InfoRow label="Version ESXi" value={selectedHost.esxVersion || selectedHost.version || selectedHost.esxiVersion}/>
