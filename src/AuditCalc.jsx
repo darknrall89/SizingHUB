@@ -190,6 +190,9 @@ export default function AuditCalc({ th, isMobile=false }) {
       freePct: d["Free %"]||0,
       vms: d["# VMs"]||0,
       hosts: d["# Hosts"]||0,
+      hostNames: d["Hosts"]
+        ? String(d["Hosts"]).split(/[,;]/).map(s=>s.trim()).filter(Boolean)
+        : [],
     })).filter(d=>d.capMib>0);
 
     const vmOffList = vmOff.map(v => ({

@@ -2906,51 +2906,97 @@ return (
                                 </div>
                                 <div className="space-y-2">
                                   {orphans.map((h,i)=>{
-                                    const hCpu   = Number(h.cpuUsagePct||h.cpuUsagePercent)||0;
-                                    const hRam   = Number(h.ramUsagePct||h.ramUsagePercent)||0;
-                                    const hDc    = h.datacenter || null;
-                                    const detect = detectOrphanRole(h);
+                                    const hCpu    = Number(h.cpuUsagePct||h.cpuUsagePercent)||0;
+                                    const hRam    = Number(h.ramUsagePct||h.ramUsagePercent)||0;
+                                    const hCores  = h.totalCpuCores||h.cores||0;
+                                    const hRamGb  = h.totalRamGb||h.ramGo||0;
+                                    const hDc     = h.datacenter || null;
+                                    const detect  = detectOrphanRole(h);
                                     const isWitness = detect.role === "witness" || detect.role === "witness_probable";
-                                    const border = isWitness ? "border-amber-200" : "border-gray-200";
-                                    const bg     = isWitness ? "bg-amber-50/30"  : "bg-gray-50/30";
-                                    const badge  = isWitness
+                                    const border  = isWitness ? "border-amber-200" : "border-gray-200";
+                                    const bg      = isWitness ? "bg-amber-50/30"   : "bg-gray-50/30";
+                                    const badge   = isWitness
                                       ? "bg-amber-100 text-amber-700 border-amber-200"
                                       : "bg-gray-100 text-gray-600 border-gray-200";
                                     return (
                                       <div key={i} className={`rounded-2xl border ${border} ${bg} p-4`}>
-                                        <div className="flex items-center gap-6 flex-wrap">
-                                          <div className="flex items-center gap-3 min-w-0 flex-1">
-                                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-base ${isWitness ? "bg-amber-100 text-amber-600" : "bg-gray-100 text-gray-500"}`}>
+                                        {/* En-tête */}
+                                        <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+                                          <div className="flex items-center gap-3 min-w-0">
+                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-sm ${isWitness ? "bg-amber-100 text-amber-600" : "bg-gray-100 text-gray-500"}`}>
                                               {isWitness ? "⚠" : "🖥"}
                                             </div>
-                                            <div>
-                                              <div className="text-sm font-semibold text-gray-800">{h.name||h.fullName||h.id||"N/A"}</div>
-                                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${badge}`}>Hors cluster</span>
-                                              {hDc && <div className="text-[10px] text-gray-400 mt-0.5">Datacenter : {hDc}</div>}
+                                            <div className="min-w-0">
+                                              <div className="text-xs font-semibold text-gray-800 truncate">{h.name||h.fullName||h.id||"N/A"}</div>
+                                              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${badge}`}>Hors cluster</span>
+                                                {hDc && <span className="text-[10px] text-gray-400">Datacenter : {hDc}</span>}
+                                              </div>
                                             </div>
                                           </div>
                                           <div className="flex flex-col items-end gap-1 shrink-0">
-                                            <div className="flex items-center gap-2 text-xs">
-                                              <span className="text-gray-500">Rôle détecté</span>
-                                              <span className={`px-2 py-0.5 rounded border text-xs font-semibold ${badge}`}>{detect.roleLabel}</span>
-                                            </div>
+                                            <span className={`px-2 py-0.5 rounded border text-[10px] font-semibold ${badge}`}>{detect.roleLabel}</span>
                                             <div className="flex items-center gap-1 text-[10px] text-gray-400">
                                               <span>Confiance :</span>
                                               <span className={detect.confidence==="Élevée"?"text-emerald-600 font-semibold":detect.confidence==="Moyenne"?"text-amber-600 font-semibold":"text-gray-400"}>{detect.confidence}</span>
-                                              <span className="ml-1 text-gray-300">({detect.score} pts)</span>
+                                              <span className="text-gray-300 ml-0.5">({detect.score} pts)</span>
                                             </div>
                                           </div>
-                                          <div className="flex items-center gap-4 shrink-0">
-                                            <div className="text-center"><div className={"text-sm font-semibold "+getUsageTone(hCpu).color}>{hCpu}%</div><div className="text-[10px] text-gray-400">CPU utilisé</div></div>
-                                            <div className="text-center"><div className={"text-sm font-semibold "+getUsageTone(hRam).color}>{hRam}%</div><div className="text-[10px] text-gray-400">RAM utilisée</div></div>
-                                            <div className="text-center"><div className="text-sm font-semibold text-gray-400">—</div><div className="text-[10px] text-gray-400">Stockage</div></div>
-                                          </div>
                                         </div>
+
+                                        {/* MiniBar CPU + RAM + Storage */}
+                                        {(() => {
+                                          const hName = (h.name||h.fullName||h.id||"").toLowerCase();
+                                          const hDs = datastores.filter(d =>
+                                            (d.hostNames||[]).some(hn =>
+                                              hn.toLowerCase() === hName ||
+                                              hn.toLowerCase().startsWith(hName.split(".")[0])
+                                            )
+                                          );
+                                          const hCapMib  = hDs.reduce((s,d)=>s+(d.capMib||0),0);
+                                          const hUsedMib = hDs.reduce((s,d)=>s+(d.inUseMib||0),0);
+                                          const hStPct   = hCapMib > 0 ? Math.round(hUsedMib/hCapMib*100) : 0;
+                                          const hCapTb   = (hCapMib/1024/1024).toFixed(1);
+                                          const hUsedTb  = (hUsedMib/1024/1024).toFixed(1);
+                                          const hasStorage = hCapMib > 0;
+                                          return (
+                                            <div className={`grid grid-cols-1 gap-3 mb-3 ${hasStorage ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
+                                              <MiniBar
+                                                label="CPU"
+                                                value={hCores > 0 ? `${Math.round(hCores*hCpu/100)} cores` : "—"}
+                                                total={hCores > 0 ? `${hCores} cores` : "—"}
+                                                pct={hCpu}
+                                                color="bg-blue-500"
+                                                sub={hCpu>=80?"Capacité critique.":hCpu>=60?"À surveiller.":"Utilisation confortable."}
+                                              />
+                                              <MiniBar
+                                                label="RAM"
+                                                value={hRamGb > 0 ? formatRam(Math.round(hRamGb*hRam/100)) : "—"}
+                                                total={hRamGb > 0 ? formatRam(hRamGb) : "—"}
+                                                pct={hRam}
+                                                color="bg-violet-500"
+                                                sub={hRam>=80?"Capacité critique.":hRam>=60?"À surveiller.":"Utilisation confortable."}
+                                              />
+                                              {hasStorage && (
+                                                <MiniBar
+                                                  label={`Stockage (${hDs.length} datastore${hDs.length>1?"s":""})`}
+                                                  value={`${hUsedTb} To`}
+                                                  total={`${hCapTb} To`}
+                                                  pct={hStPct}
+                                                  color={hStPct>=80?"bg-red-500":hStPct>=60?"bg-amber-400":"bg-emerald-500"}
+                                                  sub={hStPct>=80?"Capacité à risque.":hStPct>=60?"Surveillance recommandée.":"Capacité confortable."}
+                                                />
+                                              )}
+                                            </div>
+                                          );
+                                        })()}
+
+                                        {/* Signaux de détection */}
                                         {detect.signals.length > 0 && (
-                                          <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap gap-1">
+                                          <div className="pt-3 border-t border-gray-100 flex flex-wrap gap-1">
                                             <span className="text-[10px] text-gray-400 mr-1">Signaux :</span>
                                             {detect.signals.map((s,j)=>(
-                                              <span key={j} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 border border-gray-200">{s}</span>
+                                              <span key={j} className="text-[10px] px-1.5 py-0.5 rounded bg-white text-gray-500 border border-gray-200">{s}</span>
                                             ))}
                                           </div>
                                         )}
