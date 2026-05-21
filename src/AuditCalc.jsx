@@ -116,11 +116,14 @@ export default function AuditCalc({ th, isMobile=false }) {
 
     const vSwitchData = getJson("vSwitch");
     const vDiskData = getJson("vDisk");
+
     const vmDiskMap = {};
     const dsDiskMap = {};
     (vDiskData||[]).forEach(d=>{
       const vm = d["VM"]||d["Name"]||"";
-      const ds = d["Datastore"]||d["datastore"]||"";
+      const diskPath = d["Path"]||d["Disk Path"]||d["path"]||"";
+      const dsMatch = diskPath.match(/\[(.+?)\]/);
+      const ds = dsMatch?.[1] || d["Datastore"]||d["datastore"]||"";
       const thin = d["Thin"]||d["thin"]||d["Thin Provisioned"]||false;
       const capMib = Number(d["Capacity MiB"]||d["Size MiB"]||0);
       if (vm) {
@@ -145,6 +148,8 @@ export default function AuditCalc({ th, isMobile=false }) {
       const hostVms = vmOn.filter(v=>v["Host"]===h["Host"]);
       return {
         name: h["Host"],
+        cluster: h["Cluster"] || null,
+        datacenter: h["Datacenter"] || null,
         shortName: (() => { const h2 = h["Host"]||""; const first = h2.split(".")[0]; return /^\d+$/.test(first) ? h2 : first; })(),
         cpuModel: (h["CPU Model"]||"").replace(/\(R\)/g,"").replace(/\(TM\)/g,""),
         cores: h["# Cores"]||0,
@@ -936,6 +941,7 @@ Retourne exactement ce format:
                 insights={vm.insights}
                 osDistrib={vm.osDistrib}
                 datastores={vm.datastores}
+                dsDiskMap={vm.dsDiskMap}
                 vlans={vm.vlans}
                 vSwitches={vm.vSwitches}
                 dvSwitches={vm.dvSwitches}

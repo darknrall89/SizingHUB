@@ -51,6 +51,9 @@ Règles d'interprétation strictes :
 - VMkernel Autres : tout ce qui n'est ni Management, ni vMotion, ni Storage
 - Pour les IPs et subnets, déduire le préfixe CIDR depuis le Subnet mask (255.255.255.0 = /24, etc.)
 - snapshots : compter depuis vSnapshot, grouper par VM
+- hosts[].name : colonne "Host" de vHost (nom FQDN de l'hôte)
+- hosts[].cluster : colonne "Cluster" de vHost (null si vide ou absent)
+- hosts[].datacenter : colonne "Datacenter" de vHost
 
 Schéma JSON attendu (respecte exactement cette structure) :
 {
@@ -75,7 +78,10 @@ Schéma JSON attendu (respecte exactement cette structure) :
   },
   "hosts": [
     {
+      "name": string,
       "ip": string,
+      "cluster": string|null,
+      "datacenter": string|null,
       "model": string,
       "cpuCores": number,
       "cpuUsedPct": number,
@@ -697,7 +703,64 @@ export default function RVToolsAnalyzer({ theme }) {
       setProgress(`${sheetCount} sheets extraites — analyse Claude en cours...`);
       
       const analysis = await analyzeWithClaude(sheetsData);
-      
+
+      // ── Enrichissement local : cluster depuis vHost (indépendant de Claude) ──
+      const vHostRows = sheetsData.vHost || [];
+      const hostClusterMap = {};
+      vHostRows.forEach(row => {
+        const hostName = row["Host"] || row["host"] || row["hostname"] || "";
+        const cluster  = row["Cluster"] || row["cluster"] || null;
+        const dc       = row["Datacenter"] || row["datacenter"] || null;
+        if (hostName) {
+          hostClusterMap[hostName.toLowerCase()] = {
+            cluster: cluster || null,
+            datacenter: dc || null,
+            name: hostName,
+          };
+        }
+      });
+
+      // Fusionner dans analysis.hosts[]
+      if (analysis.hosts && Array.isArray(analysis.hosts)) {
+        analysis.hosts = analysis.hosts.map(h => {
+          const key = (h.name || h.ip || "").toLowerCase();
+          // Cherche par nom exact ou préfixe
+          const match = hostClusterMap[key]
+            || Object.values(hostClusterMap).find(m =>
+                m.name.toLowerCase().startsWith(key) ||
+                key.startsWith(m.name.toLowerCase().split(".")[0])
+              );
+          if (match) {
+            return {
+              ...h,
+              name: h.name || match.name,
+              cluster: match.cluster,
+              datacenter: match.datacenter,
+            };
+          }
+          return h;
+        });
+      }
+
+      // Si hosts[] est vide ou absent, le construire depuis vHost directement
+      if (!analysis.hosts || analysis.hosts.length === 0) {
+        analysis.hosts = vHostRows.map(row => ({
+          name:       row["Host"] || row["host"] || "N/A",
+          ip:         row["Host"] || row["host"] || "N/A",
+          cluster:    row["Cluster"] || null,
+          datacenter: row["Datacenter"] || null,
+          model:      row["Model"] || null,
+          cpuCores:   Number(row["# Cores"]) || 0,
+          cpuUsedPct: Number(row["CPU usage %"]) || 0,
+          ramTotalGb: Number(row["# Memory"]) || 0,
+          ramUsedPct: Number(row["Memory usage %"]) || 0,
+          ramUsedGb:  0,
+          vmCount:    0,
+          status:     "ok",
+          esxiVersion: row["ESX Version"] || null,
+        }));
+      }
+
       setResult(analysis);
       setStep("done");
       setActiveTab("overview");

@@ -2706,41 +2706,7 @@ return (
 
             return (
               <>
-                <div className={"rounded-3xl border shadow-sm p-6 "+t.bg}>
-                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
-                    <div className="flex items-center gap-5">
-                      <div className="w-20 h-20 rounded-full bg-white border border-white shadow-sm flex flex-col items-center justify-center">
-                        <div className={"text-3xl font-bold "+t.text}>{clusterSummary.auditScore || 100}</div>
-                        <div className="text-[10px] text-gray-400">/100</div>
-                      </div>
 
-                      <div>
-                        <div className="text-xs uppercase tracking-widest text-gray-400">Score global d'audit</div>
-                        <div className={"text-2xl font-semibold "+t.text}>{globalHealth}</div>
-                        <div className="text-sm text-gray-600 mt-1">
-                          CPU moyen {avgCpuPct}% · RAM moyenne {avgRamPct}% · Stockage {storagePct}%
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-3 w-full lg:w-[560px]">
-                      <div className="bg-white/80 rounded-2xl px-6 py-4 text-center">
-                        <div className="text-xl font-semibold text-blue-600">{avgCpuPct}%</div>
-                        <div className="text-xs text-gray-500">CPU moyen</div>
-                      </div>
-                      <div className="bg-white/80 rounded-2xl px-6 py-4 text-center">
-                        <div className="text-xl font-semibold text-violet-600">{avgRamPct}%</div>
-                        <div className="text-xs text-gray-500">RAM moyenne</div>
-                      </div>
-                      <div className="bg-white/80 rounded-2xl px-6 py-4 text-center">
-                        <div className={(storagePct>=80?"text-red-600":storagePct>=60?"text-amber-600":"text-emerald-600")+" text-xl font-semibold"}>
-                          {storagePct>=80?"À risque":storagePct>=60?"À surveiller":"OK"}
-                        </div>
-                        <div className="text-xs text-gray-500">Stockage</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
 
                 <div className="grid grid-cols-1 xl:grid-cols-[1.05fr_0.95fr] gap-4">
                   <div className="space-y-4">
