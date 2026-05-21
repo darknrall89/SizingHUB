@@ -6,6 +6,66 @@ import {
 } from "lucide-react";
 import NetworkFabric from "./components/network/NetworkFabric.jsx";
 
+// ── Détection rôle hôte hors cluster (scoring multi-signaux) ──────────────────
+function detectOrphanRole(host) {
+  let score = 0;
+  const signals = [];
+
+  const name      = (host.name || host.fullName || host.id || "").toLowerCase();
+  const dc        = (host.datacenter || "").toLowerCase();
+  const model     = (host.model || "").toLowerCase();
+  const vendor    = (host.vendor || "").toLowerCase();
+  const cores     = Number(host.totalCpuCores || host.cores || host.coresPerSocket || 0);
+  const sockets   = Number(host.sockets || 0);
+  const vmCount   = Number(host.vmsCount || host.vmCount || host.vms || 0);
+
+  // Signal 1 : nom contient "witness"
+  if (name.includes("witness")) {
+    score += 40; signals.push("Nom contient 'witness'");
+  }
+
+  // Signal 2 : datacenter contient "witness"
+  if (dc.includes("witness")) {
+    score += 35; signals.push("Datacenter Witness");
+  }
+
+  // Signal 3 : modèle VMware Virtual Platform (VM nestée = Witness typique)
+  if (model.includes("vmware virtual") || model.includes("virtual platform")) {
+    score += 15; signals.push("VM nestée (Virtual Platform)");
+  }
+
+  // Signal 4 : aucune VM hébergée
+  if (vmCount === 0) {
+    score += 10; signals.push("0 VMs hébergées");
+  }
+
+  // Signal 5 : mono-socket ou très peu de cores (Witness = petit footprint)
+  if (sockets <= 1 && cores <= 4) {
+    score += 15; signals.push("Petit footprint CPU");
+  } else if (sockets <= 1) {
+    score += 5; signals.push("Mono-socket");
+  }
+
+  // Signal 6 : datacenter contient "management" ou "mgmt"
+  if (dc.includes("management") || dc.includes("mgmt")) {
+    score += 10; signals.push("Datacenter Management");
+  }
+
+  // Déterminer le rôle
+  let role, roleLabel, confidence;
+  if (score >= 50) {
+    role = "witness"; roleLabel = "Witness (vSAN quorum)"; confidence = "Élevée";
+  } else if (score >= 25) {
+    role = "witness_probable"; roleLabel = "Witness probable (vSAN)"; confidence = "Moyenne";
+  } else if (dc.includes("management") || dc.includes("mgmt")) {
+    role = "management"; roleLabel = "Hôte de management standalone"; confidence = "Moyenne";
+  } else {
+    role = "standalone"; roleLabel = "Hôte standalone (rôle indéterminé)"; confidence = "Faible";
+  }
+
+  return { role, roleLabel, confidence, score, signals };
+}
+
 
 
 const GlobalClusterMiniMetric = ({icon, value, label}) => {
@@ -2846,27 +2906,54 @@ return (
                                 </div>
                                 <div className="space-y-2">
                                   {orphans.map((h,i)=>{
-                                    const hCpu = Number(h.cpuUsagePct||h.cpuUsagePercent)||0;
-                                    const hRam = Number(h.ramUsagePct||h.ramUsagePercent)||0;
+                                    const hCpu   = Number(h.cpuUsagePct||h.cpuUsagePercent)||0;
+                                    const hRam   = Number(h.ramUsagePct||h.ramUsagePercent)||0;
+                                    const hDc    = h.datacenter || null;
+                                    const detect = detectOrphanRole(h);
+                                    const isWitness = detect.role === "witness" || detect.role === "witness_probable";
+                                    const border = isWitness ? "border-amber-200" : "border-gray-200";
+                                    const bg     = isWitness ? "bg-amber-50/30"  : "bg-gray-50/30";
+                                    const badge  = isWitness
+                                      ? "bg-amber-100 text-amber-700 border-amber-200"
+                                      : "bg-gray-100 text-gray-600 border-gray-200";
                                     return (
-                                      <div key={i} className="rounded-2xl border border-amber-200 bg-amber-50/30 p-4 flex items-center gap-6 flex-wrap">
-                                        <div className="flex items-center gap-3 min-w-0 flex-1">
-                                          <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center shrink-0 text-amber-600">⚠</div>
-                                          <div>
-                                            <div className="text-sm font-semibold text-gray-800">{h.name||h.id||"N/A"}</div>
-                                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200 font-medium">Hors cluster</span>
-                                            <div className="text-xs text-amber-600 mt-0.5">Witness node vSAN probable</div>
+                                      <div key={i} className={`rounded-2xl border ${border} ${bg} p-4`}>
+                                        <div className="flex items-center gap-6 flex-wrap">
+                                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-base ${isWitness ? "bg-amber-100 text-amber-600" : "bg-gray-100 text-gray-500"}`}>
+                                              {isWitness ? "⚠" : "🖥"}
+                                            </div>
+                                            <div>
+                                              <div className="text-sm font-semibold text-gray-800">{h.name||h.fullName||h.id||"N/A"}</div>
+                                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${badge}`}>Hors cluster</span>
+                                              {hDc && <div className="text-[10px] text-gray-400 mt-0.5">Datacenter : {hDc}</div>}
+                                            </div>
+                                          </div>
+                                          <div className="flex flex-col items-end gap-1 shrink-0">
+                                            <div className="flex items-center gap-2 text-xs">
+                                              <span className="text-gray-500">Rôle détecté</span>
+                                              <span className={`px-2 py-0.5 rounded border text-xs font-semibold ${badge}`}>{detect.roleLabel}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1 text-[10px] text-gray-400">
+                                              <span>Confiance :</span>
+                                              <span className={detect.confidence==="Élevée"?"text-emerald-600 font-semibold":detect.confidence==="Moyenne"?"text-amber-600 font-semibold":"text-gray-400"}>{detect.confidence}</span>
+                                              <span className="ml-1 text-gray-300">({detect.score} pts)</span>
+                                            </div>
+                                          </div>
+                                          <div className="flex items-center gap-4 shrink-0">
+                                            <div className="text-center"><div className={"text-sm font-semibold "+getUsageTone(hCpu).color}>{hCpu}%</div><div className="text-[10px] text-gray-400">CPU utilisé</div></div>
+                                            <div className="text-center"><div className={"text-sm font-semibold "+getUsageTone(hRam).color}>{hRam}%</div><div className="text-[10px] text-gray-400">RAM utilisée</div></div>
+                                            <div className="text-center"><div className="text-sm font-semibold text-gray-400">—</div><div className="text-[10px] text-gray-400">Stockage</div></div>
                                           </div>
                                         </div>
-                                        <div className="flex items-center gap-2 text-xs shrink-0">
-                                          <span className="font-medium text-gray-600">Rôle détecté</span>
-                                          <span className="px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-700 font-semibold">Witness (vSAN quorum)</span>
-                                        </div>
-                                        <div className="flex items-center gap-4 shrink-0">
-                                          <div className="text-center"><div className="text-sm font-semibold text-gray-700">{hCpu}%</div><div className="text-[10px] text-gray-400">CPU utilisé</div></div>
-                                          <div className="text-center"><div className="text-sm font-semibold text-violet-600">{hRam}%</div><div className="text-[10px] text-gray-400">RAM utilisée</div></div>
-                                          <div className="text-center"><div className="text-sm font-semibold text-gray-400">—</div><div className="text-[10px] text-gray-400">Stockage</div></div>
-                                        </div>
+                                        {detect.signals.length > 0 && (
+                                          <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap gap-1">
+                                            <span className="text-[10px] text-gray-400 mr-1">Signaux :</span>
+                                            {detect.signals.map((s,j)=>(
+                                              <span key={j} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 border border-gray-200">{s}</span>
+                                            ))}
+                                          </div>
+                                        )}
                                       </div>
                                     );
                                   })}
@@ -2931,15 +3018,18 @@ return (
                             <span className="text-xs text-gray-400 shrink-0 w-36">Cluster</span>
                             {(() => {
                               const cl = selectedHost.cluster || selectedHost.Cluster || selectedHost.clusterName || null;
-                              const isWitness = !cl || cl === "" || cl === "N/A";
-                              if (isWitness) return (
+                              if (cl && cl !== "" && cl !== "N/A") {
+                                const short = cl.length > 42 ? cl.slice(0, 42) + "…" : cl;
+                                return <span className="text-xs text-blue-600 text-right truncate max-w-[220px] cursor-help" title={cl}>{short}</span>;
+                              }
+                              const detect = detectOrphanRole(selectedHost);
+                              return (
                                 <span className="flex items-center gap-2 flex-wrap">
                                   <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-xs font-semibold">Hors cluster</span>
-                                  <span className="text-xs text-gray-400">Witness node vSAN probable</span>
+                                  <span className="text-xs text-gray-400">{detect.roleLabel}</span>
+                                  <span className="text-[10px] text-gray-300">({detect.confidence})</span>
                                 </span>
                               );
-                              const short = cl.length > 42 ? cl.slice(0, 42) + "…" : cl;
-                              return <span className="text-xs text-gray-700 text-right truncate max-w-[220px]" title={cl}>{short}</span>;
                             })()}
                           </div>
                           <InfoRow label="Adresse IP" value={mgmtVmk?.ip || mgmtVmk?.IP || selectedHost.ip}/>
