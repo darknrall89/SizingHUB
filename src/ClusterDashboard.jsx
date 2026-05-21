@@ -2789,20 +2789,7 @@ return (
                               </div>
                             </div>
 
-                            {/* Alerte Witness */}
-                            {orphans.length > 0 && (
-                              <div className="mb-5 flex items-start gap-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200">
-                                <AlertTriangle size={16} className="text-amber-500 mt-0.5 shrink-0"/>
-                                <div>
-                                  <div className="text-sm font-semibold text-amber-800">
-                                    {orphans.length} hôte{orphans.length>1?"s":""} hors cluster détecté{orphans.length>1?"s":""} — rôle Witness probable (vSAN)
-                                  </div>
-                                  <div className="text-xs text-amber-600 mt-0.5">
-                                    Cet hôte n&apos;est pas membre d&apos;un cluster vSphere et n&apos;est pas inclus dans les calculs de capacité.
-                                  </div>
-                                </div>
-                              </div>
-                            )}
+
 
                             {/* Production Clusters */}
                             {realClusters.length > 0 && (
@@ -2831,19 +2818,51 @@ return (
                                             <div className="text-right"><div className="text-sm font-semibold text-gray-800">{grpVms}</div><div className="text-[10px] text-gray-400">VMs</div></div>
                                           </div>
                                         </div>
-                                        <div className="grid grid-cols-4 gap-2">
-                                          {[
-                                            {label:"CPU utilisé",  val:grpCpu+"%",     color:getUsageTone(grpCpu).color,     sub:"Libre : "+(100-grpCpu)+"%"},
-                                            {label:"RAM utilisée", val:grpRam+"%",     color:getUsageTone(grpRam).color,     sub:"Libre : "+(100-grpRam)+"%"},
-                                            {label:"Stockage",     val:storagePct+"%", color:getUsageTone(storagePct).color, sub:"Libre : "+(100-storagePct)+"%"},
-                                            {label:"vCPU moy./VM", val:String(avgVcpuPerVm), color:"text-gray-700", sub:"Souscrip. : "+cpuOversub},
-                                          ].map(m=>(
-                                            <div key={m.label} className="rounded-xl bg-white border border-blue-100 p-3">
-                                              <div className={"text-sm font-semibold "+m.color}>{m.val}</div>
-                                              <div className="text-[10px] text-gray-400 mt-0.5">{m.label}</div>
-                                              <div className="text-[10px] text-gray-300 mt-0.5">{m.sub}</div>
-                                            </div>
-                                          ))}
+                                        {/* Rangée 1 : MiniBar utilisation */}
+                                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-3">
+                                          <MiniBar
+                                            label="CPU Cluster"
+                                            value={grp.hosts.reduce((s,h)=>s+(h.totalCpuCores||h.cores||0),0)>0?`${Math.round(grp.hosts.reduce((s,h)=>s+(h.totalCpuCores||h.cores||0),0)*grpCpu/100)} cores`:"—"}
+                                            total={`${grp.hosts.reduce((s,h)=>s+(h.totalCpuCores||h.cores||0),0)} cores`}
+                                            pct={grpCpu}
+                                            color="bg-blue-500"
+                                            sub={grpCpu>=80?"Capacité critique.":grpCpu>=60?"Surveillance recommandée.":"Utilisation confortable."}
+                                          />
+                                          <MiniBar
+                                            label="RAM Cluster"
+                                            value={formatRam(Math.round(grp.hosts.reduce((s,h)=>s+(h.totalRamGb||h.ramGo||0),0)*grpRam/100))}
+                                            total={formatRam(grp.hosts.reduce((s,h)=>s+(h.totalRamGb||h.ramGo||0),0))}
+                                            pct={grpRam}
+                                            color="bg-violet-500"
+                                            sub={grpRam>=80?"Capacité critique.":grpRam>=60?"Surveillance recommandée.":"Utilisation confortable."}
+                                          />
+                                          <MiniBar
+                                            label="Storage Cluster"
+                                            value={`${storageUsedTb} To`}
+                                            total={`${storageTotalTb} To`}
+                                            pct={storagePct}
+                                            color={storagePct>=80?"bg-red-500":storagePct>=60?"bg-amber-400":"bg-emerald-500"}
+                                            sub={storagePct>=80?"Capacité à risque.":storagePct>=60?"Surveillance recommandée.":"Capacité confortable."}
+                                          />
+                                        </div>
+                                        {/* Rangée 2 : SoftMetrics oversubscription */}
+                                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                                          <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-2">
+                                            <div className="text-[10px] text-blue-500 font-semibold uppercase tracking-wide mb-1">CPU oversubscription</div>
+                                            <div className="text-base font-bold text-blue-700">{cpuOversub}</div>
+                                          </div>
+                                          <div className="rounded-xl border border-orange-100 bg-orange-50 px-3 py-2">
+                                            <div className="text-[10px] text-orange-500 font-semibold uppercase tracking-wide mb-1">RAM oversubscription</div>
+                                            <div className="text-base font-bold text-orange-700">{ramOversub}</div>
+                                          </div>
+                                          <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-2">
+                                            <div className="text-[10px] text-blue-500 font-semibold uppercase tracking-wide mb-1">vCPU moyen / VM</div>
+                                            <div className="text-base font-bold text-blue-700">{avgVcpuPerVm}</div>
+                                          </div>
+                                          <div className="rounded-xl border border-orange-100 bg-orange-50 px-3 py-2">
+                                            <div className="text-[10px] text-orange-500 font-semibold uppercase tracking-wide mb-1">RAM moyenne / VM</div>
+                                            <div className="text-base font-bold text-orange-700">{avgRamPerVm} GB</div>
+                                          </div>
                                         </div>
                                       </div>
                                     );
@@ -2889,60 +2908,13 @@ return (
                               </div>
                             )}
 
-                            {/* KPIs oversubscription */}
-                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                              <SoftMetric label="CPU oversubscription" value={cpuOversub} tone="blue"/>
-                              <SoftMetric label="RAM oversubscription" value={ramOversub} tone="orange"/>
-                              <SoftMetric label="vCPU moyen / VM"      value={String(avgVcpuPerVm)} tone="blue"/>
-                              <SoftMetric label="RAM moyenne / VM"     value={`${avgRamPerVm} GB`} tone="orange"/>
-                            </div>
+
                           </>
                         );
                       })()}
                     </div>
 
-                    <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
-                      <div className="flex items-center justify-between gap-4 mb-5">
-                        <div>
-                          <h3 className="text-lg font-semibold text-gray-900">Cluster Utilization</h3>
-                          <p className="text-sm text-gray-400 mt-1">Consommation globale au niveau du cluster</p>
-                        </div>
-                        <div className="hidden lg:flex items-center gap-4 text-xs text-gray-400">
-                          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500"/> &lt;60%</span>
-                          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400"/> 60-80%</span>
-                          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"/> &gt;80%</span>
-                        </div>
-                      </div>
 
-                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                        <MiniBar
-                          label="CPU Cluster"
-                          value={`${Math.round(totalCpu*avgCpuPct/100)} cores`}
-                          total={`${totalCpu} cores`}
-                          pct={avgCpuPct}
-                          color="bg-blue-500"
-                          sub="Utilisation confortable au niveau cluster."
-                        />
-
-                        <MiniBar
-                          label="RAM Cluster"
-                          value={formatRam(Math.round(totalRam*avgRamPct/100))}
-                          total={formatRam(totalRam)}
-                          pct={avgRamPct}
-                          color="bg-violet-500"
-                          sub="Utilisation confortable au niveau cluster."
-                        />
-
-                        <MiniBar
-                          label="Storage Cluster"
-                          value={`${storageUsedTb} To`}
-                          total={`${storageTotalTb} To`}
-                          pct={storagePct}
-                          color={storagePct>=80?"bg-red-500":storagePct>=60?"bg-amber-400":"bg-emerald-500"}
-                          sub={storagePct>=80?"Capacité à risque.":storagePct>=60?"Surveillance recommandée.":"Capacité confortable."}
-                        />
-                      </div>
-                    </div>
 
                     {insights.length>0&&(
                       <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
