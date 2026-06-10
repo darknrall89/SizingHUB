@@ -3547,7 +3547,7 @@ function SwitchCalc({ th, isMobile=false }) {
 const TOOLS=[
   {id:"presales", label:"Pre-Sales Assistant", icon:FileSearch, section:"PRÉ-VENTE",    comp:PreSalesAssistant, badge:"Pre-Sales", sub:"Qualification · Variantes · Export", fullscreen:true},
   {id:"audit",   label:"Infrastructure Audit", icon:FileSearch, section:"ANALYSE",      comp:AuditCalc,   badge:"Audit",     sub:"RVTools · CVE · Analyse IA"},
-  {id:"hypercost",   label:"Simulation de projection", icon:BarChart2,  section:"SIZING 0026 CO00db00db", comp:HyperCost,   badge:"HyperCost",    sub:"Comparatif VMware 00b7 Proxmox 00b7 XCP-ng"},
+  {id:"hypercost",   label:"HyperCost", icon:BarChart2,  section:"SIZING 0026 CO00db00db", comp:HyperCost,   badge:"HyperCost",    sub:"Comparatif VMware 00b7 Proxmox 00b7 XCP-ng"},
   {id:"vmware",  label:"VMware / VCF",         icon:Cpu,        section:"SIZING CIBLE", comp:VMwareCalc,  badge:"VVF / VCF", sub:"VVF · VCF · Licence par cœur"},
   {id:"compute", label:"Compute",              icon:BarChart2,  section:"SIZING CIBLE", comp:ComputeCalc, badge:"Compute",   sub:"Serveurs · HA · Sizing"},
   {id:"storage", label:"Capacity Planning",    icon:HardDrive,  section:"SIZING CIBLE", comp:StorageCalc, badge:"Storage",   sub:"SAN · NAS · IOPS · RAID"},
