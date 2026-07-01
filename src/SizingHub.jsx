@@ -3545,7 +3545,7 @@ function SwitchCalc({ th, isMobile=false }) {
 
 // ─── App Shell ────────────────────────────────────────────────────────────────
 const TOOLS=[
-  {id:"presales", label:"Pre-Sales Assistant", icon:FileSearch, section:"PRÉ-VENTE",    comp:PreSalesAssistant, badge:"Pre-Sales", sub:"Qualification · Variantes · Export", fullscreen:true},
+  {id:"presales", label:"Pre-Sales Assistant", hidden:true, icon:FileSearch, section:"PRÉ-VENTE",    comp:PreSalesAssistant, badge:"Pre-Sales", sub:"Qualification · Variantes · Export", fullscreen:true},
   {id:"audit",   label:"Infrastructure Audit", icon:FileSearch, section:"ANALYSE",      comp:AuditCalc,   badge:"Audit",     sub:"RVTools · CVE · Analyse IA"},
   {id:"hypercost",   label:"HyperCost", icon:BarChart2,  section:"SIZING 0026 CO00db00db", comp:HyperCost,   badge:"HyperCost",    sub:"Comparatif VMware 00b7 Proxmox 00b7 XCP-ng"},
   {id:"vmware",  label:"VMware / VCF",         icon:Cpu,        section:"SIZING CIBLE", comp:VMwareCalc,  badge:"VVF / VCF", sub:"VVF · VCF · Licence par cœur"},
@@ -3637,7 +3637,7 @@ function SizingHub() {
             }}>
               {section}
             </div>
-            {TOOLS.filter(t=>t.section===section).map(t=>(
+            {TOOLS.filter(t=>t.section===section&&!t.hidden).map(t=>(
               <div key={t.id} onClick={()=>{setActive(t.id);if(isMobile)setMenuOpen(false);}} style={{
                 display:"flex",
                 alignItems:"center",

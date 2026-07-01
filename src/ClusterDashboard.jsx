@@ -2871,25 +2871,38 @@ return (
                                             sub={storagePct>=80?"Capacité à risque.":storagePct>=60?"Surveillance recommandée.":"Capacité confortable."}
                                           />
                                         </div>
-                                        {/* Rangée 2 : SoftMetrics oversubscription */}
-                                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-                                          <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-2">
-                                            <div className="text-[10px] text-blue-500 font-semibold uppercase tracking-wide mb-1">CPU oversubscription</div>
-                                            <div className="text-base font-bold text-blue-700">{cpuOversub}</div>
-                                          </div>
-                                          <div className="rounded-xl border border-orange-100 bg-orange-50 px-3 py-2">
-                                            <div className="text-[10px] text-orange-500 font-semibold uppercase tracking-wide mb-1">RAM oversubscription</div>
-                                            <div className="text-base font-bold text-orange-700">{ramOversub}</div>
-                                          </div>
-                                          <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-2">
-                                            <div className="text-[10px] text-blue-500 font-semibold uppercase tracking-wide mb-1">vCPU moyen / VM</div>
-                                            <div className="text-base font-bold text-blue-700">{avgVcpuPerVm}</div>
-                                          </div>
-                                          <div className="rounded-xl border border-orange-100 bg-orange-50 px-3 py-2">
-                                            <div className="text-[10px] text-orange-500 font-semibold uppercase tracking-wide mb-1">RAM moyenne / VM</div>
-                                            <div className="text-base font-bold text-orange-700">{avgRamPerVm} GB</div>
-                                          </div>
-                                        </div>
+                                        {/* Rangée 2 : SoftMetrics oversubscription par cluster */}
+                                        {(() => {
+                                          const grpTotalCores = grp.hosts.reduce((s,h)=>s+(h.totalCpuCores||h.cores||0),0);
+                                          const grpTotalRamGb = grp.hosts.reduce((s,h)=>s+(h.totalRamGb||h.ramGo||0),0);
+                                          const grpTotalVcpu  = grp.hosts.reduce((s,h)=>s+h.vms.reduce((sv,v)=>sv+(v.vcpu||0),0),0);
+                                          const grpTotalVmRam = grp.hosts.reduce((s,h)=>s+h.vms.reduce((sv,v)=>sv+(v.ramGo||0),0),0);
+                                          const grpVmCount    = grp.hosts.reduce((s,h)=>s+(h.vmsCount||h.vms?.length||0),0);
+                                          const grpCpuOversub = grpTotalCores>0?(grpTotalVcpu/grpTotalCores).toFixed(1)+":1":"N/A";
+                                          const grpRamOversub = grpTotalRamGb>0?(grpTotalVmRam/grpTotalRamGb).toFixed(1)+":1":"N/A";
+                                          const grpAvgVcpu    = grpVmCount>0?(grpTotalVcpu/grpVmCount).toFixed(1):"N/A";
+                                          const grpAvgRam     = grpVmCount>0?Math.round(grpTotalVmRam/grpVmCount):"N/A";
+                                          return (
+                                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                                              <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-2">
+                                                <div className="text-[10px] text-blue-500 font-semibold uppercase tracking-wide mb-1">CPU oversubscription</div>
+                                                <div className="text-base font-bold text-blue-700">{grpCpuOversub}</div>
+                                              </div>
+                                              <div className="rounded-xl border border-orange-100 bg-orange-50 px-3 py-2">
+                                                <div className="text-[10px] text-orange-500 font-semibold uppercase tracking-wide mb-1">RAM oversubscription</div>
+                                                <div className="text-base font-bold text-orange-700">{grpRamOversub}</div>
+                                              </div>
+                                              <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-2">
+                                                <div className="text-[10px] text-blue-500 font-semibold uppercase tracking-wide mb-1">vCPU moyen / VM</div>
+                                                <div className="text-base font-bold text-blue-700">{grpAvgVcpu}</div>
+                                              </div>
+                                              <div className="rounded-xl border border-orange-100 bg-orange-50 px-3 py-2">
+                                                <div className="text-[10px] text-orange-500 font-semibold uppercase tracking-wide mb-1">RAM moyenne / VM</div>
+                                                <div className="text-base font-bold text-orange-700">{grpAvgRam} GB</div>
+                                              </div>
+                                            </div>
+                                          );
+                                        })()}
                                       </div>
                                     );
                                   })}
