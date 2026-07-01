@@ -2,9 +2,10 @@ import { useState } from "react";
 import {
   Server, Cpu, HardDrive, AlertTriangle, Shield,
   CheckCircle, AlertCircle, Info, TrendingDown,
-  Activity, Database, Network, Settings, MemoryStick, Zap
+  Activity, Database, Network, Settings, MemoryStick, Zap, TrendingUp
 } from "lucide-react";
 import NetworkFabric from "./components/network/NetworkFabric.jsx";
+import SimulationTab from "./SimulationTab.jsx";
 
 // ── Détection rôle hôte hors cluster (scoring multi-signaux) ──────────────────
 function detectOrphanRole(host) {
@@ -1993,6 +1994,7 @@ const TABS = [
   {id:"vms",          label:"VMs",          icon:Activity},
   {id:"network",      label:"Network",      icon:Network},
   {id:"optimization", label:"Optimization", icon:Settings},
+  {id:"simulation",   label:"Simulation",   icon:TrendingUp},
 ];
 
 
@@ -4859,6 +4861,9 @@ return (
       })()}
 
       
+{activeTab==="simulation"&&(
+  <SimulationTab clusterData={clusterSummary} />
+)}
 {activeTab==="vms"&&(
         <div className="space-y-4">
           {(()=>{

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import ClusterOverviewDashboard, { mapRvToolsAnalysisToClusterViewModel } from "./ClusterDashboard.jsx";
+import SimulationTab from "./SimulationTab.jsx";
 import { Modal3Tiers, ModalHCI } from "./ScenarioModal.jsx";
 import * as XLSX from "xlsx";
 
@@ -616,8 +617,8 @@ Retourne exactement ce format:
 
   const r = report&&report[0];
   const hasResult = report && report.length > 0;
-  const tabs = ["overview","hosts","os","stockage","vms-off","reseau"];
-  const tabLabels = {overview:"Vue globale",hosts:"Par hyperviseur",os:"Systemes OS",stockage:"Stockage","vms-off":"VMs eteintes",reseau:"Reseau"};
+  const tabs = ["overview","hosts","os","stockage","vms-off","reseau","simulation"];
+  const tabLabels = {overview:"Vue globale",hosts:"Par hyperviseur",os:"Systemes OS",stockage:"Stockage","vms-off":"VMs eteintes",reseau:"Reseau",simulation:"Simulation"};
 
   return (
     <div>
