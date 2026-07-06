@@ -114,38 +114,6 @@ function calcScore(hvId, features) {
   return Math.round((full+part*0.5)/features.length*100);
 }
 
-// ─── Parser RVTools ───────────────────────────────────────────────────────────
-function parseRVTools(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const wb  = XLSX.read(e.target.result, {type:"binary"});
-        const get = (n) => { const ws=wb.Sheets[n]; return ws?XLSX.utils.sheet_to_json(ws,{defval:null}):[]};
-        const vHost=get("vHost"), vNIC=get("vNIC"), vHBA=get("vHBA"), vCluster=get("vCluster"), vSnap=get("vSnapshot");
-        const hosts=[...new Set(vHost.map(h=>h["Host"]||h["Name"]).filter(Boolean))];
-        const nodes=hosts.length, fh=vHost[0]||{};
-        const sockets=Number(fh["# CPU"]||fh["Sockets"]||2);
-        const coresPerSocket=Number(fh["Cores per CPU"]||fh["CPUs"]||16);
-        const det=[];
-        if (vCluster.some(c=>String(c["HA enabled"]||c["HA Enabled"]||"").toLowerCase()==="true")) det.push("ha");
-        if (vCluster.some(c=>String(c["DRS enabled"]||c["DRS Enabled"]||"").toLowerCase()==="true")) det.push("drs");
-        if (vNIC.some(n=>String(n["VMKernel type"]||n["Type"]||"").toLowerCase().includes("vmotion"))||nodes>1) det.push("livemig");
-        if (vHost.some(h=>String(h["vSAN"]||h["VSAN"]||"").toLowerCase()==="true")) det.push("hci");
-        if (vSnap.length>0) det.push("snapshots");
-        det.push("backup","replication");
-        const sc=[];
-        if (vHBA.some(h=>String(h["Type"]||"").toLowerCase().includes("iscsi"))) sc.push("iscsi");
-        if (vHBA.some(h=>String(h["Type"]||"").toLowerCase().includes("fibre")||String(h["Type"]||"").toLowerCase().includes("fc"))) sc.push("fc");
-        if (!sc.length) sc.push("local");
-        resolve({nodes,sockets,coresPerSocket,detectedFeatures:det,storageConn:sc});
-      } catch(err){reject(err);}
-    };
-    reader.onerror=reject;
-    reader.readAsBinaryString(file);
-  });
-}
-
 // ─── Sous-composants UI ───────────────────────────────────────────────────────
 function ProgressBar({value,accent="green"}) {
   const color={green:"bg-green-500",orange:"bg-orange-500",blue:"bg-blue-600",violet:"bg-violet-600",gray:"bg-slate-500"}[accent]||"bg-green-500";
@@ -397,18 +365,6 @@ function PageQualification({sizing,setSizing,features,setFeatures,storageConn,se
 
   return (
     <div className="space-y-5">
-      {/* Upload */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-        <div className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2"><Upload size={15} className="text-blue-600"/> Import RVTools <span className="text-xs font-normal text-gray-400">(optionnel — pré-remplit le formulaire)</span></div>
-        <div onClick={()=>fileRef.current.click()} className="border-2 border-dashed border-blue-200 bg-blue-50/40 rounded-xl px-6 py-8 text-center cursor-pointer hover:bg-blue-50 transition">
-          <Upload size={24} className="text-blue-400 mx-auto mb-2"/>
-          <div className="text-sm font-semibold text-blue-700">Cliquez pour uploader votre export RVTools</div>
-          <div className="text-xs text-blue-400 mt-1">Fichier .xlsx — vHost, vNIC, vHBA, vCluster, vSnapshot</div>
-          <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleFile}/>
-        </div>
-        {parsing&&<div className="mt-3 text-xs text-blue-600 animate-pulse">Analyse en cours...</div>}
-        {msg&&<div className={cn("mt-3 flex items-center gap-2 rounded-lg px-3 py-2 text-xs border",msg.ok?"bg-green-50 text-green-700 border-green-200":"bg-red-50 text-red-700 border-red-200")}>{msg.ok?<CheckCircle2 size={13}/>:<AlertTriangle size={13}/>}{msg.text}</div>}
-      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Sizing */}
