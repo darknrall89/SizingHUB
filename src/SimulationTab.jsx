@@ -201,19 +201,26 @@ function SatBadge({ title, icon: Icon, year, horizon }) {
 
 // ─── Composant principal ──────────────────────────────────────────────────────
 
-export default function SimulationTab({ clusterData = {} }) {
+export default function SimulationTab({ clusterData = {}, hosts = [] }) {
 
   // Données RVTools existantes
-  const ex = useMemo(() => ({
-    hosts:         clusterData.hosts?.length        || 6,
-    totalCpuCores: clusterData.totalCpuCores        || 144,
-    avgCpuPct:     clusterData.avgCpuPct            || 38,
-    totalRamGb:    clusterData.totalRamGb           || 4608,
-    avgRamPct:     clusterData.avgRamPct            || 52,
-    storageTotalTb: clusterData.storageTotalTb      || 130,
-    storagePct:    clusterData.storagePct           || 62,
-    vmsCount:      clusterData.activeVms            || 136,
-  }), [clusterData]);
+  const ex = useMemo(() => {
+    const hostCount    = hosts?.length || clusterData.hosts?.length || 0;
+    const totalCores   = hosts?.reduce((s,h)=>s+(h.totalCpuCores||h.cores||0),0) || clusterData.totalCpuCores || 0;
+    const totalRamGb   = hosts?.reduce((s,h)=>s+(h.totalRamGb||h.ramGo||0),0)   || clusterData.totalRamGb    || 0;
+    const avgCpuPct    = hostCount>0 ? Math.round(hosts.reduce((s,h)=>s+(h.cpuUsagePercent||h.cpuUsagePct||0),0)/hostCount) : clusterData.avgCpuPct||0;
+    const avgRamPct    = hostCount>0 ? Math.round(hosts.reduce((s,h)=>s+(h.ramUsagePercent||h.ramUsagePct||0),0)/hostCount) : clusterData.avgRamPct||0;
+    return {
+      hosts:          hostCount,
+      totalCpuCores:  totalCores,
+      avgCpuPct:      avgCpuPct,
+      totalRamGb:     totalRamGb,
+      avgRamPct:      avgRamPct,
+      storageTotalTb: clusterData.usedStorageTb    || 130,
+      storagePct:     clusterData.storagePct       || 62,
+      vmsCount:       clusterData.activeVms        || 0,
+    };
+  }, [clusterData, hosts]);
 
   // État de saisie
   const [base,           setBase]           = useState("real");

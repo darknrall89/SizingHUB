@@ -4862,7 +4862,7 @@ return (
 
       
 {activeTab==="simulation"&&(
-  <SimulationTab clusterData={clusterSummary} />
+  <SimulationTab clusterData={clusterSummary} hosts={hosts} />
 )}
 {activeTab==="vms"&&(
         <div className="space-y-4">
